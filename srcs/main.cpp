@@ -15,7 +15,7 @@ int main(int argc, char* argv[])
         unsigned int duration = timer_instance.run();
 
         DB db;
-        db.save(argv[1], duration);
+        db.save(argv[2], duration);
     } else if (argc == 3 && std::string(argv[1]) == "del" ) {
         DB db;
         db.remove(argv[2]);
