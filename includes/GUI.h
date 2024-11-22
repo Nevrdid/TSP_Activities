@@ -5,6 +5,7 @@
 #include <SDL.h>
 #include <SDL_image.h>
 #include <SDL_ttf.h>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -46,6 +47,10 @@ class GUI
     std::vector<Rom> roms_list;
     Sort             sort_by;
 
+    std::vector<std::string> systems;
+    size_t                   system_index = 0;
+    std::vector<Rom>         filtered_roms_list;
+
     void render_text(
         const string& text, int x, int y, int size = FONT_SIZE, SDL_Color color = {255, 255, 255});
     void render_image(const string& image_path, int x, int y, int w, int h);
@@ -55,6 +60,7 @@ class GUI
 
     void handle_inputs();
 
+    void filter();
     void sort();
 
   public:
