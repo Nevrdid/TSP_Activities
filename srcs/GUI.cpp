@@ -148,7 +148,7 @@ void GUI::render_game_list()
         i++;
     }
 
-    render_text("A: Select  B: Quit  X: Sort by (" + sort_names[sort_by] + ")", X_0,
+    render_text("A: Select  B: Quit  Y: Filter finished  X: Filter oldest  L/R: Change system  Select: Sort by (" + sort_names[sort_by] + ")", X_0,
         SCREEN_HEIGHT - 35, 20, white);
 
     SDL_RenderPresent(renderer);
@@ -217,12 +217,6 @@ void GUI::handle_inputs()
                 in_game_detail = true;
                 break;
             case 2: // X (b2)
-                if (sort_by == e_last) {
-                    sort_by = e_name;
-                } else {
-                    sort_by = static_cast<Sort>(sort_by + 1);
-                }
-                sort();
                 break;
             case 3: // Y (b3)
                 break;
@@ -231,6 +225,14 @@ void GUI::handle_inputs()
             case 5: // R1 (b5)
                 break;
             case 6: // Back button (b6)
+                if (!in_game_detail) {
+                    if (sort_by == e_last) {
+                        sort_by = e_name;
+                    } else {
+                        sort_by = static_cast<Sort>(sort_by + 1);
+                    }
+                    sort();
+                }
                 break;
             case 7: // Start button (b7)
                 break;
@@ -261,12 +263,14 @@ void GUI::handle_inputs()
                                                                             : roms_list.size() - 1;
                 break;
             case SDLK_s:
-                if (sort_by == e_last) {
-                    sort_by = e_name;
-                } else {
-                    sort_by = static_cast<Sort>(sort_by + 1);
+                if (!in_game_detail) {
+                    if (sort_by == e_last) {
+                        sort_by = e_name;
+                    } else {
+                        sort_by = static_cast<Sort>(sort_by + 1);
+                    }
+                    sort();
                 }
-                sort();
                 break;
             case SDLK_r:
                 break;

@@ -4,6 +4,9 @@
 
 #include <regex>
 
+static std::regex img_pattern = std::regex(R"(\/Roms\/([^\/]+).*)"); // Matches "/Roms/<subfolder>"
+static std::regex sys_pattern = std::regex(R"(.*\/Roms\/([^\/]+).*)"); // Matches "/Roms/<subfolder>"
+
 DB::DB()
     : db(nullptr)
 {
@@ -44,10 +47,13 @@ Rom DB::save(const std::string& file, int time = 0)
     rom.last = time ? utils::getCurrentDateTime() : "-";
 
     rom.total_time = utils::sec2hhmmss(rom.time);
+
     rom.average_time = utils::sec2hhmmss(rom.count ? rom.time / rom.count : 0);
-    std::regex pattern(R"(\/Roms\/([^\/]+))"); // Matches "/Roms/<subfolder>"
-    rom.image = std::regex_replace(rom.file, pattern, R"(/Imgs/$1)") + rom.name + ".png";
+
+    rom.image = std::regex_replace(rom.file, img_pattern, R"(/Imgs/$1)") + "/" + rom.name + ".png";
     if (!std::filesystem::exists(rom.image)) rom.image = DEFAULT_IMAGE;
+
+    rom.system = std::regex_replace(rom.file, sys_pattern, R"($1)");
 
     sqlite3_bind_int64(stmt, 1, rom.crc);
     int result = sqlite3_step(stmt);
@@ -140,10 +146,13 @@ Rom DB::load(const std::string& file)
         std::cout << "Entry loaded." << std::endl;
 
         rom.total_time = utils::sec2hhmmss(rom.time);
+
         rom.average_time = utils::sec2hhmmss(rom.count ? rom.time / rom.count : 0);
-        std::regex pattern(R"(\/Roms\/([^\/]+))"); // Matches "/Roms/<subfolder>"
-        rom.image = std::regex_replace(rom.file, pattern, R"(/Imgs/$1)") + rom.name + ".png";
+
+        rom.image = std::regex_replace(rom.file, img_pattern, R"(/Imgs/$1)") + "/" + rom.name + ".png";
         if (!std::filesystem::exists(rom.image)) rom.image = DEFAULT_IMAGE;
+
+        rom.system = std::regex_replace(rom.file, sys_pattern, R"($1)");
     } else if (result == SQLITE_DONE) {
         return save(file);
         std::cerr << "No record found for rom: " << file << std::endl;
@@ -180,10 +189,13 @@ std::vector<Rom> DB::load_all()
         rom.last = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 5)));
 
         rom.total_time = utils::sec2hhmmss(rom.time);
+
         rom.average_time = utils::sec2hhmmss(rom.count ? rom.time / rom.count : 0);
-        std::regex pattern(R"(\/Roms\/([^\/]+))"); // Matches "/Roms/<subfolder>"
-        rom.image = std::regex_replace(rom.file, pattern, R"(/Imgs/$1)") + rom.name + ".png";
+
+        rom.image = std::regex_replace(rom.file, img_pattern, R"(/Imgs/$1)") + "/" + rom.name + ".png";
         if (!std::filesystem::exists(rom.image)) rom.image = DEFAULT_IMAGE;
+
+        rom.system = std::regex_replace(rom.file, sys_pattern, R"($1)");
 
         roms.push_back(rom);
     }

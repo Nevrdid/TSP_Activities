@@ -20,6 +20,7 @@ typedef struct
     std::string total_time;
     std::string average_time;
     std::string image;
+    std::string system;
 } Rom;
 
 class DB
