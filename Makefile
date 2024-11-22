@@ -1,4 +1,4 @@
-NAME=time_logs
+NAME=activities
 
 SRCS= srcs/main.cpp srcs/utils.cpp srcs/DB.cpp srcs/GUI.cpp srcs/Timer.cpp
 OBJS=$(patsubst srcs/%, build/%,$(SRCS:.cpp=.o))
