@@ -43,6 +43,12 @@ Rom DB::save(const std::string& file, int time = 0)
     rom.time = time;
     rom.last = time ? utils::getCurrentDateTime() : "Never";
 
+    rom.total_time = utils::sec2hhmmss(rom.time);
+    rom.average_time = utils::sec2hhmmss(rom.count ? rom.time / rom.count : 0);
+    std::regex pattern(R"(\/Roms\/([^\/]+))"); // Matches "/Roms/<subfolder>"
+    rom.image = std::regex_replace(rom.file, pattern, R"(/Imgs/$1)") + rom.name + ".png";
+    if (!std::filesystem::exists(rom.image)) rom.image = DEFAULT_IMAGE;
+
     sqlite3_bind_int64(stmt, 1, rom.crc);
     int result = sqlite3_step(stmt);
     if (result == SQLITE_ROW) { // Record exists
@@ -120,7 +126,7 @@ Rom DB::load(const std::string& file)
         return rom;
     }
 
-    sqlite3_bind_text(stmt, 2, file.c_str(), -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 1, file.c_str(), -1, SQLITE_STATIC);
 
     int result = sqlite3_step(stmt);
     if (result == SQLITE_ROW) {

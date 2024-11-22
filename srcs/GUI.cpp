@@ -114,7 +114,7 @@ void GUI::render_game_list()
     for (size_t i = first; i < first + 10; ++i) {
         SDL_Color color = (i == selected_index) ? yellow : white;
         render_text(
-            roms_list[i].name + " - " + roms_list[i].average_time, 50, 50 + i * 30, 24, color);
+            roms_list[i].name + " - " + roms_list[i].total_time, 50, 50 + i * 30, 24, color);
     }
 
     SDL_RenderPresent(renderer);
