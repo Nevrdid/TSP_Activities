@@ -5,8 +5,8 @@
 #include <string>
 #include <vector>
 
-#define DB_FILE "./assets/games.db"
-#define DEFAULT_IMAGE "./assets/placeholder.png"
+#define DB_FILE APP_DIR "assets/games.db"
+#define DEFAULT_IMAGE APP_DIR "/assets/placeholder.png"
 
 typedef struct
 {

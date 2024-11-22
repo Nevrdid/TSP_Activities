@@ -36,7 +36,7 @@ GUI::GUI()
         return;
     }
 
-    font = TTF_OpenFont("assets/arial.ttf", 24);
+    font = TTF_OpenFont(FONT, FONT_SIZE);
     if (!font) {
         std::cerr << "Failed to load font: " << TTF_GetError() << std::endl;
         return;
@@ -121,34 +121,35 @@ void GUI::render_text(const std::string& text, int x, int y, int size, SDL_Color
     SDL_FreeSurface(surface);
 }
 
+static SDL_Color white = {255, 255, 255, 255};
+static SDL_Color yellow = {255, 238, 180, 255};
+static SDL_Color green = {175, 248, 200, 255};
+
 void GUI::render_game_list()
 {
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255); // Clear screen with black
     SDL_RenderClear(renderer);
     render_image(BACKGROUND, 0, 0, 1280, 720);
 
-    SDL_Color white = {255, 255, 255, 255};
-    SDL_Color yellow = {255, 255, 0, 255};
-
     render_text("- All Games -", X_0 + 50, Y_0, 42, yellow);
 
-        size_t roms_amt = roms_list.size();
-    size_t     first = selected_index < LIST_LINES / 2 ? 0
-                       : selected_index < roms_amt - LIST_LINES / 2 ? selected_index - LIST_LINES / 2
-                                                                    : roms_amt - LIST_LINES;
-    size_t     last = first + LIST_LINES < roms_list.size() ? first + LIST_LINES : roms_list.size();
+    size_t roms_amt = roms_list.size();
+    size_t first = selected_index < LIST_LINES / 2              ? 0
+                   : selected_index < roms_amt - LIST_LINES / 2 ? selected_index - LIST_LINES / 2
+                                                                : roms_amt - LIST_LINES;
+    size_t last = first + LIST_LINES < roms_list.size() ? first + LIST_LINES : roms_list.size();
 
     int    y = Y_0 + 75;
     size_t i = 0;
     for (size_t j = first; j < last; ++j) {
-        SDL_Color color = (j == selected_index) ? yellow : white;
+        SDL_Color color = (j == selected_index) ? green : white;
         render_text(roms_list[j].name + " - " + roms_list[j].total_time, X_0, y, FONT_SIZE, color);
         y += Y_LINE;
         i++;
     }
 
-    render_text(
-        "A: Select  B: Quit  X: Sort by (" + sort_names[sort_by] + ")", X_0 , SCREEN_HEIGHT - 35, 20, white);
+    render_text("A: Select  B: Quit  X: Sort by (" + sort_names[sort_by] + ")", X_0,
+        SCREEN_HEIGHT - 35, 20, white);
 
     SDL_RenderPresent(renderer);
 }
@@ -160,20 +161,25 @@ void GUI::render_game_detail()
     render_image(BACKGROUND, 0, 0, 1280, 720);
 
     const Rom& rom = roms_list[selected_index];
-    SDL_Color  white = {255, 255, 255, 255};
 
     // Game name
-    render_text(rom.name, X_0, Y_0, 42, white);
+    render_text("- " + rom.name + " -", X_0 + 50, Y_0, 42, yellow);
 
     // Left side: Rom image
     render_image(rom.image, X_0, Y_0 + 100, 300, 300);
 
     // Right side: Game details
-    render_text("Total Time: " + rom.total_time, SCREEN_WIDTH / 2, Y_0 + 100, FONT_SIZE, white);
-    render_text("Average Time: " + rom.average_time, SCREEN_WIDTH / 2, Y_0 + 150, FONT_SIZE, white);
-    render_text(
-        "Play Count: " + std::to_string(rom.count), SCREEN_WIDTH / 2, Y_0 + 200, FONT_SIZE, white);
-    render_text("Last Played: " + rom.last, SCREEN_WIDTH / 2, Y_0 + 250, FONT_SIZE, white);
+    render_text("Total Time:", X_0 + 350, Y_0 + 100, FONT_SIZE, green);
+    render_text(rom.total_time, X_0 + 600, Y_0 + 100, FONT_SIZE, white);
+
+    render_text("Average Time:", X_0 + 350, Y_0 + 150, FONT_SIZE, green);
+    render_text(rom.average_time, X_0 + 600, Y_0 + 150, FONT_SIZE, white);
+
+    render_text("Play count:", X_0 + 350, Y_0 + 200, FONT_SIZE, green);
+    render_text(std::to_string(rom.count), X_0 + 600, Y_0 + 200, FONT_SIZE, white);
+
+    render_text("Last played:", X_0 + 350, Y_0 + 250, FONT_SIZE, green);
+    render_text(rom.last, X_0 + 600, Y_0 + 250, FONT_SIZE, white);
 
     SDL_RenderPresent(renderer);
 }
