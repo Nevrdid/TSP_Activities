@@ -1,0 +1,65 @@
+# .clang-format
+
+---
+# Basic settings
+Language: Cpp
+BasedOnStyle: LLVM        # Starting with LLVM as a base for consistent, readable style
+
+# Indentation and Spacing
+IndentWidth: 4            # C++ Core Guidelines recommend readability, so 4 spaces is a common choice
+TabWidth: 4
+UseTab: Never             # Use spaces, as tabs can lead to inconsistent formatting across different editors
+
+# Brace Wrapping
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterClass: true
+  AfterControlStatement: false
+  AfterEnum: true
+  AfterFunction: true
+  AfterNamespace: true
+  AfterStruct: true
+  IndentBraces: false
+
+# Aligning and Wrapping
+AlignTrailingComments: true
+AlignAfterOpenBracket: DontAlign    # Avoid too much alignment for readability, per guidelines
+AlignConsecutiveDeclarations:  Consecutive
+ColumnLimit: 100                    # Keep line length reasonable
+AllowShortFunctionsOnASingleLine: InlineOnly
+AllowShortIfStatementsOnASingleLine: AllIfsAndElse
+
+# Pointer and Reference alignment
+PointerAlignment: Left              # Align * and & to the left to follow the type, aiding readability
+
+# Namespace indentation
+NamespaceIndentation: None          # Keeps namespaces unindented to reduce nesting
+
+# Include formatting
+SortIncludes: true                  # Sort includes for maintainability and consistency
+IncludeBlocks: Regroup              # Groups standard, project, and local includes separately
+
+# Function definition style
+DerivePointerAlignment: false
+SpaceBeforeParens: ControlStatements # C++ Core Guidelines prefer no space for function calls but space for control statements
+
+# Spaces
+SpaceAfterCStyleCast: true           # Add space after C-style casts for readability
+SpaceBeforeRangeBasedForLoopColon: true
+SpaceAfterTemplateKeyword: true      # Improves readability for templates
+
+# Constructors and initializers
+ConstructorInitializerIndentWidth: 4
+BreakConstructorInitializers: BeforeComma # Breaks initializer list for readability
+
+# Access modifiers
+AccessModifierOffset: -2             # Dedent access modifiers to improve readability
+
+# Macros
+IndentPPDirectives: AfterHash        # C++ Core Guidelines suggest consistency in macros
+
+# Comment formatting
+CommentPragmas: '^ IWYU pragma:'     # Comment pragmas to align with guidelines for safe use of macros
+
+# Experimental (Optional)
+ReflowComments: true                 # Reflow comments to keep comments within line width limit
