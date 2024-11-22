@@ -53,24 +53,24 @@ GUI::~GUI()
 
 void GUI::sort()
 {
-        switch (sort_by) {
-        case e_name:
-            std::sort(roms_list.begin(), roms_list.end(),
-                [](const Rom& a, const Rom& b) { return a.name < b.name; });
-            break;
-        case e_time:
-            std::sort(roms_list.begin(), roms_list.end(),
-                [](const Rom& a, const Rom& b) { return a.total_time > b.total_time; });
-            break;
-        case e_count:
-            std::sort(roms_list.begin(), roms_list.end(),
-                [](const Rom& a, const Rom& b) { return a.count > b.count; });
-            break;
-        case e_last:
-            std::sort(roms_list.begin(), roms_list.end(),
-                [](const Rom& a, const Rom& b) { return a.last > b.last; });
-            break;
-        }
+    switch (sort_by) {
+    case e_name:
+        std::sort(roms_list.begin(), roms_list.end(),
+            [](const Rom& a, const Rom& b) { return a.name < b.name; });
+        break;
+    case e_time:
+        std::sort(roms_list.begin(), roms_list.end(),
+            [](const Rom& a, const Rom& b) { return a.total_time > b.total_time; });
+        break;
+    case e_count:
+        std::sort(roms_list.begin(), roms_list.end(),
+            [](const Rom& a, const Rom& b) { return a.count > b.count; });
+        break;
+    case e_last:
+        std::sort(roms_list.begin(), roms_list.end(),
+            [](const Rom& a, const Rom& b) { return a.last > b.last; });
+        break;
+    }
 }
 
 void GUI::render_image(const std::string& image_path, int x, int y, int w, int h)
@@ -130,22 +130,25 @@ void GUI::render_game_list()
     SDL_Color white = {255, 255, 255, 255};
     SDL_Color yellow = {255, 255, 0, 255};
 
-    size_t roms_amt = roms_list.size();
-    size_t first = selected_index < LIST_LINES / 2              ? 0
-                   : selected_index < roms_amt - LIST_LINES / 2 ? selected_index - LIST_LINES / 2
-                                                                : roms_amt - LIST_LINES;
-    size_t last = first + LIST_LINES < roms_list.size() ? first + LIST_LINES : roms_list.size();
+    render_text("- All Games -", X_0 + 50, Y_0, 42, yellow);
 
+        size_t roms_amt = roms_list.size();
+    size_t     first = selected_index < LIST_LINES / 2 ? 0
+                       : selected_index < roms_amt - LIST_LINES / 2 ? selected_index - LIST_LINES / 2
+                                                                    : roms_amt - LIST_LINES;
+    size_t     last = first + LIST_LINES < roms_list.size() ? first + LIST_LINES : roms_list.size();
+
+    int    y = Y_0 + 75;
     size_t i = 0;
     for (size_t j = first; j < last; ++j) {
         SDL_Color color = (j == selected_index) ? yellow : white;
-        render_text(roms_list[j].name + " - " + roms_list[j].total_time, X_0, Y_0 + i * Y_LINE,
-            FONT_SIZE, color);
+        render_text(roms_list[j].name + " - " + roms_list[j].total_time, X_0, y, FONT_SIZE, color);
+        y += Y_LINE;
         i++;
     }
 
     render_text(
-        "Sort by: " + sort_names[sort_by], SCREEN_WIDTH / 2, SCREEN_HEIGHT - 100, FONT_SIZE, white);
+        "A: Select  B: Quit  X: Sort by (" + sort_names[sort_by] + ")", X_0 , SCREEN_HEIGHT - 35, 20, white);
 
     SDL_RenderPresent(renderer);
 }
