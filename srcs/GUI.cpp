@@ -7,6 +7,8 @@ GUI::GUI()
     , is_running(true)
     , selected_index(0)
     , in_game_detail(false)
+    , sort_by(e_time)
+    , reverse_sort(false)
 {
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_JOYSTICK) < 0) {
         std::cerr << "SDL could not initialize! SDL_Error: " << SDL_GetError() << std::endl;
@@ -48,6 +50,49 @@ GUI::~GUI()
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
     SDL_Quit();
+}
+
+void GUI::sort()
+{
+    if (reverse_sort) {
+        switch (sort_by) {
+        case e_name:
+            std::sort(roms_list.begin(), roms_list.end(),
+                [](const Rom& a, const Rom& b) { return a.name > b.name; });
+            break;
+        case e_time:
+            std::sort(roms_list.begin(), roms_list.end(),
+                [](const Rom& a, const Rom& b) { return a.total_time > b.total_time; });
+            break;
+        case e_count:
+            std::sort(roms_list.begin(), roms_list.end(),
+                [](const Rom& a, const Rom& b) { return a.count > b.count; });
+            break;
+        case e_last:
+            std::sort(roms_list.begin(), roms_list.end(),
+                [](const Rom& a, const Rom& b) { return a.last > b.last; });
+            break;
+        }
+    } else {
+        switch (sort_by) {
+        case e_name:
+            std::sort(roms_list.begin(), roms_list.end(),
+                [](const Rom& a, const Rom& b) { return a.name < b.name; });
+            break;
+        case e_time:
+            std::sort(roms_list.begin(), roms_list.end(),
+                [](const Rom& a, const Rom& b) { return a.total_time < b.total_time; });
+            break;
+        case e_count:
+            std::sort(roms_list.begin(), roms_list.end(),
+                [](const Rom& a, const Rom& b) { return a.count < b.count; });
+            break;
+        case e_last:
+            std::sort(roms_list.begin(), roms_list.end(),
+                [](const Rom& a, const Rom& b) { return a.last < b.last; });
+            break;
+        }
+    }
 }
 
 void GUI::render_image(const std::string& image_path, int x, int y, int w, int h)
@@ -109,15 +154,22 @@ void GUI::render_game_list()
 
     size_t roms_amt = roms_list.size();
     size_t first = selected_index < LIST_LINES / 2              ? 0
-                   : selected_index < roms_amt - LIST_LINES / 2  ? selected_index
-                                                   : roms_amt - LIST_LINES;
+                   : selected_index < roms_amt - LIST_LINES / 2 ? selected_index - LIST_LINES / 2
+                                                                : roms_amt - LIST_LINES;
     size_t last = first + LIST_LINES < roms_list.size() ? first + LIST_LINES : roms_list.size();
 
-    for (size_t i = first; i < last; ++i) {
-        SDL_Color color = (i == selected_index) ? yellow : white;
-        render_text(
-            roms_list[i].name + " - " + roms_list[i].total_time, X_0, Y_0 + i * Y_LINE, FONT_SIZE, color);
+    size_t i = 0;
+    for (size_t j = first; j < last; ++j) {
+        SDL_Color color = (j == selected_index) ? yellow : white;
+        render_text(roms_list[j].name + " - " + roms_list[j].total_time, X_0, Y_0 + i * Y_LINE,
+            FONT_SIZE, color);
+        i++;
     }
+
+    render_text(
+        "Sort by: " + sort_names[sort_by], SCREEN_WIDTH / 2, SCREEN_HEIGHT - 100, FONT_SIZE, white);
+    render_text("Reverse sort: " + std::to_string(reverse_sort), SCREEN_WIDTH / 2,
+        SCREEN_HEIGHT - 50, FONT_SIZE, white);
 
     SDL_RenderPresent(renderer);
 }
@@ -131,17 +183,17 @@ void GUI::render_game_detail()
     const Rom& rom = roms_list[selected_index];
     SDL_Color  white = {255, 255, 255, 255};
 
-    // Header
+    // Game name
     render_text(rom.name, X_0, Y_0, 42, white);
 
-    // rom image
-
+    // Left side: Rom image
     render_image(rom.image, X_0, Y_0 + 100, 300, 300);
 
-    // rom stats
+    // Right side: Game details
     render_text("Total Time: " + rom.total_time, SCREEN_WIDTH / 2, Y_0 + 100, FONT_SIZE, white);
-    render_text("Avg Time: " + rom.average_time, SCREEN_WIDTH / 2, Y_0 + 150, FONT_SIZE, white);
-    render_text("Play Count: " + std::to_string(rom.count), SCREEN_WIDTH / 2, Y_0 + 200, FONT_SIZE, white);
+    render_text("Average Time: " + rom.average_time, SCREEN_WIDTH / 2, Y_0 + 150, FONT_SIZE, white);
+    render_text(
+        "Play Count: " + std::to_string(rom.count), SCREEN_WIDTH / 2, Y_0 + 200, FONT_SIZE, white);
     render_text("Last Played: " + rom.last, SCREEN_WIDTH / 2, Y_0 + 250, FONT_SIZE, white);
 
     SDL_RenderPresent(renderer);
@@ -162,10 +214,12 @@ void GUI::handle_inputs()
                 if (!in_game_detail && selected_index < roms_list.size() - 1) selected_index++;
                 break;
             case SDL_HAT_LEFT: // D-Pad Left
-                if (in_game_detail && selected_index < roms_list.size() - 1) selected_index++;
+                if (!in_game_detail) selected_index = selected_index > 9 ? selected_index - 10 : 0;
                 break;
             case SDL_HAT_RIGHT: // D-Pad Right
-                if (!in_game_detail && selected_index > 0) selected_index--;
+                if (!in_game_detail)
+                    selected_index = selected_index < roms_list.size() - 10 ? selected_index + 10
+                                                                            : roms_list.size() - 1;
                 break;
             }
         } else if (e.type == SDL_JOYBUTTONDOWN) {
@@ -178,8 +232,16 @@ void GUI::handle_inputs()
                 in_game_detail = true;
                 break;
             case 2: // X (b2)
+                if (sort_by == e_last) {
+                    sort_by = e_name;
+                } else {
+                    sort_by = static_cast<Sort>(sort_by + 1);
+                }
+                sort();
                 break;
             case 3: // Y (b3)
+                reverse_sort = !reverse_sort;
+                sort();
                 break;
             case 4: // L1 (b4)
                 break;
@@ -199,7 +261,7 @@ void GUI::handle_inputs()
             }
         }
 #if defined(USE_KEYBOARD)
-else if (e.type == SDL_KEYDOWN) {
+        else if (e.type == SDL_KEYDOWN) {
             switch (e.key.keysym.sym) {
             case SDLK_UP:
                 if (!in_game_detail && selected_index > 0) selected_index--;
@@ -208,10 +270,24 @@ else if (e.type == SDL_KEYDOWN) {
                 if (!in_game_detail && selected_index < roms_list.size() - 1) selected_index++;
                 break;
             case SDLK_LEFT:
-                if (in_game_detail && selected_index < roms_list.size() - 1) selected_index++;
+                if (!in_game_detail) selected_index = selected_index > 9 ? selected_index - 10 : 0;
                 break;
             case SDLK_RIGHT:
-                if (!in_game_detail && selected_index > 0) selected_index--;
+                if (!in_game_detail)
+                    selected_index = selected_index < roms_list.size() - 10 ? selected_index + 10
+                                                                            : roms_list.size() - 1;
+                break;
+            case SDLK_s:
+                if (sort_by == e_last) {
+                    sort_by = e_name;
+                } else {
+                    sort_by = static_cast<Sort>(sort_by + 1);
+                }
+                sort();
+                break;
+            case SDLK_r:
+                reverse_sort = !reverse_sort;
+                sort();
                 break;
             case SDLK_RETURN:
                 in_game_detail = true;
@@ -220,10 +296,10 @@ else if (e.type == SDL_KEYDOWN) {
                 if (in_game_detail) in_game_detail = false;
                 else is_running = false;
                 break;
-      }
-    }
+            }
+        }
 #endif
-  }
+    }
 }
 
 void GUI::run(const std::string& rom_name)
@@ -233,6 +309,7 @@ void GUI::run(const std::string& rom_name)
     DB db;
     if (rom_name == "") {
         roms_list = db.load_all();
+        sort();
     } else {
         in_game_detail = true;
         roms_list.push_back(db.load(rom_name));

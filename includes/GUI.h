@@ -20,6 +20,20 @@
 #define LIST_LINES 10
 #define FALLBACK_PICTURE "./assets/placeholder.png"
 
+enum Sort{
+  e_name,
+  e_time,
+  e_count,
+  e_last
+};
+
+static const std::string sort_names[] = {
+  "Name",
+  "Time",
+  "Count",
+  "Last"
+};
+
 using std::string;
 
 class GUI
@@ -33,6 +47,8 @@ class GUI
     size_t           selected_index;
     bool             in_game_detail;
     std::vector<Rom> roms_list;
+    Sort sort_by;
+    bool reverse_sort;
 
     void render_text(
         const string& text, int x, int y, int size = 24, SDL_Color color = {255, 255, 255});
@@ -41,9 +57,9 @@ class GUI
     void render_game_list();
     void render_game_detail();
 
-    void sort_roms_by(const string& sort_by);
-
     void handle_inputs();
+
+    void sort();
 
   public:
     GUI();
