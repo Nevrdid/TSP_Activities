@@ -11,7 +11,14 @@
 // Constants for the screen size
 #define SCREEN_WIDTH 1280
 #define SCREEN_HEIGHT 720
+#define BACKGROUND "./assets/Xmix_bg.png"
 #define USE_KEYBOARD
+#define X_0 50
+#define Y_0 100
+#define Y_LINE 50
+#define FONT_SIZE 30
+#define LIST_LINES 10
+#define FALLBACK_PICTURE "./assets/placeholder.png"
 
 using std::string;
 

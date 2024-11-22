@@ -102,20 +102,21 @@ void GUI::render_game_list()
 {
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255); // Clear screen with black
     SDL_RenderClear(renderer);
+    render_image(BACKGROUND, 0, 0, 1280, 720);
 
     SDL_Color white = {255, 255, 255, 255};
     SDL_Color yellow = {255, 255, 0, 255};
 
     size_t roms_amt = roms_list.size();
-    size_t first = selected_index < 5              ? 0
-                   : selected_index < roms_amt - 5 ? selected_index
-                                                   : roms_amt - 10;
-    size_t last = first + 10 < roms_list.size() ? first + 10 : roms_list.size();
+    size_t first = selected_index < LIST_LINES / 2              ? 0
+                   : selected_index < roms_amt - LIST_LINES / 2  ? selected_index
+                                                   : roms_amt - LIST_LINES;
+    size_t last = first + LIST_LINES < roms_list.size() ? first + LIST_LINES : roms_list.size();
 
     for (size_t i = first; i < last; ++i) {
         SDL_Color color = (i == selected_index) ? yellow : white;
         render_text(
-            roms_list[i].name + " - " + roms_list[i].total_time, 50, 50 + i * 30, 24, color);
+            roms_list[i].name + " - " + roms_list[i].total_time, X_0, Y_0 + i * Y_LINE, FONT_SIZE, color);
     }
 
     SDL_RenderPresent(renderer);
@@ -125,22 +126,23 @@ void GUI::render_game_detail()
 {
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255); // Clear screen with black
     SDL_RenderClear(renderer);
+    render_image(BACKGROUND, 0, 0, 1280, 720);
 
     const Rom& rom = roms_list[selected_index];
     SDL_Color  white = {255, 255, 255, 255};
 
     // Header
-    render_text(rom.name, 50, 20, 24, white);
+    render_text(rom.name, X_0, Y_0, 42, white);
 
     // rom image
 
-    render_image(rom.image, 50, 100, 200, 200);
+    render_image(rom.image, X_0, Y_0 + 100, 300, 300);
 
     // rom stats
-    render_text("Total Time: " + rom.total_time, 300, 100, 20, white);
-    render_text("Avg Time: " + rom.average_time, 300, 150, 20, white);
-    render_text("Play Count: " + std::to_string(rom.count), 300, 200, 20, white);
-    render_text("Last Played: " + rom.last, 300, 250, 20, white);
+    render_text("Total Time: " + rom.total_time, SCREEN_WIDTH / 2, Y_0 + 100, FONT_SIZE, white);
+    render_text("Avg Time: " + rom.average_time, SCREEN_WIDTH / 2, Y_0 + 150, FONT_SIZE, white);
+    render_text("Play Count: " + std::to_string(rom.count), SCREEN_WIDTH / 2, Y_0 + 200, FONT_SIZE, white);
+    render_text("Last Played: " + rom.last, SCREEN_WIDTH / 2, Y_0 + 250, FONT_SIZE, white);
 
     SDL_RenderPresent(renderer);
 }

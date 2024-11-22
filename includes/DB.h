@@ -6,7 +6,7 @@
 #include <vector>
 
 #define DB_FILE "./assets/games.db"
-#define DEFAULT_IMAGE "./assets/default_image.png"
+#define DEFAULT_IMAGE "./assets/placeholder.png"
 
 typedef struct
 {
