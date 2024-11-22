@@ -37,11 +37,11 @@ Rom DB::save(const std::string& file, int time = 0)
     rom.crc = calculateCRC32(file);
     rom.file = file;
     rom.name = std::filesystem::path(file).stem();
-    rom.count = 0;
+    rom.count = time ? 1 : 0;
     rom.time = time;
     rom.last = time ? getCurrentDateTime() : "Never";
 
-    sqlite3_bind_int64(stmt, 0, rom.crc);
+    sqlite3_bind_int64(stmt, 1, rom.crc);
     int result = sqlite3_step(stmt);
     if (result == SQLITE_ROW) { // Record exists
         rom.count = sqlite3_column_int(stmt, 3) + 1;
@@ -62,6 +62,7 @@ Rom DB::save(const std::string& file, int time = 0)
         sqlite3_bind_int(update_stmt, 3, rom.count);
         sqlite3_bind_int(update_stmt, 4, rom.time);
         sqlite3_bind_text(update_stmt, 5, rom.last.c_str(), -1, SQLITE_STATIC);
+        sqlite3_bind_int64(update_stmt, 6, rom.crc);
 
         if (sqlite3_step(update_stmt) != SQLITE_DONE) {
             std::cerr << "Error updating record: " << sqlite3_errmsg(db) << std::endl;
@@ -80,12 +81,12 @@ Rom DB::save(const std::string& file, int time = 0)
             return rom;
         }
 
-        sqlite3_bind_int64(insert_stmt, 0, rom.crc);
-        sqlite3_bind_text(insert_stmt, 1, rom.file.c_str(), -1, SQLITE_STATIC);
-        sqlite3_bind_text(insert_stmt, 2, rom.name.c_str(), -1, SQLITE_STATIC);
-        sqlite3_bind_int(insert_stmt, 3, rom.count);
-        sqlite3_bind_int(insert_stmt, 4, rom.time);
-        sqlite3_bind_text(insert_stmt, 5, rom.last.c_str(), -1, SQLITE_STATIC);
+        sqlite3_bind_int64(insert_stmt, 1, rom.crc);
+        sqlite3_bind_text(insert_stmt, 2, rom.file.c_str(), -1, SQLITE_STATIC);
+        sqlite3_bind_text(insert_stmt, 3, rom.name.c_str(), -1, SQLITE_STATIC);
+        sqlite3_bind_int(insert_stmt, 4, rom.count);
+        sqlite3_bind_int(insert_stmt, 5, rom.time);
+        sqlite3_bind_text(insert_stmt, 6, rom.last.c_str(), -1, SQLITE_STATIC);
 
         if (sqlite3_step(insert_stmt) != SQLITE_DONE) {
             std::cerr << "Error inserting record: " << sqlite3_errmsg(db) << std::endl;
@@ -117,7 +118,7 @@ Rom DB::load(const std::string& file)
         return rom;
     }
 
-    sqlite3_bind_text(stmt, 1, file.c_str(), -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 2, file.c_str(), -1, SQLITE_STATIC);
 
     int result = sqlite3_step(stmt);
     if (result == SQLITE_ROW) {
