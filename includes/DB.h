@@ -4,18 +4,22 @@
 #include <sqlite3.h>
 #include <string>
 #include <vector>
+#include <regex>
 
 #define DB_FILE "./assets/games.db"
+#define DEFAULT_IMAGE "./assets/default_image.png"
 
 typedef struct
 {
-    unsigned long crc;   // #1 in games_datas
-    std::string   file;  // #2 in games_datas
-    std::string   name;  // #3 in games_datas
-    int           count; // #4 in games_datas
-    int           time;  // #5 in games_datas
-    std::string   last;  // #6 in games_datas
+    unsigned long crc;   // #0 in games_datas
+    std::string   file;  // #1 in games_datas
+    std::string   name;  // #2 in games_datas
+    int           count; // #3 in games_datas
+    int           time;  // #4 in games_datas
+    std::string   last;  // #5 in games_datas
 
+    int           average;
+    std::string   image;
 } Rom;
 
 class DB

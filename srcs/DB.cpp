@@ -130,6 +130,11 @@ Rom DB::load(const std::string& file)
         rom.time = sqlite3_column_int(stmt, 4);
         rom.last = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 5)));
         std::cout << "Entry loaded." << std::endl;
+
+        std::regex pattern(R"(\/Roms\/([^\/]+))"); // Matches "/Roms/<subfolder>"
+        rom.image = std::regex_replace(rom.file, pattern, R"(/Imgs/$1)") + rom.name + ".png";
+        if (!std::filesystem::exists(rom.image)) rom.image = DEFAULT_IMAGE;
+        rom.average = rom.count ? rom.time / rom.count : 0;
     } else if (result == SQLITE_DONE) {
         return save(file);
         std::cerr << "No record found for rom: " << file << std::endl;
@@ -164,6 +169,12 @@ std::vector<Rom> DB::load_all()
         rom.count = sqlite3_column_int(stmt, 3);
         rom.time = sqlite3_column_int(stmt, 4);
         rom.last = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 5)));
+
+        std::regex pattern(R"(\/Roms\/([^\/]+))"); // Matches "/Roms/<subfolder>"
+        rom.image = std::regex_replace(rom.file, pattern, R"(/Imgs/$1)") + rom.name + ".png";
+        if (!std::filesystem::exists(rom.image)) rom.image = DEFAULT_IMAGE;
+        rom.average = rom.count ? rom.time / rom.count : 0;
+
         roms.push_back(rom);
     }
 

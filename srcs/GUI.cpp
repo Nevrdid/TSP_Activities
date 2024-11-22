@@ -132,14 +132,12 @@ void GUI::render_game_detail()
     render_text(rom.name, 50, 20, 24, white);
 
     // rom image
-    std::regex pattern(R"(\/Roms\/([^\/]+))"); // Matches "/Roms/<subfolder>"
-    string     rom_image = std::regex_replace(rom.file, pattern, R"(/Imgs/$1)") + rom.name + ".png";
 
-    render_image("/mnt/SDCARD/Imgs/", 50, 100, 200, 200);
+    render_image(rom.image, 50, 100, 200, 200);
 
     // rom stats
     render_text("Total Time: " + std::to_string(rom.time) + "s", 300, 100, 20, white);
-    render_text("Avg Time: " + std::to_string(rom.count ? rom.time / rom.count : 0) + "s", 300, 150,
+    render_text("Avg Time: " + std::to_string(rom.average) + "s", 300, 150,
         20, white);
     render_text("Play Count: " + std::to_string(rom.count), 300, 200, 20, white);
     render_text("Last Played: " + rom.last, 300, 250, 20, white);
