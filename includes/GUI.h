@@ -48,7 +48,6 @@ class GUI
     bool             in_game_detail;
     std::vector<Rom> roms_list;
     Sort sort_by;
-    bool reverse_sort;
 
     void render_text(
         const string& text, int x, int y, int size = 24, SDL_Color color = {255, 255, 255});

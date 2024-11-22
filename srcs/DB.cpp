@@ -41,7 +41,7 @@ Rom DB::save(const std::string& file, int time = 0)
     rom.name = std::filesystem::path(file).stem();
     rom.count = time ? 1 : 0;
     rom.time = time;
-    rom.last = time ? utils::getCurrentDateTime() : "Never";
+    rom.last = time ? utils::getCurrentDateTime() : "-";
 
     rom.total_time = utils::sec2hhmmss(rom.time);
     rom.average_time = utils::sec2hhmmss(rom.count ? rom.time / rom.count : 0);

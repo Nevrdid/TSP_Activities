@@ -8,7 +8,6 @@ GUI::GUI()
     , selected_index(0)
     , in_game_detail(false)
     , sort_by(e_time)
-    , reverse_sort(false)
 {
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_JOYSTICK) < 0) {
         std::cerr << "SDL could not initialize! SDL_Error: " << SDL_GetError() << std::endl;
@@ -54,11 +53,10 @@ GUI::~GUI()
 
 void GUI::sort()
 {
-    if (reverse_sort) {
         switch (sort_by) {
         case e_name:
             std::sort(roms_list.begin(), roms_list.end(),
-                [](const Rom& a, const Rom& b) { return a.name > b.name; });
+                [](const Rom& a, const Rom& b) { return a.name < b.name; });
             break;
         case e_time:
             std::sort(roms_list.begin(), roms_list.end(),
@@ -73,26 +71,6 @@ void GUI::sort()
                 [](const Rom& a, const Rom& b) { return a.last > b.last; });
             break;
         }
-    } else {
-        switch (sort_by) {
-        case e_name:
-            std::sort(roms_list.begin(), roms_list.end(),
-                [](const Rom& a, const Rom& b) { return a.name < b.name; });
-            break;
-        case e_time:
-            std::sort(roms_list.begin(), roms_list.end(),
-                [](const Rom& a, const Rom& b) { return a.total_time < b.total_time; });
-            break;
-        case e_count:
-            std::sort(roms_list.begin(), roms_list.end(),
-                [](const Rom& a, const Rom& b) { return a.count < b.count; });
-            break;
-        case e_last:
-            std::sort(roms_list.begin(), roms_list.end(),
-                [](const Rom& a, const Rom& b) { return a.last < b.last; });
-            break;
-        }
-    }
 }
 
 void GUI::render_image(const std::string& image_path, int x, int y, int w, int h)
@@ -168,8 +146,6 @@ void GUI::render_game_list()
 
     render_text(
         "Sort by: " + sort_names[sort_by], SCREEN_WIDTH / 2, SCREEN_HEIGHT - 100, FONT_SIZE, white);
-    render_text("Reverse sort: " + std::to_string(reverse_sort), SCREEN_WIDTH / 2,
-        SCREEN_HEIGHT - 50, FONT_SIZE, white);
 
     SDL_RenderPresent(renderer);
 }
@@ -240,8 +216,6 @@ void GUI::handle_inputs()
                 sort();
                 break;
             case 3: // Y (b3)
-                reverse_sort = !reverse_sort;
-                sort();
                 break;
             case 4: // L1 (b4)
                 break;
@@ -286,8 +260,6 @@ void GUI::handle_inputs()
                 sort();
                 break;
             case SDLK_r:
-                reverse_sort = !reverse_sort;
-                sort();
                 break;
             case SDLK_RETURN:
                 in_game_detail = true;
