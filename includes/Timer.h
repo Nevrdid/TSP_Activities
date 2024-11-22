@@ -4,6 +4,7 @@
 #include <csignal>
 #include <fstream>
 #include <iostream>
+#include <sstream>
 #include <string>
 #include <unistd.h>
 
@@ -23,4 +24,5 @@ class Timer
     string        target_rom;
     string        target_pid;
     unsigned long elapsed_seconds;
+    string        stat_path;
 };

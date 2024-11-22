@@ -5,6 +5,7 @@ Timer::Timer(const string& rom_file, const string& pid)
     , target_pid(pid)
     , elapsed_seconds(0)
 {
+    stat_path = "/proc/" + target_pid + "/stat";
 }
 
 Timer::~Timer()
@@ -35,21 +36,27 @@ unsigned long Timer::run()
  */
 int Timer::get_target_state()
 {
-    std::string ps_command = "ps -p " + target_pid + " -o state= | tr -d ' '";
-    FILE*       ps = popen(ps_command.c_str(), "r");
+    std::ifstream stat_file(stat_path);
+    if (!stat_file.is_open()) {
+        return -1;
+    }
 
-    if (ps) {
-        char state[3];
-        if (fgets(state, sizeof(state), ps)) {
-            pclose(ps);
-            if (state[0] == 'T') {
-                return 0;
-            } else if (state[0] == 'Z' || state[0] == 'X') {
-                return -1;
-            }
+    std::string line;
+    if (std::getline(stat_file, line)) {
+        std::istringstream iss(line);
+        std::string        dummy;
+        char               state;
+
+        iss >> dummy >> dummy >> state;
+
+        if (state == 'T') {
+            return 0;
+        } else if (state == 'Z') {
+            return -1;
+        } else {
             return 1;
         }
-        pclose(ps);
     }
+
     return -1;
 }
