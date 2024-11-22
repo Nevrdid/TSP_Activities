@@ -10,5 +10,9 @@
 #include <time.h>
 #include <zlib.h>
 
+namespace utils
+{
 std::string   getCurrentDateTime();
 unsigned long calculateCRC32(const std::string& filename);
+std::string   sec2hhmmss(int total_seconds);
+} // namespace utils

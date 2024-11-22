@@ -1,9 +1,11 @@
 #include "utils.h"
 
+namespace utils
+{
 std::string getCurrentDateTime()
 {
     std::time_t now = std::time(nullptr);
-    struct tm* tm_info = std::localtime(&now);
+    struct tm*  tm_info = std::localtime(&now);
 
     if (tm_info == nullptr) {
         std::cerr << "Failed to get current time!" << std::endl;
@@ -32,3 +34,17 @@ unsigned long calculateCRC32(const std::string& filename)
     crc ^= 0xffffffff;
     return crc;
 }
+
+std::string sec2hhmmss(int total_seconds)
+{
+    int hours = total_seconds / 3600;
+    int minutes = (total_seconds % 3600) / 60;
+    int seconds = total_seconds % 60;
+
+    std::ostringstream oss;
+    oss << std::setw(2) << std::setfill('0') << hours << ":" << std::setw(2) << std::setfill('0')
+        << minutes << ":" << std::setw(2) << std::setfill('0') << seconds;
+
+    return oss.str();
+}
+} // namespace utils

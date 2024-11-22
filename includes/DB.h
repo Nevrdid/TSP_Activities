@@ -4,7 +4,6 @@
 #include <sqlite3.h>
 #include <string>
 #include <vector>
-#include <regex>
 
 #define DB_FILE "./assets/games.db"
 #define DEFAULT_IMAGE "./assets/default_image.png"
@@ -18,8 +17,9 @@ typedef struct
     int           time;  // #4 in games_datas
     std::string   last;  // #5 in games_datas
 
-    int           average;
-    std::string   image;
+    std::string total_time;
+    std::string average_time;
+    std::string image;
 } Rom;
 
 class DB

@@ -108,13 +108,13 @@ void GUI::render_game_list()
 
     size_t roms_amt = roms_list.size();
     size_t first = selected_index < 5              ? 0
-                : selected_index < roms_amt - 5 ? selected_index
-                                                : roms_amt - 10;
+                   : selected_index < roms_amt - 5 ? selected_index
+                                                   : roms_amt - 10;
 
     for (size_t i = first; i < first + 10; ++i) {
         SDL_Color color = (i == selected_index) ? yellow : white;
-        render_text(roms_list[i].name + " - " + std::to_string(roms_list[i].time) + "s", 50,
-            50 + i * 30, 24, color);
+        render_text(
+            roms_list[i].name + " - " + roms_list[i].average_time, 50, 50 + i * 30, 24, color);
     }
 
     SDL_RenderPresent(renderer);
@@ -136,9 +136,8 @@ void GUI::render_game_detail()
     render_image(rom.image, 50, 100, 200, 200);
 
     // rom stats
-    render_text("Total Time: " + std::to_string(rom.time) + "s", 300, 100, 20, white);
-    render_text("Avg Time: " + std::to_string(rom.average) + "s", 300, 150,
-        20, white);
+    render_text("Total Time: " + rom.total_time, 300, 100, 20, white);
+    render_text("Avg Time: " + rom.average_time, 300, 150, 20, white);
     render_text("Play Count: " + std::to_string(rom.count), 300, 200, 20, white);
     render_text("Last Played: " + rom.last, 300, 250, 20, white);
 
