@@ -110,7 +110,7 @@ void GUI::render_game_list()
     size_t first = selected_index < 5              ? 0
                    : selected_index < roms_amt - 5 ? selected_index
                                                    : roms_amt - 10;
-    size_t last = first + 10 < roms_list.size() ? first  + 10 : roms_list.size();
+    size_t last = first + 10 < roms_list.size() ? first + 10 : roms_list.size();
 
     for (size_t i = first; i < last; ++i) {
         SDL_Color color = (i == selected_index) ? yellow : white;
@@ -196,7 +196,32 @@ void GUI::handle_inputs()
                 break;
             }
         }
+#if defined(USE_KEYBOARD)
+else if (e.type == SDL_KEYDOWN) {
+            switch (e.key.keysym.sym) {
+            case SDLK_UP:
+                if (!in_game_detail && selected_index > 0) selected_index--;
+                break;
+            case SDLK_DOWN:
+                if (!in_game_detail && selected_index < roms_list.size() - 1) selected_index++;
+                break;
+            case SDLK_LEFT:
+                if (in_game_detail && selected_index < roms_list.size() - 1) selected_index++;
+                break;
+            case SDLK_RIGHT:
+                if (!in_game_detail && selected_index > 0) selected_index--;
+                break;
+            case SDLK_RETURN:
+                in_game_detail = true;
+                break;
+            case SDLK_ESCAPE:
+                if (in_game_detail) in_game_detail = false;
+                else is_running = false;
+                break;
+      }
     }
+#endif
+  }
 }
 
 void GUI::run(const std::string& rom_name)

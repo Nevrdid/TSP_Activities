@@ -11,6 +11,7 @@
 // Constants for the screen size
 #define SCREEN_WIDTH 1280
 #define SCREEN_HEIGHT 720
+#define USE_KEYBOARD
 
 using std::string;
 
