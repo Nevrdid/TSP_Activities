@@ -18,7 +18,6 @@
 #define X_0 50
 #define Y_0 75
 #define Y_LINE 50
-#define FONT_SIZE 30
 #define LIST_LINES 10
 #define FALLBACK_PICTURE APP_DIR "assets/placeholder.png"
 
@@ -39,7 +38,11 @@ class GUI
   private:
     SDL_Window*   window;
     SDL_Renderer* renderer;
-    TTF_Font*     font;
+    SDL_Joystick* joystick;
+
+    TTF_Font*     font_tiny;
+    TTF_Font*     font_middle;
+    TTF_Font*     font_big;
 
     bool             is_running;
     size_t           selected_index;
@@ -52,7 +55,7 @@ class GUI
     std::vector<Rom>         filtered_roms_list;
 
     void render_text(
-        const string& text, int x, int y, int size = FONT_SIZE, SDL_Color color = {255, 255, 255});
+        const string& text, int x, int y, TTF_Font* font , SDL_Color color = {255, 255, 255});
     void render_image(const string& image_path, int x, int y, int w, int h);
 
     void render_game_list();

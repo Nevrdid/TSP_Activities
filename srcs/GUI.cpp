@@ -15,6 +15,14 @@ GUI::GUI()
         return;
     }
 
+    joystick = SDL_JoystickOpen(0);
+    if (joystick == NULL) {
+        std::cerr << "Couldn't open joystick 0: " << SDL_GetError() << std::endl;
+    } else {
+        std::cout << "Joystick 0 opened successfully." << std::endl;
+    }
+    SDL_JoystickEventState(SDL_ENABLE);
+
     window = SDL_CreateWindow("Game Timer", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
         SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN);
     if (!window) {
@@ -36,16 +44,23 @@ GUI::GUI()
         return;
     }
 
-    font = TTF_OpenFont(FONT, FONT_SIZE);
-    if (!font) {
-        std::cerr << "Failed to load font: " << TTF_GetError() << std::endl;
+    font_tiny = TTF_OpenFont(FONT, 20);
+    font_middle = TTF_OpenFont(FONT, 30);
+    font_big = TTF_OpenFont(FONT, 42);
+
+    if (!font_tiny || !font_middle || !font_big) {
+        std::cerr << "Failed to load fonts: " << TTF_GetError() << std::endl;
+        is_running = false;
         return;
     }
 }
 
 GUI::~GUI()
 {
-    TTF_CloseFont(font);
+    TTF_CloseFont(font_tiny);
+    TTF_CloseFont(font_middle);
+    TTF_CloseFont(font_big);
+    SDL_JoystickClose(joystick);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
     SDL_Quit();
@@ -116,10 +131,9 @@ void GUI::render_image(const std::string& image_path, int x, int y, int w, int h
     SDL_FreeSurface(surface);
 }
 
-void GUI::render_text(const std::string& text, int x, int y, int size, SDL_Color color)
+void GUI::render_text(const std::string& text, int x, int y, TTF_Font* font, SDL_Color color)
 {
 
-    TTF_SetFontSize(font, size);
     SDL_Surface* surface = TTF_RenderText_Solid(font, text.c_str(), color);
     if (!surface) {
         std::cerr << "Failed to render text: " << TTF_GetError() << std::endl;
@@ -152,7 +166,7 @@ void GUI::render_game_list()
     SDL_RenderClear(renderer);
     render_image(BACKGROUND, 0, 0, 1280, 720);
 
-    render_text("- " + systems[system_index] + " Games -", X_0 + 50, Y_0, 42, yellow);
+    render_text("- " + systems[system_index] + " Games -", X_0 + 50, Y_0, font_big, yellow);
 
     size_t roms_amt = filtered_roms_list.size();
     size_t first = selected_index < LIST_LINES / 2              ? 0
@@ -161,20 +175,18 @@ void GUI::render_game_list()
     size_t last = first + LIST_LINES < filtered_roms_list.size() ? first + LIST_LINES
                                                                  : filtered_roms_list.size();
 
-    int    y = Y_0 + 75;
-    size_t i = 0;
+    int y = Y_0 + 75;
     for (size_t j = first; j < last; ++j) {
         SDL_Color color = (j == selected_index) ? green : white;
         render_text(filtered_roms_list[j].name + " - " + filtered_roms_list[j].total_time, X_0, y,
-            FONT_SIZE, color);
+            font_middle, color);
         y += Y_LINE;
-        i++;
     }
 
     render_text("A: Select  B: Quit  Y: Filter finished  X: Filter oldest  L/R: Change system  "
                 "Select: Sort by (" +
                     sort_names[sort_by] + ")",
-        X_0, SCREEN_HEIGHT - 35, 20, white);
+        X_0, SCREEN_HEIGHT - 35, font_tiny, white);
 
     SDL_RenderPresent(renderer);
 }
@@ -188,23 +200,23 @@ void GUI::render_game_detail()
     const Rom& rom = filtered_roms_list[selected_index];
 
     // Game name
-    render_text("- " + rom.name + " -", X_0 + 50, Y_0, 42, yellow);
+    render_text("- " + rom.name + " -", X_0 + 50, Y_0, font_big, yellow);
 
     // Left side: Rom image
     render_image(rom.image, X_0, Y_0 + 100, 300, 300);
 
     // Right side: Game details
-    render_text("Total Time:", X_0 + 350, Y_0 + 100, FONT_SIZE, green);
-    render_text(rom.total_time, X_0 + 600, Y_0 + 100, FONT_SIZE, white);
+    render_text("Total Time:", X_0 + 350, Y_0 + 100, font_middle, green);
+    render_text(rom.total_time, X_0 + 600, Y_0 + 100, font_middle, white);
 
-    render_text("Average Time:", X_0 + 350, Y_0 + 150, FONT_SIZE, green);
-    render_text(rom.average_time, X_0 + 600, Y_0 + 150, FONT_SIZE, white);
+    render_text("Average Time:", X_0 + 350, Y_0 + 150, font_middle, green);
+    render_text(rom.average_time, X_0 + 600, Y_0 + 150, font_middle, white);
 
-    render_text("Play count:", X_0 + 350, Y_0 + 200, FONT_SIZE, green);
-    render_text(std::to_string(rom.count), X_0 + 600, Y_0 + 200, FONT_SIZE, white);
+    render_text("Play count:", X_0 + 350, Y_0 + 200, font_middle, green);
+    render_text(std::to_string(rom.count), X_0 + 600, Y_0 + 200, font_middle, white);
 
-    render_text("Last played:", X_0 + 350, Y_0 + 250, FONT_SIZE, green);
-    render_text(rom.last, X_0 + 600, Y_0 + 250, FONT_SIZE, white);
+    render_text("Last played:", X_0 + 350, Y_0 + 250, font_middle, green);
+    render_text(rom.last, X_0 + 600, Y_0 + 250, font_middle, white);
 
     SDL_RenderPresent(renderer);
 }
@@ -235,7 +247,7 @@ void GUI::handle_inputs()
                 break;
             }
         } else if (e.type == SDL_JOYBUTTONDOWN) {
-            switch (e.key.keysym.sym) {
+            switch (e.jbutton.button) {
             case 0: // B (b0)
                 if (in_game_detail) in_game_detail = false;
                 else is_running = false;
