@@ -54,9 +54,9 @@ class GUI
     std::vector<std::string> systems;
     size_t                   system_index = 0;
     std::vector<Rom>         filtered_roms_list;
-
+    size_t                   list_size = 0;
+    int                      filter_completed = 0;
     // filter completed flag: 0: all, 1: completed, 2: not completed
-    int filter_completed = 0;
 
     void render_text(
         const string& text, int x, int y, TTF_Font* font, SDL_Color color = {255, 255, 255});

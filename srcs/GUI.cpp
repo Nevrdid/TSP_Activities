@@ -94,6 +94,7 @@ void GUI::filter()
             }
         }
     }
+    list_size = filtered_roms_list.size();
     sort();
 
     if (selected_index >= filtered_roms_list.size()) {
@@ -183,10 +184,9 @@ void GUI::render_game_list()
     render_text("- " + completed_names[filter_completed] + " " + systems[system_index] + " Games -",
         X_0 + 50, Y_0, font_big, yellow);
 
-    size_t roms_amt = filtered_roms_list.size();
-    size_t first = selected_index < LIST_LINES / 2              ? 0
-                   : selected_index < roms_amt - LIST_LINES / 2 ? selected_index - LIST_LINES / 2
-                                                                : roms_amt - LIST_LINES;
+    size_t first = selected_index < LIST_LINES / 2               ? 0
+                   : selected_index < list_size - LIST_LINES / 2 ? selected_index - LIST_LINES / 2
+                                                                 : list_size - LIST_LINES;
     size_t last = first + LIST_LINES < filtered_roms_list.size() ? first + LIST_LINES
                                                                  : filtered_roms_list.size();
 
@@ -218,31 +218,31 @@ void GUI::render_game_detail()
     render_text("- " + rom.name + " -", X_0 + 50, Y_0, font_big, yellow);
 
     // Left side: Rom image
-    render_image(rom.image, X_0, Y_0 + 100, 300, 300);
+    render_image(rom.image, X_0, Y_0 + 100, 450, 450);
 
     // Right side: Game details
-    render_text("Total Time:", X_0 + 350, Y_0 + 100, font_middle, green);
-    render_text(rom.total_time, X_0 + 600, Y_0 + 100, font_middle, white);
+    render_text("Total Time:", X_0 + 500, Y_0 + 100, font_middle, green);
+    render_text(rom.total_time, X_0 + 750, Y_0 + 100, font_middle, white);
 
-    render_text("Average Time:", X_0 + 350, Y_0 + 150, font_middle, green);
-    render_text(rom.average_time, X_0 + 600, Y_0 + 150, font_middle, white);
+    render_text("Average Time:", X_0 + 500, Y_0 + 150, font_middle, green);
+    render_text(rom.average_time, X_0 + 750, Y_0 + 150, font_middle, white);
 
-    render_text("Play count:", X_0 + 350, Y_0 + 200, font_middle, green);
-    render_text(std::to_string(rom.count), X_0 + 600, Y_0 + 200, font_middle, white);
+    render_text("Play count:", X_0 + 500, Y_0 + 200, font_middle, green);
+    render_text(std::to_string(rom.count), X_0 + 750, Y_0 + 200, font_middle, white);
 
-    render_text("Last played:", X_0 + 350, Y_0 + 250, font_middle, green);
-    render_text(rom.last, X_0 + 600, Y_0 + 250, font_middle, white);
+    render_text("Last played:", X_0 + 500, Y_0 + 250, font_middle, green);
+    render_text(rom.last, X_0 + 750, Y_0 + 250, font_middle, white);
 
-    render_text("System:", X_0 + 350, Y_0 + 300, font_middle, green);
-    render_text(rom.system, X_0 + 600, Y_0 + 300, font_middle, white);
+    render_text("System:", X_0 + 500, Y_0 + 300, font_middle, green);
+    render_text(rom.system, X_0 + 750, Y_0 + 300, font_middle, white);
 
-    render_text("Completed:", X_0 + 350, Y_0 + 350, font_middle, green);
-    render_text(rom.completed ? "Yes" : "No", X_0 + 600, Y_0 + 350, font_middle, white);
+    render_text("Completed:", X_0 + 500, Y_0 + 350, font_middle, green);
+    render_text(rom.completed ? "Yes" : "No", X_0 + 750, Y_0 + 350, font_middle, white);
 
     // Bottom file path.
 
-    render_text("File:", X_0, Y_0 + 410, font_tiny, green);
-    render_text(rom.file, X_0 + 50, Y_0 + 410, font_tiny, white);
+    render_text("File:", X_0, Y_0 + 560, font_tiny, green);
+    render_text(rom.file, X_0 + 50, Y_0 + 560, font_tiny, white);
 
     // Footer keybinds.
     render_text(
@@ -271,9 +271,9 @@ void GUI::handle_inputs()
                 break;
             case SDL_HAT_RIGHT: // D-Pad Right
                 if (!in_game_detail)
-                    selected_index = selected_index < filtered_roms_list.size() - 10
+                    selected_index = list_size > 10 && selected_index < list_size - 10
                                          ? selected_index + 10
-                                         : filtered_roms_list.size() - 1;
+                                         : list_size - 1;
                 break;
             }
         } else if (e.type == SDL_JOYBUTTONDOWN) {
@@ -289,15 +289,15 @@ void GUI::handle_inputs()
             case 1: // A (b1)
                 in_game_detail = true;
                 break;
-            case 2: // X (b2)
+            case 2: // Y (b2)
+                break;
+            case 3: // X (b3)
                 if (in_game_detail) {
                     set_completed();
                 } else {
                     filter_completed = (filter_completed + 1) % 3;
                     filter();
                 }
-                break;
-            case 3: // Y (b3)
                 break;
             case 4: // L1 (b4)
                 if (!systems.empty()) {
@@ -343,13 +343,13 @@ void GUI::handle_inputs()
                     selected_index++;
                 break;
             case SDLK_LEFT:
-                if (!in_game_detail) selected_index = selected_index > 9 ? selected_index - 10 : 0;
+                if (!in_game_detail) selected_index = selected_index > 10 ? selected_index - 10 : 0;
                 break;
             case SDLK_RIGHT:
                 if (!in_game_detail)
-                    selected_index = selected_index < filtered_roms_list.size() - 10
+                    selected_index = list_size > 10 && selected_index < list_size - 10
                                          ? selected_index + 10
-                                         : filtered_roms_list.size() - 1;
+                                         : list_size - 1;
                 break;
             case SDLK_s:
                 if (!in_game_detail) {
