@@ -25,4 +25,8 @@ class Timer
     string        target_pid;
     unsigned long elapsed_seconds;
     string        stat_path;
+    volatile bool running;
+
+    static void   timer_handler(int signum);
+    static Timer* instance; // Singleton instance to access from signal handler
 };
