@@ -24,7 +24,7 @@ DB::~DB()
     }
 }
 
-Rom DB::save(const std::string& file, int time = 0)
+Rom DB::save(const std::string& file, int time, int completed)
 {
     Rom rom;
     if (!db) {
@@ -32,38 +32,30 @@ Rom DB::save(const std::string& file, int time = 0)
         return rom;
     }
 
-    std::string   query = "SELECT * FROM games_datas WHERE crc = ?";
+    std::string   query = "SELECT * FROM games_datas WHERE file = ?";
     sqlite3_stmt* stmt;
     if (sqlite3_prepare_v2(db, query.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
         std::cerr << "Error preparing SELECT query: " << sqlite3_errmsg(db) << std::endl;
         return rom;
     }
 
-    rom.crc = utils::calculateCRC32(file);
     rom.file = file;
     rom.name = std::filesystem::path(file).stem();
     rom.count = time ? 1 : 0;
     rom.time = time;
     rom.last = time ? utils::getCurrentDateTime() : "-";
+    rom.completed = completed == -1 ? 0 : completed;
 
-    rom.total_time = utils::sec2hhmmss(rom.time);
-
-    rom.average_time = utils::sec2hhmmss(rom.count ? rom.time / rom.count : 0);
-
-    rom.image = std::regex_replace(rom.file, img_pattern, R"(/Imgs/$1)") + "/" + rom.name + ".png";
-    if (!std::filesystem::exists(rom.image)) rom.image = DEFAULT_IMAGE;
-
-    rom.system = std::regex_replace(rom.file, sys_pattern, R"($1)");
-
-    sqlite3_bind_int64(stmt, 1, rom.crc);
+    sqlite3_bind_text(stmt, 1, rom.file.c_str(), -1, SQLITE_STATIC);
     int result = sqlite3_step(stmt);
     if (result == SQLITE_ROW) { // Record exists
-        rom.count = sqlite3_column_int(stmt, 3) + 1;
-        rom.time += sqlite3_column_int(stmt, 4);
+        rom.count += sqlite3_column_int(stmt, 2);
+        rom.time += sqlite3_column_int(stmt, 3);
+        rom.completed = completed == -1 ? sqlite3_column_int(stmt, 5) : completed;
 
         std::string update_query =
-            "UPDATE games_datas SET file = ?, name = ?, count = ?, time = ?, "
-            " last = ? WHERE crc = ?";
+            "UPDATE games_datas SET name = ?, count = ?, time = ?, "
+            " last = ?, completed = ? WHERE file = ?";
         sqlite3_stmt* update_stmt;
         if (sqlite3_prepare_v2(db, update_query.c_str(), -1, &update_stmt, nullptr) != SQLITE_OK) {
             std::cerr << "Error preparing UPDATE query: " << sqlite3_errmsg(db) << std::endl;
@@ -71,12 +63,13 @@ Rom DB::save(const std::string& file, int time = 0)
             return rom;
         }
 
-        sqlite3_bind_text(update_stmt, 1, rom.file.c_str(), -1, SQLITE_STATIC);
-        sqlite3_bind_text(update_stmt, 2, rom.name.c_str(), -1, SQLITE_STATIC);
-        sqlite3_bind_int(update_stmt, 3, rom.count);
-        sqlite3_bind_int(update_stmt, 4, rom.time);
-        sqlite3_bind_text(update_stmt, 5, rom.last.c_str(), -1, SQLITE_STATIC);
-        sqlite3_bind_int64(update_stmt, 6, rom.crc);
+        sqlite3_bind_text(update_stmt, 1, rom.name.c_str(), -1, SQLITE_STATIC);
+        sqlite3_bind_int(update_stmt, 2, rom.count);
+        sqlite3_bind_int(update_stmt, 3, rom.time);
+        sqlite3_bind_text(update_stmt, 4, rom.last.c_str(), -1, SQLITE_STATIC);
+        sqlite3_bind_int(update_stmt, 5, rom.completed);
+
+        sqlite3_bind_text(update_stmt, 6, rom.file.c_str(), -1, SQLITE_STATIC);
 
         if (sqlite3_step(update_stmt) != SQLITE_DONE) {
             std::cerr << "Error updating record: " << sqlite3_errmsg(db) << std::endl;
@@ -86,8 +79,8 @@ Rom DB::save(const std::string& file, int time = 0)
 
         sqlite3_finalize(update_stmt);
     } else if (result == SQLITE_DONE) {
-        std::string   insert_query = "INSERT INTO games_datas (crc, file, name, count, time, "
-                                     "last) VALUES (?, ?, ?, ?, ?, ?)";
+        std::string   insert_query = "INSERT INTO games_datas (file, name, count, time, "
+                                     "last, completed) VALUES (?, ?, ?, ?, ?, ?)";
         sqlite3_stmt* insert_stmt;
         if (sqlite3_prepare_v2(db, insert_query.c_str(), -1, &insert_stmt, nullptr) != SQLITE_OK) {
             std::cerr << "Error preparing INSERT query: " << sqlite3_errmsg(db) << std::endl;
@@ -95,12 +88,12 @@ Rom DB::save(const std::string& file, int time = 0)
             return rom;
         }
 
-        sqlite3_bind_int64(insert_stmt, 1, rom.crc);
-        sqlite3_bind_text(insert_stmt, 2, rom.file.c_str(), -1, SQLITE_STATIC);
-        sqlite3_bind_text(insert_stmt, 3, rom.name.c_str(), -1, SQLITE_STATIC);
-        sqlite3_bind_int(insert_stmt, 4, rom.count);
-        sqlite3_bind_int(insert_stmt, 5, rom.time);
-        sqlite3_bind_text(insert_stmt, 6, rom.last.c_str(), -1, SQLITE_STATIC);
+        sqlite3_bind_text(insert_stmt, 1, rom.file.c_str(), -1, SQLITE_STATIC);
+        sqlite3_bind_text(insert_stmt, 2, rom.name.c_str(), -1, SQLITE_STATIC);
+        sqlite3_bind_int(insert_stmt, 3, rom.count);
+        sqlite3_bind_int(insert_stmt, 4, rom.time);
+        sqlite3_bind_text(insert_stmt, 5, rom.last.c_str(), -1, SQLITE_STATIC);
+        sqlite3_bind_int(insert_stmt, 6, rom.completed);
 
         if (sqlite3_step(insert_stmt) != SQLITE_DONE) {
             std::cerr << "Error inserting record: " << sqlite3_errmsg(db) << std::endl;
@@ -112,6 +105,15 @@ Rom DB::save(const std::string& file, int time = 0)
     }
 
     sqlite3_finalize(stmt);
+
+    rom.total_time = utils::sec2hhmmss(rom.time);
+
+    rom.average_time = utils::sec2hhmmss(rom.count ? rom.time / rom.count : 0);
+
+    rom.image = std::regex_replace(rom.file, img_pattern, R"(/Imgs/$1)") + "/" + rom.name + ".png";
+    if (!std::filesystem::exists(rom.image)) rom.image = DEFAULT_IMAGE;
+
+    rom.system = std::regex_replace(rom.file, sys_pattern, R"($1)");
     return rom;
 }
 
@@ -137,12 +139,12 @@ Rom DB::load(const std::string& file)
     int result = sqlite3_step(stmt);
     if (result == SQLITE_ROW) {
         std::cout << "Entry exist in database." << std::endl;
-        rom.crc = sqlite3_column_int64(stmt, 0);
-        rom.file = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1)));
-        rom.name = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2)));
-        rom.count = sqlite3_column_int(stmt, 3);
-        rom.time = sqlite3_column_int(stmt, 4);
-        rom.last = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 5)));
+        rom.file = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0)));
+        rom.name = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1)));
+        rom.count = sqlite3_column_int(stmt, 2);
+        rom.time = sqlite3_column_int(stmt, 3);
+        rom.last = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 4)));
+        rom.completed = sqlite3_column_int(stmt, 5);
         std::cout << "Entry loaded." << std::endl;
 
         rom.total_time = utils::sec2hhmmss(rom.time);
@@ -181,12 +183,12 @@ std::vector<Rom> DB::load_all()
 
     while (sqlite3_step(stmt) == SQLITE_ROW) {
         Rom rom;
-        rom.crc = sqlite3_column_int64(stmt, 0);
-        rom.file = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1)));
-        rom.name = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2)));
-        rom.count = sqlite3_column_int(stmt, 3);
-        rom.time = sqlite3_column_int(stmt, 4);
-        rom.last = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 5)));
+        rom.file = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0)));
+        rom.name = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1)));
+        rom.count = sqlite3_column_int(stmt, 2);
+        rom.time = sqlite3_column_int(stmt, 3);
+        rom.last = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 4)));
+        rom.completed = sqlite3_column_int(stmt, 5);
 
         rom.total_time = utils::sec2hhmmss(rom.time);
 

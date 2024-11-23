@@ -14,7 +14,7 @@ else
 	CXXFLAGS=-Wall -Wextra -std=c++17 `sdl2-config --cflags` -O3 $(APP_DIR)
 endif
 
-LDLIBS= `sdl2-config --libs` -lsqlite3 -lSDL2_ttf -lSDL2_image -lz
+LDLIBS= `sdl2-config --libs` -lsqlite3 -lSDL2_ttf -lSDL2_image
 LDFLAGS= -Iincludes/
 
 build/%.o: srcs/%.cpp

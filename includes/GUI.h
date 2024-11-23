@@ -31,6 +31,8 @@ enum Sort
 
 static const std::string sort_names[] = {"Name", "Time", "Count", "Last"};
 
+static const std::string completed_names[] = {"All", "Completed", "Not completed"};
+
 using std::string;
 
 class GUI
@@ -40,9 +42,9 @@ class GUI
     SDL_Renderer* renderer;
     SDL_Joystick* joystick;
 
-    TTF_Font*     font_tiny;
-    TTF_Font*     font_middle;
-    TTF_Font*     font_big;
+    TTF_Font* font_tiny;
+    TTF_Font* font_middle;
+    TTF_Font* font_big;
 
     bool             is_running;
     size_t           selected_index;
@@ -54,8 +56,11 @@ class GUI
     size_t                   system_index = 0;
     std::vector<Rom>         filtered_roms_list;
 
+    // filter completed flag: 0: all, 1: completed, 2: not completed
+    int filter_completed = 0;
+
     void render_text(
-        const string& text, int x, int y, TTF_Font* font , SDL_Color color = {255, 255, 255});
+        const string& text, int x, int y, TTF_Font* font, SDL_Color color = {255, 255, 255});
     void render_image(const string& image_path, int x, int y, int w, int h);
 
     void render_game_list();
@@ -63,6 +68,7 @@ class GUI
 
     void handle_inputs();
 
+    void set_completed();
     void filter();
     void sort();
 

@@ -66,16 +66,30 @@ GUI::~GUI()
     SDL_Quit();
 }
 
+void GUI::set_completed()
+{
+    Rom& rom = filtered_roms_list[selected_index];
+    DB   db;
+    for (auto& r : roms_list) {
+        if (r.file == rom.file) {
+            r = rom = db.save(rom.file, 0, rom.completed ? 0 : 1);
+            break;
+        }
+    }
+}
+
 void GUI::filter()
 {
-    if (system_index == 0) {
-        filtered_roms_list = roms_list;
-    } else {
-        const std::string& current_system = systems[system_index];
+    const std::string& current_system = systems[system_index];
 
-        filtered_roms_list.clear();
-        for (const auto& rom : roms_list) {
-            if (rom.system == current_system) {
+    filtered_roms_list.clear();
+    for (const auto& rom : roms_list) {
+        if (rom.system == current_system || system_index == 0) {
+            if (filter_completed == 0) {
+                filtered_roms_list.push_back(rom);
+            } else if (filter_completed == 1 && rom.completed == 1) {
+                filtered_roms_list.push_back(rom);
+            } else if (filter_completed == 2 && rom.completed == 0) {
                 filtered_roms_list.push_back(rom);
             }
         }
@@ -166,7 +180,8 @@ void GUI::render_game_list()
     SDL_RenderClear(renderer);
     render_image(BACKGROUND, 0, 0, 1280, 720);
 
-    render_text("- " + systems[system_index] + " Games -", X_0 + 50, Y_0, font_big, yellow);
+    render_text("- " + completed_names[filter_completed] + " " + systems[system_index] + " Games -",
+        X_0 + 50, Y_0, font_big, yellow);
 
     size_t roms_amt = filtered_roms_list.size();
     size_t first = selected_index < LIST_LINES / 2              ? 0
@@ -183,7 +198,7 @@ void GUI::render_game_list()
         y += Y_LINE;
     }
 
-    render_text("A: Select  B: Quit  Y: Filter finished  X: Filter oldest  L/R: Change system  "
+    render_text("A: Select  B: Quit  X: Filter (Un)Completed  Y: Filter oldest  L/R: Change system "
                 "Select: Sort by (" +
                     sort_names[sort_by] + ")",
         X_0, SCREEN_HEIGHT - 35, font_tiny, white);
@@ -218,6 +233,15 @@ void GUI::render_game_detail()
     render_text("Last played:", X_0 + 350, Y_0 + 250, font_middle, green);
     render_text(rom.last, X_0 + 600, Y_0 + 250, font_middle, white);
 
+    render_text("System:", X_0 + 350, Y_0 + 300, font_middle, green);
+    render_text(rom.system, X_0 + 600, Y_0 + 300, font_middle, white);
+
+    render_text("Completed:", X_0 + 350, Y_0 + 350, font_middle, green);
+    render_text(rom.completed ? "Yes" : "No", X_0 + 600, Y_0 + 350, font_middle, white);
+
+    render_text(
+        "A: Launch  B: Return X: Set (Un)Completed", X_0, SCREEN_HEIGHT - 35, font_tiny, white);
+
     SDL_RenderPresent(renderer);
 }
 
@@ -249,13 +273,23 @@ void GUI::handle_inputs()
         } else if (e.type == SDL_JOYBUTTONDOWN) {
             switch (e.jbutton.button) {
             case 0: // B (b0)
-                if (in_game_detail) in_game_detail = false;
-                else is_running = false;
+                if (in_game_detail) {
+                    in_game_detail = false;
+                    filter();
+                } else {
+                    is_running = false;
+                }
                 break;
             case 1: // A (b1)
                 in_game_detail = true;
                 break;
             case 2: // X (b2)
+                if (in_game_detail) {
+                    set_completed();
+                } else {
+                    filter_completed = (filter_completed + 1) % 3;
+                    filter();
+                }
                 break;
             case 3: // Y (b3)
                 break;
@@ -321,10 +355,15 @@ void GUI::handle_inputs()
                     sort();
                 }
                 break;
-            case SDLK_r:
+            case SDLK_c:
+                if (in_game_detail) {
+                    set_completed();
+                } else {
+                    filter_completed = (filter_completed + 1) % 3;
+                    filter();
+                }
                 break;
             case SDLK_g:
-
                 if (!systems.empty()) {
                     system_index = (system_index == 0) ? systems.size() - 1 : system_index - 1;
                     filter();
@@ -340,8 +379,12 @@ void GUI::handle_inputs()
                 in_game_detail = true;
                 break;
             case SDLK_ESCAPE:
-                if (in_game_detail) in_game_detail = false;
-                else is_running = false;
+                if (in_game_detail) {
+                    in_game_detail = false;
+                    filter();
+                } else {
+                    is_running = false;
+                }
                 break;
             }
         }
@@ -362,7 +405,7 @@ void GUI::run(const std::string& rom_name)
         for (const auto& rom : roms_list) {
             unique_systems.insert(rom.system);
         }
-        systems.push_back("All");
+        systems.push_back("");
         systems.insert(systems.end(), unique_systems.begin(), unique_systems.end());
 
         filtered_roms_list = roms_list;

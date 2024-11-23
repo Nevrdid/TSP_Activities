@@ -10,12 +10,12 @@
 
 typedef struct
 {
-    unsigned long crc;   // #0 in games_datas
-    std::string   file;  // #1 in games_datas
-    std::string   name;  // #2 in games_datas
-    int           count; // #3 in games_datas
-    int           time;  // #4 in games_datas
-    std::string   last;  // #5 in games_datas
+    std::string file;     // #0 in games_datas
+    std::string name;     // #1 in games_datas
+    int         count;    // #2 in games_datas
+    int         time;     // #3 in games_datas
+    std::string last;     // #4 in games_datas
+    int         completed; // #5 in games_datas
 
     std::string total_time;
     std::string average_time;
@@ -32,7 +32,7 @@ class DB
   public:
     DB();
     ~DB();
-    Rom              save(const std::string& rom_file, int elapsed_time);
+    Rom              save(const std::string& rom_file, int elapsed_time = 0, int completed = -1);
     Rom              load(const std::string& rom_file);
     std::vector<Rom> load_all();
     void             remove(const std::string& file);
