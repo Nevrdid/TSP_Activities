@@ -38,9 +38,10 @@ Rom DB::save(const std::string& file, int time, int completed)
         std::cerr << "Error preparing SELECT query: " << sqlite3_errmsg(db) << std::endl;
         return rom;
     }
+    std::filesystem::path filepath(file);
 
-    rom.file = file;
-    rom.name = std::filesystem::path(file).stem();
+    rom.file = std::filesystem::canonical(filepath);
+    rom.name = filepath.stem();
     rom.count = time ? 1 : 0;
     rom.time = time;
     rom.last = time ? utils::getCurrentDateTime() : "-";
