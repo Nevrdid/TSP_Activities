@@ -239,6 +239,12 @@ void GUI::render_game_detail()
     render_text("Completed:", X_0 + 350, Y_0 + 350, font_middle, green);
     render_text(rom.completed ? "Yes" : "No", X_0 + 600, Y_0 + 350, font_middle, white);
 
+    // Bottom file path.
+
+    render_text("File:", X_0, Y_0 + 410, font_tiny, green);
+    render_text(rom.file, X_0 + 50, Y_0 + 410, font_tiny, white);
+
+    // Footer keybinds.
     render_text(
         "A: Launch  B: Return X: Set (Un)Completed", X_0, SCREEN_HEIGHT - 35, font_tiny, white);
 
@@ -394,12 +400,14 @@ void GUI::handle_inputs()
 
 void GUI::run(const std::string& rom_name)
 {
-
-    std::cout << "Entering GUI." << std::endl;
+    std::cout << "ActivitiesApp: Starting GUI." << std::endl;
     DB db;
     if (rom_name == "") {
         roms_list = db.load_all();
-        sort();
+        if (roms_list.empty()) {
+            std::cerr << "ActivitiesApp: The database is empty. Leaving..." << std::endl;
+            return;
+        }
 
         std::set<std::string> unique_systems;
         for (const auto& rom : roms_list) {
@@ -408,14 +416,14 @@ void GUI::run(const std::string& rom_name)
         systems.push_back("");
         systems.insert(systems.end(), unique_systems.begin(), unique_systems.end());
 
-        filtered_roms_list = roms_list;
+        filter();
     } else {
         in_game_detail = true;
         roms_list.push_back(db.load(rom_name));
         filtered_roms_list = roms_list;
     }
 
-    std::cout << "Starting gui." << std::endl;
+    std::cout << "ActivitiesApp: Roms datas loaded." << std::endl;
     while (is_running) {
         handle_inputs();
         if (in_game_detail) {

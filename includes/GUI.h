@@ -14,7 +14,6 @@
 #define SCREEN_HEIGHT 720
 #define BACKGROUND APP_DIR "assets/Xmix_bg.png"
 #define FONT APP_DIR "assets/Lato-Medium.ttf"
-#define USE_KEYBOARD
 #define X_0 50
 #define Y_0 75
 #define Y_LINE 50

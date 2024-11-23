@@ -7,11 +7,11 @@ CXX=g++
 
 
 ifeq ($(TEST), 1)
-	APP_DIR='-DAPP_DIR="./"'
-	CXXFLAGS=-Wall -Wextra -std=c++17 `sdl2-config --cflags` -g $(APP_DIR)
+	DEF='-DAPP_DIR="./"' '-DUSE_KEYBOARD'
+	CXXFLAGS=-Wall -Wextra -std=c++17 `sdl2-config --cflags` -g $(DEF)
 else
-	APP_DIR='-DAPP_DIR="/mnt/SDCARD/Apps/Activities/"'
-	CXXFLAGS=-Wall -Wextra -std=c++17 `sdl2-config --cflags` -O3 $(APP_DIR)
+	DEF='-DAPP_DIR="/mnt/SDCARD/Apps/Activities/"'
+	CXXFLAGS=-Wall -Wextra -std=c++17 `sdl2-config --cflags` -O3 $(DEF)
 endif
 
 LDLIBS= `sdl2-config --libs` -lsqlite3 -lSDL2_ttf -lSDL2_image
