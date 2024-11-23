@@ -8,11 +8,13 @@
   ./activivites del <rom_file>\n\
   ./activities gui [rom_file]"
 
+Timer* Timer::instance = nullptr;
+
 int main(int argc, char* argv[])
 {
     if (argc == 4 && std::string(argv[1]) == "add") {
-        Timer        timer_instance(argv[3]);
-        unsigned int duration = timer_instance.run();
+        Timer timer(argv[3]);
+        unsigned int duration = timer.run();
 
         DB           db;
         db.save(argv[2], duration);

@@ -1,48 +1,43 @@
 #include "Timer.h"
 
-Timer* Timer::instance = nullptr;
-
-Timer::Timer(const string& pid)
-    : elapsed_seconds(0)
+Timer::Timer(const std::string& pid)
+    : fd(-1)
+    , elapsed_seconds(0)
+    , tick_counter(0)
     , running(true)
 {
     std::string stat_path = "/proc/" + pid + "/stat";
-    instance = this;
     fd = open(stat_path.c_str(), O_RDONLY);
     if (fd == -1) {
-        std::cerr << "Failed to open " << stat_path << std::endl;
+        std::cerr << "Failed to open" << stat_path << std::endl;
+        return;
     }
+    if (instance) {
+        std::cerr << "Timer instance already exists" << std::endl;
+        return;
+    }
+    instance = this;
 }
 
 Timer::~Timer()
 {
-    if (fd != -1) {
-        close(fd);
-        fd = -1;
-    }
+    if (fd != -1) close(fd);
     instance = nullptr;
 }
 
-/* Get the state of the target process by PID
- * 0: Stopped/Suspended
- * 1: Running
- * -1: Not found/Terminated
- */
-
 void Timer::timer_handler(int signum)
 {
-    if (instance == nullptr) return;
+    (void) signum;
+    if (!instance || !instance->running) return;
 
     if (lseek(instance->fd, 0, SEEK_SET) == -1) {
-        close(instance->fd);
         instance->running = false;
         return;
     }
 
-    char    buffer[64];
+    char    buffer[128];
     ssize_t bytes_read = read(instance->fd, buffer, sizeof(buffer) - 1);
     if (bytes_read <= 0) {
-        close(instance->fd);
         instance->running = false;
         return;
     }
@@ -53,17 +48,17 @@ void Timer::timer_handler(int signum)
         if (space_count == 2 && ++i < bytes_read) {
             char state = buffer[i];
             if (state == 'Z') instance->running = false;
-            else if (state != 'T') instance->elapsed_seconds++;
             break;
         }
     }
+
+    instance->tick_counter++;
+    if (instance->tick_counter == 4) {
+        instance->elapsed_seconds++;
+        instance->tick_counter = 0;
+    }
 }
-/* Start the timer
- * Check the state of the target process every 15 seconds
- * If the target process is running, increment the elapsed time
- * If the target process is stopped, do nothing
- * If the target process is terminated, stop the timer
- */
+
 unsigned long Timer::run()
 {
     struct sigaction sa;
@@ -73,17 +68,18 @@ unsigned long Timer::run()
 
     struct itimerval timer;
     timer.it_value.tv_sec = 0;
-    timer.it_value.tv_usec = 500000;
+    timer.it_value.tv_usec = 250000;
     timer.it_interval.tv_sec = 0;
-    timer.it_interval.tv_usec = 500000;
+    timer.it_interval.tv_usec = 250000;
 
     if (setitimer(ITIMER_REAL, &timer, nullptr) == -1) {
-        throw std::runtime_error("Failed to set timer");
+        std::cerr << "Failed to set timer" << std::endl;
     }
 
     while (running) {
         pause();
     }
+
     timer.it_value.tv_sec = 0;
     timer.it_value.tv_usec = 0;
     timer.it_interval.tv_sec = 0;
