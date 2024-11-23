@@ -2,32 +2,29 @@
 
 #include <chrono>
 #include <csignal>
+#include <fcntl.h>
 #include <fstream>
 #include <iostream>
 #include <sstream>
 #include <string>
-#include <unistd.h>
 #include <sys/time.h>
+#include <unistd.h>
 
 using std::string;
 
 class Timer
 {
   public:
-    Timer(const string& file, const string& pid);
+    Timer(const string& pid);
     ~Timer();
 
     unsigned long run();
 
   private:
-    int           get_target_state();
-    std::string   get_command_from_pid(const std::string& pid);
-    string        target_rom;
-    string        target_pid;
+    static Timer* instance; // Singleton instance to access from signal handler
+    int    fd;
     unsigned long elapsed_seconds;
-    string        stat_path;
     volatile bool running;
 
-    static void   timer_handler(int signum);
-    static Timer* instance; // Singleton instance to access from signal handler
+    static void timer_handler(int signum);
 };

@@ -11,7 +11,7 @@ ifeq ($(TEST), 1)
 	CXXFLAGS=-Wall -Wextra -std=c++17 `sdl2-config --cflags` -g $(DEF)
 else
 	DEF='-DAPP_DIR="/mnt/SDCARD/Apps/Activities/"'
-	CXXFLAGS=-Wall -Wextra -std=c++17 `sdl2-config --cflags` -O3 $(DEF)
+	CXXFLAGS=-Wall -Wextra -flto -std=c++17 `sdl2-config --cflags` -O3 $(DEF)
 endif
 
 LDLIBS= `sdl2-config --libs` -lsqlite3 -lSDL2_ttf -lSDL2_image
