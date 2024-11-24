@@ -2,12 +2,6 @@
 
 #include <regex>
 GUI::GUI()
-    : window(nullptr)
-    , renderer(nullptr)
-    , is_running(true)
-    , selected_index(0)
-    , in_game_detail(false)
-    , sort_by(e_time)
 {
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_JOYSTICK) < 0) {
         std::cerr << "SDL could not initialize! SDL_Error: " << SDL_GetError() << std::endl;
@@ -44,11 +38,12 @@ GUI::GUI()
         return;
     }
 
-    font_tiny = TTF_OpenFont(FONT, 20);
-    font_middle = TTF_OpenFont(FONT, 30);
-    font_big = TTF_OpenFont(FONT, 42);
+    font_big = TTF_OpenFont(FONT, FONT_BIG_SIZE);
+    font_middle = TTF_OpenFont(FONT, FONT_MIDDLE_SIZE);
+    font_tiny = TTF_OpenFont(FONT, FONT_TINY_SIZE);
+    font_mini = TTF_OpenFont(FONT, FONT_MINI_SIZE);
 
-    if (!font_tiny || !font_middle || !font_big) {
+    if (!font_tiny || !font_middle || !font_big || !font_mini) {
         std::cerr << "Failed to load fonts: " << TTF_GetError() << std::endl;
         is_running = false;
         return;
@@ -57,6 +52,24 @@ GUI::GUI()
 
 GUI::~GUI()
 {
+    // Clean cache
+    for (auto& texture : image_cache) {
+        if (texture.second) {
+            SDL_DestroyTexture(texture.second);
+        }
+    }
+    image_cache.clear();
+
+    for (auto& entry : cached_text) {
+        if (entry.texture) {
+            SDL_DestroyTexture(entry.texture);
+        }
+    }
+    cached_text.clear();
+
+    if (scroll_surface) SDL_FreeSurface(scroll_surface);
+    if (scroll_texture) SDL_DestroyTexture(scroll_texture);
+
     TTF_CloseFont(font_tiny);
     TTF_CloseFont(font_middle);
     TTF_CloseFont(font_big);
@@ -66,7 +79,7 @@ GUI::~GUI()
     SDL_Quit();
 }
 
-void GUI::set_completed()
+void GUI::switch_completed()
 {
     Rom& rom = filtered_roms_list[selected_index];
     DB   db;
@@ -122,28 +135,20 @@ void GUI::sort()
             [](const Rom& a, const Rom& b) { return a.last > b.last; });
         break;
     }
+    scroll_finished = true;
 }
 
 void GUI::render_image(const std::string& image_path, int x, int y, int w, int h)
 {
-    SDL_Surface* surface = IMG_Load(image_path.c_str());
-    if (!surface) {
-        std::cerr << "Failed to load image: " << image_path << std::endl;
-        return;
-    }
-
-    SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
-    if (!texture) {
-        std::cerr << "Failed to create texture from surface: " << image_path << std::endl;
+    if (image_cache.find(image_path) == image_cache.end()) {
+        SDL_Surface* surface = IMG_Load(image_path.c_str());
+        image_cache[image_path] = SDL_CreateTextureFromSurface(renderer, surface);
         SDL_FreeSurface(surface);
-        return;
     }
+    SDL_Texture* cached_texture = image_cache[image_path];
 
     SDL_Rect dest_rect = {x, y, w, h};
-    SDL_RenderCopy(renderer, texture, nullptr, &dest_rect);
-
-    SDL_DestroyTexture(texture);
-    SDL_FreeSurface(surface);
+    SDL_RenderCopy(renderer, cached_texture, nullptr, &dest_rect);
 }
 
 void GUI::render_multicolor_text(
@@ -180,31 +185,103 @@ void GUI::render_multicolor_text(
         SDL_FreeSurface(surface);
     }
 }
-void GUI::render_text(const std::string& text, int x, int y, TTF_Font* font, SDL_Color color)
-{
 
-    SDL_Surface* surface = TTF_RenderText_Solid(font, text.c_str(), color);
+CachedText& GUI::getCachedText(const std::string& text, TTF_Font* font, SDL_Color color)
+{
+    for (auto& cached : cached_text) {
+        if (cached.text == text && cached.r == color.r && cached.g == color.g &&
+            cached.b == color.b) {
+            return cached;
+        }
+    }
+
+    SDL_Surface* surface = TTF_RenderText_Blended(font, text.c_str(), color);
     if (!surface) {
         std::cerr << "Failed to render text: " << TTF_GetError() << std::endl;
         TTF_CloseFont(font);
-        return;
     }
 
     SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
     if (!texture) {
-        std::cerr << "Failed to create texture from surface: " << SDL_GetError() << std::endl;
         SDL_FreeSurface(surface);
-        TTF_CloseFont(font);
+        std::cerr << "Failed to create texture: " << SDL_GetError() << std::endl;
+    }
+
+    CachedText cached = {texture, surface->w, text, color.r, color.g, color.b};
+    cached_text.push_back(cached);
+
+    SDL_FreeSurface(surface);
+    return cached_text.back();
+}
+
+void GUI::render_text(
+    const std::string& text, int x, int y, TTF_Font* font, SDL_Color color, int width)
+{
+    CachedText& cached = getCachedText(text, font, color);
+
+    if (!cached.texture) {
+        std::cerr << "Failed to retrieve or cache text texture." << std::endl;
         return;
     }
 
-    SDL_Rect dest_rect = {x, y, surface->w, surface->h};
-    SDL_RenderCopy(renderer, texture, nullptr, &dest_rect);
-
-    SDL_DestroyTexture(texture);
-    SDL_FreeSurface(surface);
+    if (width && cached.width > width) {
+        SDL_Rect render_rect = {x, y, width, TTF_FontHeight(font)};
+        SDL_Rect clip_rect = {0, 0, width, TTF_FontHeight(font)};
+        SDL_RenderCopy(renderer, cached.texture, &clip_rect, &render_rect);
+    } else {
+        SDL_Rect dest_rect = {x, y, cached.width, TTF_FontHeight(font)};
+        SDL_RenderCopy(renderer, cached.texture, nullptr, &dest_rect);
+    }
 }
 
+void GUI::render_scrollable_text(
+    const std::string& text, int x, int y, int width, TTF_Font* font, SDL_Color color)
+{
+
+    static int    offset = 0;
+    static Uint32 last_update = 0;
+
+    if (scroll_finished) {
+        if (scroll_surface) SDL_FreeSurface(scroll_surface);
+        if (scroll_texture) SDL_DestroyTexture(scroll_texture);
+        scroll_surface = TTF_RenderText_Solid(font, text.c_str(), color);
+        if (!scroll_surface) {
+            std::cerr << "Failed to render text: " << TTF_GetError() << std::endl;
+            TTF_CloseFont(font);
+            return;
+        }
+        scroll_texture = SDL_CreateTextureFromSurface(renderer, scroll_surface);
+
+        scroll_finished = false;
+        offset = 0;
+        last_update = SDL_GetTicks();
+    }
+
+    if (scroll_surface->w <= width) {
+        render_text(text, x, y, font, color, width);
+        return;
+    }
+
+    Uint32 current_time = SDL_GetTicks();
+    if (current_time - last_update > 16) { // Adjust delay ( x SDL delay)
+        last_update = current_time;
+
+        if (offset >= 0) {
+            offset += 3; // Scrolling speed
+
+            if (offset > scroll_surface->w - width) {
+                if (!scroll_finished) {
+                    scroll_finished = true;
+                }
+            }
+        }
+    }
+
+    SDL_Rect clip_rect = {offset, 0, width, TTF_FontHeight(font)};
+    SDL_Rect render_rect = {x, y, width, TTF_FontHeight(font)};
+
+    SDL_RenderCopy(renderer, scroll_texture, &clip_rect, &render_rect);
+}
 static SDL_Color white = {255, 255, 255, 255};
 static SDL_Color yellow = {255, 238, 180, 255};
 static SDL_Color green = {175, 248, 200, 255};
@@ -230,30 +307,34 @@ void GUI::render_game_list()
         last = first + LIST_LINES < filtered_roms_list.size() ? first + LIST_LINES
                                                               : filtered_roms_list.size();
     }
+
     std::vector<std::pair<std::string, SDL_Color>> multi_color_line;
-    int                                            y = Y_0 + 60;
+    int                                            y = Y_0 + 85;
     for (size_t j = first; j < last; ++j) {
         SDL_Color color = (j == selected_index) ? green : white;
-        render_text(filtered_roms_list[j].name, X_0, y, font_middle, color);
+        render_image(filtered_roms_list[j].image, X_0, y, 100, 100);
+        if (j == selected_index) {
+            render_scrollable_text(
+                filtered_roms_list[j].name, X_0 + 110, y, 1000, font_middle, color);
+        } else {
+            render_text(filtered_roms_list[j].name, X_0 + 110, y, font_middle, color, 1000);
+        }
+
+        y += Y_LINE / 2;
 
         multi_color_line = {{"Time: ", yellow}, {filtered_roms_list[j].total_time, color},
             {"  Count: ", yellow}, {std::to_string(filtered_roms_list[j].count), color},
             {"  Last: ", yellow}, {filtered_roms_list[j].last, color}};
-        render_multicolor_text(multi_color_line, X_0, y + 30, font_tiny);
-        y += Y_LINE;
+        render_multicolor_text(multi_color_line, X_0 + 150, y, font_tiny);
+
+        y += Y_LINE / 2;
     }
 
     multi_color_line = {{"A: ", yellow}, {"Select", white}, {"  B: ", yellow}, {"Quit", white},
         {"  X: ", yellow}, {"Filter (Un)Completed", white}, {"  Y: ", yellow},
         {"Filter oldest", white}, {"  L/R: ", yellow}, {"Change system", white},
-        {"Select:", yellow}, {" Sort by (", white}, {sort_names[sort_by], yellow}, {")", white}};
-    render_multicolor_text(multi_color_line, X_0, SCREEN_HEIGHT - 35, font_tiny);
-
-    // render_text("A: Select  B: Quit  X: Filter (Un)Completed  Y: Filter oldest  L/R: Change
-    // system "
-    //             "Select: Sort by (" +
-    //                 sort_names[sort_by] + ")",
-    //     X_0, SCREEN_HEIGHT - 35, font_tiny, white);
+        {"  Select: ", yellow}, {" Sort by (", white}, {sort_names[sort_by], yellow}, {")", white}};
+    render_multicolor_text(multi_color_line, X_0, SCREEN_HEIGHT - 35, font_mini);
 
     SDL_RenderPresent(renderer);
 }
@@ -269,45 +350,46 @@ void GUI::render_game_detail()
     const Rom& rom = filtered_roms_list[selected_index];
 
     // Game name
-    render_text("- " + rom.name + " -", X_0 + 50, Y_0, font_big, yellow);
+    render_scrollable_text(rom.name, X_0, Y_0, 1200, font_big, yellow);
 
     // Left side: Rom image
-    render_image(rom.image, X_0, Y_0 + 100, 450, 450);
+    render_image(rom.image, X_0, Y_0 + 75, 500, 500);
 
     // Right side: Game details
-    render_text("Total Time:", X_0 + 500, Y_0 + 100, font_middle, green);
-    render_text(rom.total_time, X_0 + 750, Y_0 + 100, font_middle, white);
+    render_text("Total Time:", X_0 + 520, Y_0 + 100, font_tiny, green);
+    render_text(rom.total_time, X_0 + 750, Y_0 + 100, font_tiny, white);
 
-    render_text("Average Time:", X_0 + 500, Y_0 + 150, font_middle, green);
-    render_text(rom.average_time, X_0 + 750, Y_0 + 150, font_middle, white);
+    render_text("Average Time:", X_0 + 520, Y_0 + 150, font_tiny, green);
+    render_text(rom.average_time, X_0 + 750, Y_0 + 150, font_tiny, white);
 
-    render_text("Play count:", X_0 + 500, Y_0 + 200, font_middle, green);
-    render_text(std::to_string(rom.count), X_0 + 750, Y_0 + 200, font_middle, white);
+    render_text("Play count:", X_0 + 520, Y_0 + 200, font_tiny, green);
+    render_text(std::to_string(rom.count), X_0 + 750, Y_0 + 200, font_tiny, white);
 
-    render_text("Last played:", X_0 + 500, Y_0 + 250, font_middle, green);
-    render_text(rom.last, X_0 + 750, Y_0 + 250, font_middle, white);
+    render_text("Last played:", X_0 + 520, Y_0 + 250, font_tiny, green);
+    render_text(rom.last, X_0 + 750, Y_0 + 250, font_tiny, white);
 
-    render_text("System:", X_0 + 500, Y_0 + 300, font_middle, green);
-    render_text(rom.system, X_0 + 750, Y_0 + 300, font_middle, white);
+    render_text("System:", X_0 + 520, Y_0 + 300, font_tiny, green);
+    render_text(rom.system, X_0 + 750, Y_0 + 300, font_tiny, white);
 
-    render_text("Completed:", X_0 + 500, Y_0 + 350, font_middle, green);
-    render_text(rom.completed ? "Yes" : "No", X_0 + 750, Y_0 + 350, font_middle, white);
+    render_text("Completed:", X_0 + 520, Y_0 + 350, font_tiny, green);
+    render_text(rom.completed ? "Yes" : "No", X_0 + 750, Y_0 + 350, font_tiny, white);
 
     // Bottom file path.
 
-    render_text("File:", X_0, Y_0 + 560, font_tiny, green);
-    render_text(rom.file, X_0 + 50, Y_0 + 560, font_tiny, white);
+    render_text("File:", X_0, Y_0 + 580, font_mini, green);
+    render_text(rom.file, X_0 + 50, Y_0 + 580, font_mini, white);
 
     // Footer keybinds.
     multi_color_line = {{"A: ", yellow}, {"Launch", white}, {"  B: ", yellow}, {"Return", white},
         {"  X: ", yellow}, {"Completed switch", white}};
-    render_multicolor_text(multi_color_line, X_0, SCREEN_HEIGHT - 35, font_tiny);
+    render_multicolor_text(multi_color_line, X_0, SCREEN_HEIGHT - 35, font_mini);
 
     SDL_RenderPresent(renderer);
 }
 
 void GUI::handle_inputs()
 {
+    size_t    prev_selected_index = selected_index;
     SDL_Event e;
     while (SDL_PollEvent(&e)) {
         if (e.type == SDL_QUIT) {
@@ -331,6 +413,7 @@ void GUI::handle_inputs()
                                          : list_size - 1;
                 break;
             }
+            if (!in_game_detail) scroll_finished = true;
         } else if (e.type == SDL_JOYBUTTONDOWN) {
             switch (e.jbutton.button) {
             case 0: // B (b0)
@@ -343,12 +426,13 @@ void GUI::handle_inputs()
                 break;
             case 1: // A (b1)
                 in_game_detail = true;
+                scroll_finished = true;
                 break;
             case 2: // Y (b2)
                 break;
             case 3: // X (b3)
                 if (in_game_detail) {
-                    set_completed();
+                    switch_completed();
                 } else {
                     filter_completed = (filter_completed + 1) % 3;
                     filter();
@@ -418,7 +502,7 @@ void GUI::handle_inputs()
                 break;
             case SDLK_c:
                 if (in_game_detail) {
-                    set_completed();
+                    switch_completed();
                 } else {
                     filter_completed = (filter_completed + 1) % 3;
                     filter();
@@ -438,6 +522,7 @@ void GUI::handle_inputs()
                 break;
             case SDLK_RETURN:
                 in_game_detail = true;
+                scroll_finished = true;
                 break;
             case SDLK_ESCAPE:
                 if (in_game_detail) {
@@ -450,6 +535,9 @@ void GUI::handle_inputs()
             }
         }
 #endif
+    }
+    if (prev_selected_index != selected_index) {
+        scroll_finished = true;
     }
 }
 

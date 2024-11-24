@@ -31,6 +31,7 @@ std::string sec2hhmmss(int total_seconds)
 
 std::string stringifyDate(const std::string& date)
 {
+    if (date == "-") return date;
     std::string year = date.substr(0, 4);
     std::string month = date.substr(4, 2);
     std::string day = date.substr(6, 2);

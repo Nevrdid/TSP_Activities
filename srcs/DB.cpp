@@ -5,7 +5,8 @@
 #include <regex>
 
 static std::regex img_pattern = std::regex(R"(\/Roms\/([^\/]+).*)"); // Matches "/Roms/<subfolder>"
-static std::regex sys_pattern = std::regex(R"(.*\/Roms\/([^\/]+).*)"); // Matches "/Roms/<subfolder>"
+static std::regex sys_pattern =
+    std::regex(R"(.*\/Roms\/([^\/]+).*)"); // Matches "/Roms/<subfolder>"
 
 DB::DB()
     : db(nullptr)
@@ -51,12 +52,13 @@ Rom DB::save(const std::string& file, int time, int completed)
     int result = sqlite3_step(stmt);
     if (result == SQLITE_ROW) { // Record exists
         rom.count += sqlite3_column_int(stmt, 2);
+        if (rom.time == 0)
+            rom.last = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 4)));
         rom.time += sqlite3_column_int(stmt, 3);
         rom.completed = completed == -1 ? sqlite3_column_int(stmt, 5) : completed;
 
-        std::string update_query =
-            "UPDATE games_datas SET name = ?, count = ?, time = ?, "
-            " last = ?, completed = ? WHERE file = ?";
+        std::string   update_query = "UPDATE games_datas SET name = ?, count = ?, time = ?, "
+                                     " last = ?, completed = ? WHERE file = ?";
         sqlite3_stmt* update_stmt;
         if (sqlite3_prepare_v2(db, update_query.c_str(), -1, &update_stmt, nullptr) != SQLITE_OK) {
             std::cerr << "Error preparing UPDATE query: " << sqlite3_errmsg(db) << std::endl;
@@ -155,7 +157,8 @@ Rom DB::load(const std::string& file)
 
         rom.average_time = utils::sec2hhmmss(rom.count ? rom.time / rom.count : 0);
 
-        rom.image = std::regex_replace(rom.file, img_pattern, R"(/Imgs/$1)") + "/" + rom.name + ".png";
+        rom.image =
+            std::regex_replace(rom.file, img_pattern, R"(/Imgs/$1)") + "/" + rom.name + ".png";
         if (!std::filesystem::exists(rom.image)) rom.image = DEFAULT_IMAGE;
 
         rom.system = std::regex_replace(rom.file, sys_pattern, R"($1)");
@@ -199,7 +202,8 @@ std::vector<Rom> DB::load_all()
 
         rom.average_time = utils::sec2hhmmss(rom.count ? rom.time / rom.count : 0);
 
-        rom.image = std::regex_replace(rom.file, img_pattern, R"(/Imgs/$1)") + "/" + rom.name + ".png";
+        rom.image =
+            std::regex_replace(rom.file, img_pattern, R"(/Imgs/$1)") + "/" + rom.name + ".png";
         if (!std::filesystem::exists(rom.image)) rom.image = DEFAULT_IMAGE;
 
         rom.system = std::regex_replace(rom.file, sys_pattern, R"($1)");
