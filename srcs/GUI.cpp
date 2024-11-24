@@ -146,6 +146,40 @@ void GUI::render_image(const std::string& image_path, int x, int y, int w, int h
     SDL_FreeSurface(surface);
 }
 
+void GUI::render_multicolor_text(
+    const std::vector<std::pair<std::string, SDL_Color>>& colored_texts, int x, int y,
+    TTF_Font* font)
+{
+    int current_x = x;
+    for (const auto& text_pair : colored_texts) {
+        const std::string& text = text_pair.first;
+        SDL_Color          color = text_pair.second;
+
+        SDL_Surface* surface = TTF_RenderText_Solid(font, text.c_str(), color);
+        if (!surface) {
+            std::cerr << "Failed to render text: " << TTF_GetError() << std::endl;
+            TTF_CloseFont(font);
+            return;
+        }
+
+        SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
+        if (!texture) {
+            std::cerr << "Failed to create texture from surface: " << SDL_GetError() << std::endl;
+            SDL_FreeSurface(surface);
+            TTF_CloseFont(font);
+            return;
+        }
+
+        SDL_Rect dest_rect = {current_x, y, surface->w, surface->h};
+
+        SDL_RenderCopy(renderer, texture, nullptr, &dest_rect);
+
+        current_x += surface->w;
+
+        SDL_DestroyTexture(texture);
+        SDL_FreeSurface(surface);
+    }
+}
 void GUI::render_text(const std::string& text, int x, int y, TTF_Font* font, SDL_Color color)
 {
 
@@ -190,31 +224,44 @@ void GUI::render_game_list()
         first = 0;
         last = list_size;
     } else {
-        first = selected_index < LIST_LINES / 2 ? 0
-               : selected_index < list_size - LIST_LINES / 2 ? selected_index - LIST_LINES / 2
-                                                             : list_size - LIST_LINES;
+        first = selected_index < LIST_LINES / 2               ? 0
+                : selected_index < list_size - LIST_LINES / 2 ? selected_index - LIST_LINES / 2
+                                                              : list_size - LIST_LINES;
         last = first + LIST_LINES < filtered_roms_list.size() ? first + LIST_LINES
                                                               : filtered_roms_list.size();
     }
-
-    int y = Y_0 + 75;
+    std::vector<std::pair<std::string, SDL_Color>> multi_color_line;
+    int                                            y = Y_0 + 60;
     for (size_t j = first; j < last; ++j) {
         SDL_Color color = (j == selected_index) ? green : white;
-        render_text(filtered_roms_list[j].name + " - " + filtered_roms_list[j].total_time, X_0, y,
-            font_middle, color);
+        render_text(filtered_roms_list[j].name, X_0, y, font_middle, color);
+
+        multi_color_line = {{"Time: ", yellow}, {filtered_roms_list[j].total_time, color},
+            {"  Count: ", yellow}, {std::to_string(filtered_roms_list[j].count), color},
+            {"  Last: ", yellow}, {filtered_roms_list[j].last, color}};
+        render_multicolor_text(multi_color_line, X_0, y + 30, font_tiny);
         y += Y_LINE;
     }
 
-    render_text("A: Select  B: Quit  X: Filter (Un)Completed  Y: Filter oldest  L/R: Change system "
-                "Select: Sort by (" +
-                    sort_names[sort_by] + ")",
-        X_0, SCREEN_HEIGHT - 35, font_tiny, white);
+    multi_color_line = {{"A: ", yellow}, {"Select", white}, {"  B: ", yellow}, {"Quit", white},
+        {"  X: ", yellow}, {"Filter (Un)Completed", white}, {"  Y: ", yellow},
+        {"Filter oldest", white}, {"  L/R: ", yellow}, {"Change system", white},
+        {"Select:", yellow}, {" Sort by (", white}, {sort_names[sort_by], yellow}, {")", white}};
+    render_multicolor_text(multi_color_line, X_0, SCREEN_HEIGHT - 35, font_tiny);
+
+    // render_text("A: Select  B: Quit  X: Filter (Un)Completed  Y: Filter oldest  L/R: Change
+    // system "
+    //             "Select: Sort by (" +
+    //                 sort_names[sort_by] + ")",
+    //     X_0, SCREEN_HEIGHT - 35, font_tiny, white);
 
     SDL_RenderPresent(renderer);
 }
 
 void GUI::render_game_detail()
 {
+    std::vector<std::pair<std::string, SDL_Color>> multi_color_line;
+
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderClear(renderer);
     render_image(BACKGROUND, 0, 0, 1280, 720);
@@ -252,8 +299,9 @@ void GUI::render_game_detail()
     render_text(rom.file, X_0 + 50, Y_0 + 560, font_tiny, white);
 
     // Footer keybinds.
-    render_text(
-        "A: Launch  B: Return X: Set (Un)Completed", X_0, SCREEN_HEIGHT - 35, font_tiny, white);
+    multi_color_line = {{"A: ", yellow}, {"Launch", white}, {"  B: ", yellow}, {"Return", white},
+        {"  X: ", yellow}, {"Completed switch", white}};
+    render_multicolor_text(multi_color_line, X_0, SCREEN_HEIGHT - 35, font_tiny);
 
     SDL_RenderPresent(renderer);
 }

@@ -15,8 +15,8 @@
 #define BACKGROUND APP_DIR "assets/Xmix_bg.png"
 #define FONT APP_DIR "assets/Lato-Medium.ttf"
 #define X_0 50
-#define Y_0 75
-#define Y_LINE 50
+#define Y_0 65
+#define Y_LINE 55
 #define LIST_LINES 10
 #define FALLBACK_PICTURE APP_DIR "assets/placeholder.png"
 
@@ -62,6 +62,9 @@ class GUI
         const string& text, int x, int y, TTF_Font* font, SDL_Color color = {255, 255, 255});
     void render_image(const string& image_path, int x, int y, int w, int h);
 
+void render_multicolor_text(
+    const std::vector<std::pair<std::string, SDL_Color>>& colored_texts,
+    int x, int y, TTF_Font* font);
     void render_game_list();
     void render_game_detail();
 
