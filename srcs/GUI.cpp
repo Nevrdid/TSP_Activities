@@ -184,11 +184,18 @@ void GUI::render_game_list()
     render_text("- " + completed_names[filter_completed] + " " + systems[system_index] + " Games -",
         X_0 + 50, Y_0, font_big, yellow);
 
-    size_t first = selected_index < LIST_LINES / 2               ? 0
-                   : selected_index < list_size - LIST_LINES / 2 ? selected_index - LIST_LINES / 2
-                                                                 : list_size - LIST_LINES;
-    size_t last = first + LIST_LINES < filtered_roms_list.size() ? first + LIST_LINES
-                                                                 : filtered_roms_list.size();
+    size_t first;
+    size_t last;
+    if (list_size <= LIST_LINES) {
+        first = 0;
+        last = list_size;
+    } else {
+        first = selected_index < LIST_LINES / 2 ? 0
+               : selected_index < list_size - LIST_LINES / 2 ? selected_index - LIST_LINES / 2
+                                                             : list_size - LIST_LINES;
+        last = first + LIST_LINES < filtered_roms_list.size() ? first + LIST_LINES
+                                                              : filtered_roms_list.size();
+    }
 
     int y = Y_0 + 75;
     for (size_t j = first; j < last; ++j) {

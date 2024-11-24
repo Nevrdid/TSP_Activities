@@ -111,6 +111,8 @@ Rom DB::save(const std::string& file, int time, int completed)
 
     rom.average_time = utils::sec2hhmmss(rom.count ? rom.time / rom.count : 0);
 
+    rom.last = utils::stringifyDate(rom.last);
+
     rom.image = std::regex_replace(rom.file, img_pattern, R"(/Imgs/$1)") + "/" + rom.name + ".png";
     if (!std::filesystem::exists(rom.image)) rom.image = DEFAULT_IMAGE;
 
@@ -145,6 +147,7 @@ Rom DB::load(const std::string& file)
         rom.count = sqlite3_column_int(stmt, 2);
         rom.time = sqlite3_column_int(stmt, 3);
         rom.last = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 4)));
+        rom.last = utils::stringifyDate(rom.last);
         rom.completed = sqlite3_column_int(stmt, 5);
         std::cout << "Entry loaded." << std::endl;
 
@@ -189,6 +192,7 @@ std::vector<Rom> DB::load_all()
         rom.count = sqlite3_column_int(stmt, 2);
         rom.time = sqlite3_column_int(stmt, 3);
         rom.last = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 4)));
+        rom.last = utils::stringifyDate(rom.last);
         rom.completed = sqlite3_column_int(stmt, 5);
 
         rom.total_time = utils::sec2hhmmss(rom.time);

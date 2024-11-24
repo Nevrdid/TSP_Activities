@@ -12,11 +12,12 @@
 class Timer
 {
   private:
-    int           fd;
-    unsigned long elapsed_seconds;
-    unsigned int  tick_counter;
-    volatile bool running;
     static Timer* instance;
+    int           fd;
+
+    volatile bool          running;
+    volatile unsigned long elapsed_seconds;
+    volatile unsigned int  tick_counter;
 
     Timer(const Timer&) = delete;
     Timer& operator=(const Timer&) = delete;
