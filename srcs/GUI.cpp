@@ -254,7 +254,6 @@ void GUI::render_scrollable_text(
 
         scroll_finished = false;
         offset = 0;
-        last_update = SDL_GetTicks();
     }
 
     if (scroll_surface->w <= width) {
@@ -263,7 +262,7 @@ void GUI::render_scrollable_text(
     }
 
     Uint32 current_time = SDL_GetTicks();
-    if (current_time - last_update > 16) { // Adjust delay ( x SDL delay)
+    if (current_time - last_update > (offset > 0 ? 16 : 2000)) { // Adjust delay
         last_update = current_time;
 
         if (offset >= 0) {
@@ -331,9 +330,9 @@ void GUI::render_game_list()
     }
 
     multi_color_line = {{"A: ", yellow}, {"Select", white}, {"  B: ", yellow}, {"Quit", white},
-        {"  X: ", yellow}, {"Filter (Un)Completed", white}, {"  Y: ", yellow},
-        {"Filter oldest", white}, {"  L/R: ", yellow}, {"Change system", white},
-        {"  Select: ", yellow}, {" Sort by (", white}, {sort_names[sort_by], yellow}, {")", white}};
+        {"  L/R: ", yellow}, {"Change system", white}, {"  Select: ", yellow},
+        {"Filter (Un)Completed", white}, {"  Start: ", yellow}, {" Sort by (", white},
+        {sort_names[sort_by], green}, {")", white}};
     render_multicolor_text(multi_color_line, X_0, SCREEN_HEIGHT - 35, font_mini);
 
     SDL_RenderPresent(renderer);
@@ -381,7 +380,7 @@ void GUI::render_game_detail()
 
     // Footer keybinds.
     multi_color_line = {{"A: ", yellow}, {"Launch", white}, {"  B: ", yellow}, {"Return", white},
-        {"  X: ", yellow}, {"Completed switch", white}};
+        {"  Select: ", yellow}, {"Completed switch", white}};
     render_multicolor_text(multi_color_line, X_0, SCREEN_HEIGHT - 35, font_mini);
 
     SDL_RenderPresent(renderer);
@@ -431,12 +430,6 @@ void GUI::handle_inputs()
             case 2: // Y (b2)
                 break;
             case 3: // X (b3)
-                if (in_game_detail) {
-                    switch_completed();
-                } else {
-                    filter_completed = (filter_completed + 1) % 3;
-                    filter();
-                }
                 break;
             case 4: // L1 (b4)
                 if (!systems.empty()) {
@@ -451,6 +444,14 @@ void GUI::handle_inputs()
                 }
                 break;
             case 6: // Back button (b6)
+                if (in_game_detail) {
+                    switch_completed();
+                } else {
+                    filter_completed = (filter_completed + 1) % 3;
+                    filter();
+                }
+                break;
+            case 7: // Start button (b7)
                 if (!in_game_detail) {
                     if (sort_by == e_last) {
                         sort_by = e_name;
@@ -459,8 +460,6 @@ void GUI::handle_inputs()
                     }
                     sort();
                 }
-                break;
-            case 7: // Start button (b7)
                 break;
             case 8: // Guide button (Home) (b8)
                 is_running = false;
