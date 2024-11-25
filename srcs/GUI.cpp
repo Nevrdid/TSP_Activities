@@ -160,29 +160,18 @@ void GUI::render_multicolor_text(
         const std::string& text = text_pair.first;
         SDL_Color          color = text_pair.second;
 
-        SDL_Surface* surface = TTF_RenderText_Solid(font, text.c_str(), color);
-        if (!surface) {
-            std::cerr << "Failed to render text: " << TTF_GetError() << std::endl;
-            TTF_CloseFont(font);
+        CachedText& cached = getCachedText(text, font, color);
+
+        if (!cached.texture) {
+            std::cerr << "Failed to retrieve or cache text texture." << std::endl;
             return;
         }
 
-        SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
-        if (!texture) {
-            std::cerr << "Failed to create texture from surface: " << SDL_GetError() << std::endl;
-            SDL_FreeSurface(surface);
-            TTF_CloseFont(font);
-            return;
-        }
+        SDL_Rect dest_rect = {current_x, y, cached.width, TTF_FontHeight(font)};
 
-        SDL_Rect dest_rect = {current_x, y, surface->w, surface->h};
+        SDL_RenderCopy(renderer, cached.texture, nullptr, &dest_rect);
 
-        SDL_RenderCopy(renderer, texture, nullptr, &dest_rect);
-
-        current_x += surface->w;
-
-        SDL_DestroyTexture(texture);
-        SDL_FreeSurface(surface);
+        current_x += cached.width;
     }
 }
 
@@ -244,7 +233,7 @@ void GUI::render_scrollable_text(
     if (scroll_finished) {
         if (scroll_surface) SDL_FreeSurface(scroll_surface);
         if (scroll_texture) SDL_DestroyTexture(scroll_texture);
-        scroll_surface = TTF_RenderText_Solid(font, text.c_str(), color);
+        scroll_surface = TTF_RenderText_Blended(font, text.c_str(), color);
         if (!scroll_surface) {
             std::cerr << "Failed to render text: " << TTF_GetError() << std::endl;
             TTF_CloseFont(font);
