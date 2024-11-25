@@ -49,6 +49,14 @@ struct CachedText
     int         g = 0;
     int         b = 0;
 };
+
+struct CachedImg
+{
+    SDL_Texture* texture = nullptr;
+    int          width = 0;
+    int          height = 0;
+};
+
 typedef std::vector<std::pair<std::string, SDL_Color>> vecColorString;
 class GUI
 {
@@ -59,10 +67,10 @@ class GUI
     SDL_Joystick* joystick;
 
     // CACHE
-    std::vector<CachedText>                       cached_text;
-    std::unordered_map<std::string, SDL_Texture*> image_cache;
-    SDL_Surface*                                  scroll_surface = nullptr;
-    SDL_Texture*                                  scroll_texture = nullptr;
+    std::vector<CachedText>                    cached_text;
+    std::unordered_map<std::string, CachedImg> image_cache;
+    SDL_Surface*                               scroll_surface = nullptr;
+    SDL_Texture*                               scroll_texture = nullptr;
 
     // FONTS
     TTF_Font* font_big;

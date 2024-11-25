@@ -54,8 +54,8 @@ GUI::~GUI()
 {
     // Clean cache
     for (auto& texture : image_cache) {
-        if (texture.second) {
-            SDL_DestroyTexture(texture.second);
+        if (texture.second.texture) {
+            SDL_DestroyTexture(texture.second.texture);
         }
     }
     image_cache.clear();
@@ -142,13 +142,14 @@ void GUI::render_image(const std::string& image_path, int x, int y, int w, int h
 {
     if (image_cache.find(image_path) == image_cache.end()) {
         SDL_Surface* surface = IMG_Load(image_path.c_str());
-        image_cache[image_path] = SDL_CreateTextureFromSurface(renderer, surface);
+        image_cache[image_path] = {
+            SDL_CreateTextureFromSurface(renderer, surface), surface->w, surface->h};
         SDL_FreeSurface(surface);
     }
-    SDL_Texture* cached_texture = image_cache[image_path];
-
-    SDL_Rect dest_rect = {x, y, w, h};
-    SDL_RenderCopy(renderer, cached_texture, nullptr, &dest_rect);
+    CachedImg& cached_texture = image_cache[image_path];
+    int        width = h * cached_texture.width / cached_texture.height;
+    SDL_Rect   dest_rect = {x + (w - width) / 2, y, width, h};
+    SDL_RenderCopy(renderer, cached_texture.texture, nullptr, &dest_rect);
 }
 
 void GUI::render_multicolor_text(
