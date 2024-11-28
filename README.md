@@ -17,6 +17,12 @@ You can so use it like that for example:
 - Start gui in a game details: `activities gui <rom_file>`
   (If the game is not in the database, it will be added)
 
+## Config
+Edit the activities.cfg for gui design settings.
+- default_background (string) - background image to use if not using theme or if a theme image is missing.
+- theme_background (bool) - use system's background per system instead of default on
+- theme_name (string) - select the theme to get images from
+
 ## Keybinds
 
 ### List window

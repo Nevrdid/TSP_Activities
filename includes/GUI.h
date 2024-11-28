@@ -5,6 +5,7 @@
 #include <SDL.h>
 #include <SDL_image.h>
 #include <SDL_ttf.h>
+#include <fstream>
 #include <set>
 #include <string>
 #include <unordered_map>
@@ -13,17 +14,22 @@
 // Constants for the screen size
 #define SCREEN_WIDTH 1280
 #define SCREEN_HEIGHT 720
-#define BACKGROUND APP_DIR "assets/Xmix_bg.png"
+
+#define CFG_FILE APP_DIR "activities.cfg"
+
+#define LIST_BG APP_DIR "assets/list_bg.png"
+#define DETAILS_BG APP_DIR "assets/details_bg.png"
+
 #define FONT APP_DIR "assets/Lato-Medium.ttf"
 #define FONT_BIG_SIZE 72
 #define FONT_MIDDLE_SIZE 54
 #define FONT_TINY_SIZE 36
 #define FONT_MINI_SIZE 24
-#define LIST_LINES 5
-#define X_0 50
-#define Y_0 55
-#define Y_LINE 540 / LIST_LINES
-#define FALLBACK_PICTURE APP_DIR "assets/placeholder.png"
+
+#define LIST_LINES 6
+#define X_0 10
+#define Y_0 0
+#define Y_LINE 590 / LIST_LINES
 
 enum Sort
 {
@@ -78,6 +84,10 @@ class GUI
     TTF_Font* font_tiny;
     TTF_Font* font_mini;
 
+    std::string theme = "Default";
+    bool theme_background = true;
+    std::string default_background = "black_bg.png";
+
     // Datas
 
     // GUI
@@ -107,8 +117,11 @@ class GUI
 
     void render_game_detail();
     void switch_completed();
+    void launch_external(const std::string& command);
+    void start_game();
+    void load_config_file();
 
-    void        render_image(const string& image_path, int x, int y, int w, int h);
+    void        render_image(const string& image_path, int x, int y, int w = 0, int h = 0, bool no_overflow = false);
     CachedText& getCachedText(const std::string& text, TTF_Font* font, SDL_Color color);
     void        render_text(const string& text, int x, int y, TTF_Font* font,
                SDL_Color color = {255, 255, 255}, int width = 0);

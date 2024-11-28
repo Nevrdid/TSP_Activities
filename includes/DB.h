@@ -6,7 +6,6 @@
 #include <vector>
 
 #define DB_FILE APP_DIR "assets/games.db"
-#define DEFAULT_IMAGE APP_DIR "/assets/placeholder.png"
 
 typedef struct
 {
@@ -19,8 +18,10 @@ typedef struct
 
     std::string total_time;
     std::string average_time;
-    std::string image;
     std::string system;
+    std::string image;
+    std::string video;
+    std::string manual;
 } Rom;
 
 class DB

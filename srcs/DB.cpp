@@ -116,7 +116,15 @@ Rom DB::save(const std::string& file, int time, int completed)
     rom.last = utils::stringifyDate(rom.last);
 
     rom.image = std::regex_replace(rom.file, img_pattern, R"(/Imgs/$1)") + "/" + rom.name + ".png";
-    if (!std::filesystem::exists(rom.image)) rom.image = DEFAULT_IMAGE;
+    if (!std::filesystem::exists(rom.image)) rom.image = "";
+
+    rom.video =
+        std::regex_replace(rom.file, img_pattern, R"(/Videos/$1)") + "/" + rom.name + ".mp4";
+    if (!std::filesystem::exists(rom.video)) rom.video = "";
+
+    rom.manual =
+        std::regex_replace(rom.file, img_pattern, R"(/Manuals/$1)") + "/" + rom.name + ".pdf";
+    if (!std::filesystem::exists(rom.manual)) rom.manual = "";
 
     rom.system = std::regex_replace(rom.file, sys_pattern, R"($1)");
     return rom;
@@ -159,7 +167,15 @@ Rom DB::load(const std::string& file)
 
         rom.image =
             std::regex_replace(rom.file, img_pattern, R"(/Imgs/$1)") + "/" + rom.name + ".png";
-        if (!std::filesystem::exists(rom.image)) rom.image = DEFAULT_IMAGE;
+        if (!std::filesystem::exists(rom.image)) rom.image = "";
+
+        rom.video =
+            std::regex_replace(rom.file, img_pattern, R"(/Videos/$1)") + "/" + rom.name + ".mp4";
+        if (!std::filesystem::exists(rom.video)) rom.video = "";
+
+        rom.manual =
+            std::regex_replace(rom.file, img_pattern, R"(/Manuals/$1)") + "/" + rom.name + ".pdf";
+        if (!std::filesystem::exists(rom.manual)) rom.manual = "";
 
         rom.system = std::regex_replace(rom.file, sys_pattern, R"($1)");
     } else if (result == SQLITE_DONE) {
@@ -204,7 +220,15 @@ std::vector<Rom> DB::load_all()
 
         rom.image =
             std::regex_replace(rom.file, img_pattern, R"(/Imgs/$1)") + "/" + rom.name + ".png";
-        if (!std::filesystem::exists(rom.image)) rom.image = DEFAULT_IMAGE;
+        if (!std::filesystem::exists(rom.image)) rom.image = "";
+
+        rom.video =
+            std::regex_replace(rom.file, img_pattern, R"(/Videos/$1)") + "/" + rom.name + ".mp4";
+        if (!std::filesystem::exists(rom.video)) rom.video = "";
+
+        rom.manual =
+            std::regex_replace(rom.file, img_pattern, R"(/Manuals/$1)") + "/" + rom.name + ".pdf";
+        if (!std::filesystem::exists(rom.manual)) rom.manual = "";
 
         rom.system = std::regex_replace(rom.file, sys_pattern, R"($1)");
 

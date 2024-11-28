@@ -79,6 +79,33 @@ GUI::~GUI()
     SDL_Quit();
 }
 
+void GUI::load_config_file()
+{
+    const std::string& config_file = std::string(APP_DIR) + "activities.cfg";
+    std::ifstream      file(config_file);
+
+    // read it and save theme and theme_background values ( first is a string, second is a bool)
+    if (file.is_open()) {
+        std::string line;
+        while (std::getline(file, line)) {
+            std::istringstream is_line(line);
+            std::string        key;
+            if (std::getline(is_line, key, '=')) {
+                std::string value;
+                if (std::getline(is_line, value)) {
+                    if (key == "theme_name") {
+                        theme = value;
+                    } else if (key == "theme_background") {
+                        theme_background = value == "true";
+                    } else if (key == "default_background") {
+                        default_background = value;
+                    }
+                }
+            }
+        }
+    }
+}
+
 void GUI::switch_completed()
 {
     Rom& rom = filtered_roms_list[selected_index];
@@ -138,8 +165,25 @@ void GUI::sort()
     scroll_finished = true;
 }
 
-void GUI::render_image(const std::string& image_path, int x, int y, int w, int h)
+void GUI::launch_external(const std::string& command)
 {
+    SDL_EventState(SDL_JOYBUTTONDOWN, SDL_DISABLE);
+    SDL_EventState(SDL_JOYBUTTONUP, SDL_DISABLE);
+
+    std::cout << "ActivitiesApp: Launching " << command << std::endl;
+
+    system(command.c_str());
+
+    SDL_EventState(SDL_JOYBUTTONDOWN, SDL_ENABLE);
+    SDL_EventState(SDL_JOYBUTTONUP, SDL_ENABLE);
+    while (SDL_WaitEvent(NULL) < 0) {
+    }
+    SDL_FlushEvents(SDL_JOYBUTTONDOWN, SDL_JOYBUTTONUP);
+}
+
+void GUI::render_image(const std::string& image_path, int x, int y, int w, int h, bool no_overflow)
+{
+    if (image_path.empty()) return;
     if (image_cache.find(image_path) == image_cache.end()) {
         SDL_Surface* surface = IMG_Load(image_path.c_str());
         image_cache[image_path] = {
@@ -147,8 +191,29 @@ void GUI::render_image(const std::string& image_path, int x, int y, int w, int h
         SDL_FreeSurface(surface);
     }
     CachedImg& cached_texture = image_cache[image_path];
-    int        width = h * cached_texture.width / cached_texture.height;
-    SDL_Rect   dest_rect = {x + (w - width) / 2, y, width, h};
+
+    int width = w;
+    int height = h;
+    if (h == 0 && w) {
+        height = w * cached_texture.height / cached_texture.width;
+        if (no_overflow && height > width) {
+            height = width;
+            width = height * cached_texture.width / cached_texture.height;
+        }
+    } else if (w == 0 && h) {
+        width = h * cached_texture.width / cached_texture.height;
+        if (no_overflow && width > height) {
+            width = height;
+            height = width * cached_texture.height / cached_texture.width;
+        }
+    } else if (w == 0 && h == 0) {
+        width = cached_texture.width;
+        height = cached_texture.height;
+    }
+
+    int      x0 = x - width / 2;
+    int      y0 = y - height / 2;
+    SDL_Rect dest_rect = {x0, y0, width, height};
     SDL_RenderCopy(renderer, cached_texture.texture, nullptr, &dest_rect);
 }
 
@@ -279,10 +344,25 @@ void GUI::render_game_list()
 {
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderClear(renderer);
-    render_image(BACKGROUND, 0, 0, 1280, 720);
 
-    render_text("- " + completed_names[filter_completed] + " " + systems[system_index] + " Games -",
-        X_0 + 50, Y_0, font_big, yellow);
+    std::string background = std::string(APP_DIR) + "assets/" + default_background;
+    if (theme_background) {
+        std::string system_bg =
+            "/mnt/SDCARD/Backgrounds/" + theme + "/" + systems[system_index] + ".png";
+        if (std::filesystem::exists(system_bg)) {
+            render_image(
+                system_bg, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, SCREEN_WIDTH, SCREEN_HEIGHT);
+        } else {
+            render_image(
+                background, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, SCREEN_WIDTH, SCREEN_HEIGHT);
+        }
+    } else {
+        render_image(background, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, SCREEN_WIDTH, SCREEN_HEIGHT);
+    }
+    render_image(LIST_BG, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, SCREEN_WIDTH, SCREEN_HEIGHT);
+
+    render_text(completed_names[filter_completed] + " " + systems[system_index] + " Games",
+        X_0 + 75, Y_0, font_big, yellow);
 
     size_t first;
     size_t last;
@@ -298,26 +378,25 @@ void GUI::render_game_list()
     }
 
     std::vector<std::pair<std::string, SDL_Color>> multi_color_line;
-    int                                            y = Y_0 + 85;
+    int                                            y = Y_0 + 75;
     for (size_t j = first; j < last; ++j) {
-        SDL_Color color = (j == selected_index) ? green : white;
-        render_image(filtered_roms_list[j].image, X_0, y, 100, 100);
+        const Rom& rom = filtered_roms_list[j];
+        SDL_Color  color = (j == selected_index) ? green : white;
         if (j == selected_index) {
-            render_scrollable_text(
-                filtered_roms_list[j].name, X_0 + 110, y, 1000, font_middle, color);
+            render_scrollable_text(rom.name, X_0, y, 840, font_middle, color);
         } else {
-            render_text(filtered_roms_list[j].name, X_0 + 110, y, font_middle, color, 1000);
+            render_text(rom.name, X_0, y, font_middle, color, 840);
         }
 
         y += Y_LINE / 2;
 
-        multi_color_line = {{"Time: ", yellow}, {filtered_roms_list[j].total_time, color},
-            {"  Count: ", yellow}, {std::to_string(filtered_roms_list[j].count), color},
-            {"  Last: ", yellow}, {filtered_roms_list[j].last, color}};
-        render_multicolor_text(multi_color_line, X_0 + 150, y, font_tiny);
+        multi_color_line = {{"Time: ", yellow}, {rom.total_time, color}, {"  Count: ", yellow},
+            {std::to_string(rom.count), color}, {"  Last: ", yellow}, {rom.last, color}};
+        render_multicolor_text(multi_color_line, X_0, y, font_tiny);
 
         y += Y_LINE / 2;
     }
+    render_image(filtered_roms_list[selected_index].image, X_0 + 1058, 370, 390, 0);
 
     multi_color_line = {{"A: ", yellow}, {"Select", white}, {"  B: ", yellow}, {"Quit", white},
         {"  L/R: ", yellow}, {"Change system", white}, {"  Select: ", yellow},
@@ -334,44 +413,79 @@ void GUI::render_game_detail()
 
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderClear(renderer);
-    render_image(BACKGROUND, 0, 0, 1280, 720);
+
+    std::string background = std::string(APP_DIR) + "assets/" + default_background;
+    if (theme_background) {
+        std::string system_bg =
+            "/mnt/SDCARD/Backgrounds/" + theme + "/" + systems[system_index] + ".png";
+        if (std::filesystem::exists(system_bg)) {
+            render_image(
+                system_bg, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, SCREEN_WIDTH, SCREEN_HEIGHT);
+        } else {
+            render_image(
+                background, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, SCREEN_WIDTH, SCREEN_HEIGHT);
+        }
+    } else {
+        render_image(background, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, SCREEN_WIDTH, SCREEN_HEIGHT);
+    }
+    render_image(DETAILS_BG, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, SCREEN_WIDTH, SCREEN_HEIGHT);
 
     const Rom& rom = filtered_roms_list[selected_index];
 
+    int y = Y_0 + 50;
+    int x0 = X_0 + 25;
+    int x1 = x0 + 600;
+    int x2 = x1 + 230;
+
     // Game name
-    render_scrollable_text(rom.name, X_0, Y_0, 1200, font_big, yellow);
+    render_scrollable_text(rom.name, 80, 0, 1120, font_middle, yellow);
 
     // Left side: Rom image
-    render_image(rom.image, X_0, Y_0 + 75, 500, 500);
+    render_image(rom.image, 300, 350, 0, 550, true);
 
     // Right side: Game details
-    render_text("Total Time:", X_0 + 520, Y_0 + 100, font_tiny, green);
-    render_text(rom.total_time, X_0 + 750, Y_0 + 100, font_tiny, white);
+    render_text("Total Time:", x1, y + 100, font_tiny, green);
+    render_text(rom.total_time, x2, y + 100, font_tiny, white);
 
-    render_text("Average Time:", X_0 + 520, Y_0 + 150, font_tiny, green);
-    render_text(rom.average_time, X_0 + 750, Y_0 + 150, font_tiny, white);
+    render_text("Average Time:", x1, y + 150, font_tiny, green);
+    render_text(rom.average_time, x2, y + 150, font_tiny, white);
 
-    render_text("Play count:", X_0 + 520, Y_0 + 200, font_tiny, green);
-    render_text(std::to_string(rom.count), X_0 + 750, Y_0 + 200, font_tiny, white);
+    render_text("Play count:", x1, y + 200, font_tiny, green);
+    render_text(std::to_string(rom.count), x2, y + 200, font_tiny, white);
 
-    render_text("Last played:", X_0 + 520, Y_0 + 250, font_tiny, green);
-    render_text(rom.last, X_0 + 750, Y_0 + 250, font_tiny, white);
+    render_text("Last played:", x1, y + 250, font_tiny, green);
+    render_text(rom.last, x2, y + 250, font_tiny, white);
 
-    render_text("System:", X_0 + 520, Y_0 + 300, font_tiny, green);
-    render_text(rom.system, X_0 + 750, Y_0 + 300, font_tiny, white);
+    render_text("System:", x1, y + 300, font_tiny, green);
+    render_text(rom.system, x2, y + 300, font_tiny, white);
 
-    render_text("Completed:", X_0 + 520, Y_0 + 350, font_tiny, green);
-    render_text(rom.completed ? "Yes" : "No", X_0 + 750, Y_0 + 350, font_tiny, white);
+    render_text("Completed:", x1, y + 350, font_tiny, green);
+    render_text(rom.completed ? "Yes" : "No", x2, y + 350, font_tiny, white);
 
     // Bottom file path.
 
-    render_text("File:", X_0, Y_0 + 580, font_mini, green);
-    render_text(rom.file, X_0 + 50, Y_0 + 580, font_mini, white);
+    render_text("File:", x0, y + 595, font_mini, green);
+    render_text(rom.file, x0 + 50, y + 595, font_mini, white);
 
     // Footer keybinds.
-    multi_color_line = {{"A: ", yellow}, {"Launch", white}, {"  B: ", yellow}, {"Return", white},
-        {"  Select: ", yellow}, {"Completed switch", white}};
-    render_multicolor_text(multi_color_line, X_0, SCREEN_HEIGHT - 35, font_mini);
+    multi_color_line = {{"A: ", yellow}, {"Launch", white}, {"  B: ", yellow}, {"Return", white}};
+
+    if (!rom.video.empty()) {
+        multi_color_line.push_back({"  Y: ", yellow});
+        multi_color_line.push_back({"Video", white});
+    }
+
+    if (!rom.manual.empty()) {
+        multi_color_line.push_back({"  X: ", yellow});
+        multi_color_line.push_back({"Manual", white});
+    }
+
+    multi_color_line.push_back({"  Start: ", yellow});
+    multi_color_line.push_back({"Sort by (", white});
+    multi_color_line.push_back({sort_names[sort_by], green});
+    multi_color_line.push_back({")", white});
+
+    render_multicolor_text(multi_color_line, x0, SCREEN_HEIGHT - 35, font_mini);
 
     SDL_RenderPresent(renderer);
 }
@@ -380,6 +494,7 @@ void GUI::handle_inputs()
 {
     size_t    prev_selected_index = selected_index;
     SDL_Event e;
+    Rom&      rom = filtered_roms_list[selected_index];
     while (SDL_PollEvent(&e)) {
         if (e.type == SDL_QUIT) {
             is_running = false;
@@ -406,7 +521,7 @@ void GUI::handle_inputs()
         } else if (e.type == SDL_JOYBUTTONDOWN) {
             switch (e.jbutton.button) {
             case 0: // B (b0)
-                if (in_game_detail) {
+                if (in_game_detail && roms_list.size() > 1) {
                     in_game_detail = false;
                     filter();
                 } else {
@@ -414,12 +529,23 @@ void GUI::handle_inputs()
                 }
                 break;
             case 1: // A (b1)
-                in_game_detail = true;
-                scroll_finished = true;
+                if (in_game_detail) {
+                    launch_external(
+                        "/mnt/SDCARD/Emus/" + rom.system + "/default.sh \"" + rom.file + "\"");
+                } else {
+                    in_game_detail = true;
+                    scroll_finished = true;
+                }
                 break;
             case 2: // Y (b2)
+                if (in_game_detail && !rom.video.empty()) {
+                    launch_external(std::string(VIDEO_PLAYER) + " \"" + rom.video + "\"");
+                }
                 break;
             case 3: // X (b3)
+                if (in_game_detail && !rom.manual.empty()) {
+                    launch_external(std::string(MANUAL_READER) + " \"" + rom.manual + "\"");
+                }
                 break;
             case 4: // L1 (b4)
                 if (!systems.empty()) {
@@ -452,7 +578,6 @@ void GUI::handle_inputs()
                 }
                 break;
             case 8: // Guide button (Home) (b8)
-                is_running = false;
                 break;
             case 9: // Left Stick Button (L3) (b9)
                 break;
@@ -489,6 +614,16 @@ void GUI::handle_inputs()
                     sort();
                 }
                 break;
+            case SDLK_v:
+                if (in_game_detail && !rom.video.empty()) {
+                    launch_external(std::string(VIDEO_PLAYER) + " \"" + rom.video + "\"");
+                }
+                break;
+            case SDLK_m:
+                if (in_game_detail && !rom.manual.empty()) {
+                    launch_external(std::string(MANUAL_READER) + " \"" + rom.manual + "\"");
+                }
+                break;
             case SDLK_c:
                 if (in_game_detail) {
                     switch_completed();
@@ -510,11 +645,16 @@ void GUI::handle_inputs()
                 }
                 break;
             case SDLK_RETURN:
-                in_game_detail = true;
-                scroll_finished = true;
+                if (in_game_detail) {
+                    launch_external(
+                        "/mnt/SDCARD/Emus/" + rom.system + "/default.sh \"" + rom.file + "\"");
+                } else {
+                    in_game_detail = true;
+                    scroll_finished = true;
+                }
                 break;
             case SDLK_ESCAPE:
-                if (in_game_detail) {
+                if (in_game_detail && roms_list.size() > 1) {
                     in_game_detail = false;
                     filter();
                 } else {
@@ -532,6 +672,7 @@ void GUI::handle_inputs()
 
 void GUI::run(const std::string& rom_name)
 {
+    load_config_file();
     std::cout << "ActivitiesApp: Starting GUI." << std::endl;
     DB db;
     if (rom_name == "") {

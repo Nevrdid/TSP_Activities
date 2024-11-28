@@ -7,10 +7,10 @@ CXX=g++
 
 
 ifeq ($(TEST), 1)
-	DEF='-DAPP_DIR="./"' '-DUSE_KEYBOARD'
+	DEF='-DAPP_DIR="./"' '-DVIDEO_PLAYER="/usr/bin/ffplay "' '-DMANUAL_READER="/usr/bin/okular "' '-DUSE_KEYBOARD'
 	CXXFLAGS=-Wall -Wextra -std=c++17 `sdl2-config --cflags` -g $(DEF)
 else
-	DEF='-DAPP_DIR="/mnt/SDCARD/Apps/Activities/"'
+	DEF='-DAPP_DIR="/mnt/SDCARD/Apps/Activities/"' '-DVIDEO_PLAYER="/mnt/SDCARD/Emus/VIDEOS/mpv.sh"' '-DMANUAL_READER="/mnt/SDCARD/Apps/PDFPlayer/launch.sh"'
 	CXXFLAGS=-Wall -Wextra -flto -O3 -std=c++17 `sdl2-config --cflags` $(DEF)
 endif
 
