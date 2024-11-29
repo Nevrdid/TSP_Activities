@@ -39,6 +39,8 @@ Edit the activities.cfg for gui design settings.
 
 ### Details window
 
-- A: Launch game (Upcomming)
+- A: Launch game
 - B: Return to list
+- Y: Start game's video (/mnt/SDCARD/Videos/[System]/[gamename].mp4
+- X: Start game's manual (upcomming)
 - Select: Set game as completed

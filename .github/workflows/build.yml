@@ -1,0 +1,79 @@
+name: Build, Package Activities App for TrimUI Smart Pro
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  build:
+    name: Build and Package
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up QEMU for ARM64
+        uses: docker/setup-qemu-action@v2
+        with:
+          platforms: arm64
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+        with:
+          driver-opts: image=moby/buildkit:latest
+
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Build in ARM64 Container
+        run: |
+          docker buildx build \
+            --platform linux/arm64 \
+            --build-arg DEBIAN_FRONTEND=noninteractive \
+            --load \
+            -t activities-builder \
+            -f- . <<EOF
+          FROM arm64v8/debian:bullseye
+
+          RUN apt-get update && apt-get install -y --no-install-recommends --no-install-suggests \
+              build-essential \
+              libsdl2-dev \
+              libsdl2-ttf-dev \
+              libsdl2-image-dev \
+              libsqlite3-dev
+
+          WORKDIR /app
+          COPY . /app
+          RUN mkdir build && make
+          EOF
+
+      - name: Extract Build Output
+        run: |
+          docker create --name extract activities-builder
+          docker cp extract:/app/activities ./activities
+          docker rm extract
+
+      - name: Verify Build Output
+        run: |
+          if [ ! -f "./activities" ]; then
+            echo "Build failed: 'activities' binary not found."
+            exit 1
+          fi
+
+      - name: Organize Artifacts
+        run: |
+          mkdir -p package/System/bin
+          mkdir -p package/Apps/Activities
+          mv activities package/System/bin/
+          cp -r assets package/Apps/Activities/
+          cp activities.cfg package/Apps/Activities/
+          cp icon.png package/Apps/Activities/
+          cp launch.sh package/Apps/Activities/
+          cp config.json package/Apps/Activities/
+
+      - name: Create Archive
+        run: |
+          tar -czvf Activities_TSP.tar.gz -C package .
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: Activities_TSP.tar.gz
