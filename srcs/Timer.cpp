@@ -1,10 +1,7 @@
 #include "Timer.h"
 
 Timer::Timer(const std::string& pid)
-    : fd(-1)
-    , elapsed_seconds(0)
-    , tick_counter(0)
-    , running(true)
+    : running(true)
 {
     std::string stat_path = "/proc/" + pid + "/stat";
     fd = open(stat_path.c_str(), O_RDONLY);
@@ -21,14 +18,16 @@ Timer::Timer(const std::string& pid)
 
 Timer::~Timer()
 {
-    if (fd != -1) close(fd);
+    if (fd != -1)
+        close(fd);
     instance = nullptr;
 }
 
 void Timer::timer_handler(int signum)
 {
     (void) signum;
-    if (!instance || !instance->running) return;
+    if (!instance || !instance->running)
+        return;
 
     if (lseek(instance->fd, 0, SEEK_SET) == -1) {
         instance->running = false;
@@ -44,10 +43,12 @@ void Timer::timer_handler(int signum)
 
     int space_count = 0;
     for (ssize_t i = 0; i < bytes_read; i++) {
-        if (buffer[i] == ' ') space_count++;
+        if (buffer[i] == ' ')
+            space_count++;
         if (space_count == 2 && ++i < bytes_read) {
             char state = buffer[i];
-            if (state == 'Z') instance->running = false;
+            if (state == 'Z')
+                instance->running = false;
             break;
         }
     }

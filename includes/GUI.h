@@ -6,10 +6,11 @@
 #include <SDL_image.h>
 #include <SDL_ttf.h>
 #include <fstream>
+#include <map>
 #include <set>
 #include <string>
+#include <unistd.h>
 #include <unordered_map>
-#include <map>
 #include <vector>
 
 // Constants for the screen size
@@ -77,6 +78,7 @@ struct CachedText
 {
     SDL_Texture* texture = nullptr;
     int          width = 0;
+    int          height = 0;
 
     std::string text = "";
     int         r = 0;
@@ -103,8 +105,6 @@ class GUI
     // CACHE
     std::vector<CachedText>                    cached_text;
     std::unordered_map<std::string, CachedImg> image_cache;
-    SDL_Surface*                               scroll_surface = nullptr;
-    SDL_Texture*                               scroll_texture = nullptr;
 
     CachedText& getCachedText(const std::string& text, TTF_Font* font, SDL_Color color);
 
@@ -148,6 +148,8 @@ class GUI
 
     void render_game_detail();
 
+    void render_nodata();
+
     void switch_completed();
     void launch_external(const std::string& command);
 
@@ -156,17 +158,17 @@ class GUI
         const string& image_path, int x, int y, int w = 0, int h = 0, bool no_overflow = false);
 
     void render_text(const string& text, int x, int y, TTF_Font* font,
-        SDL_Color color = {255, 255, 255}, int width = 0);
+        SDL_Color color = {255, 255, 255, 255}, int width = 0);
 
     void render_multicolor_text(const vecColorString& colored_texts, int x, int y, TTF_Font* font);
 
-    size_t scroll_finished = true;
+    size_t scroll_reset = true;
     void   render_scrollable_text(
           const std::string& text, int x, int y, int width, TTF_Font* font, SDL_Color color);
 
   public:
     GUI();
     ~GUI();
-    void init(const std::string& rom_name = "");
+    int  init(const std::string& rom_name = "");
     void run();
 };

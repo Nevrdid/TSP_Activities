@@ -27,7 +27,7 @@ AlignAfterOpenBracket: DontAlign    # Avoid too much alignment for readability, 
 AlignConsecutiveDeclarations:  Consecutive
 ColumnLimit: 100                    # Keep line length reasonable
 AllowShortFunctionsOnASingleLine: InlineOnly
-AllowShortIfStatementsOnASingleLine: AllIfsAndElse
+AllowShortIfStatementsOnASingleLine: Never
 
 # Pointer and Reference alignment
 PointerAlignment: Left              # Align * and & to the left to follow the type, aiding readability

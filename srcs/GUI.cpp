@@ -10,11 +10,11 @@ GUI::GUI()
     }
 
     joystick = SDL_JoystickOpen(0);
-    if (joystick == NULL) {
+    if (joystick == NULL)
         std::cerr << "Couldn't open joystick 0: " << SDL_GetError() << std::endl;
-    } else {
+    else
         std::cout << "Joystick 0 opened successfully." << std::endl;
-    }
+
     SDL_JoystickEventState(SDL_ENABLE);
 
     window = SDL_CreateWindow("Game Timer", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
@@ -53,22 +53,15 @@ GUI::GUI()
 GUI::~GUI()
 {
     // Clean cache
-    for (auto& texture : image_cache) {
-        if (texture.second.texture) {
+    for (auto& texture : image_cache)
+        if (texture.second.texture)
             SDL_DestroyTexture(texture.second.texture);
-        }
-    }
     image_cache.clear();
 
-    for (auto& entry : cached_text) {
-        if (entry.texture) {
+    for (auto& entry : cached_text)
+        if (entry.texture)
             SDL_DestroyTexture(entry.texture);
-        }
-    }
     cached_text.clear();
-
-    if (scroll_surface) SDL_FreeSurface(scroll_surface);
-    if (scroll_texture) SDL_DestroyTexture(scroll_texture);
 
     TTF_CloseFont(font_tiny);
     TTF_CloseFont(font_middle);
@@ -92,17 +85,16 @@ void GUI::load_config_file()
             if (std::getline(is_line, key, '=')) {
                 std::string value;
                 if (std::getline(is_line, value)) {
-                    if (key == "theme_name") {
+                    if (key == "theme_name")
                         theme = value;
-                    } else if (key == "theme_background") {
+                    else if (key == "theme_background")
                         theme_background = value == "true";
-                    } else if (key == "default_background") {
+                    else if (key == "default_background")
                         default_background = value;
-                    } else if (key == "primary_color") {
+                    else if (key == "primary_color")
                         primary_color = colors.at(value);
-                    } else if (key == "secondary_color") {
+                    else if (key == "secondary_color")
                         secondary_color = colors.at(value);
-                    }
                 }
             }
         }
@@ -128,21 +120,19 @@ void GUI::filter()
     filtered_roms_list.clear();
     for (const auto& rom : roms_list) {
         if (rom.system == current_system || system_index == 0) {
-            if (filter_completed == 0) {
+            if (filter_completed == 0)
                 filtered_roms_list.push_back(rom);
-            } else if (filter_completed == 1 && rom.completed == 1) {
+            else if (filter_completed == 1 && rom.completed == 1)
                 filtered_roms_list.push_back(rom);
-            } else if (filter_completed == 2 && rom.completed == 0) {
+            else if (filter_completed == 2 && rom.completed == 0)
                 filtered_roms_list.push_back(rom);
-            }
         }
     }
     list_size = filtered_roms_list.size();
     sort();
 
-    if (selected_index >= filtered_roms_list.size()) {
+    if (selected_index >= filtered_roms_list.size())
         selected_index = filtered_roms_list.empty() ? 0 : filtered_roms_list.size() - 1;
-    }
 }
 
 void GUI::sort()
@@ -165,7 +155,7 @@ void GUI::sort()
             [](const Rom& a, const Rom& b) { return a.last > b.last; });
         break;
     }
-    scroll_finished = true;
+    scroll_reset = true;
 }
 
 void GUI::launch_external(const std::string& command)
@@ -186,7 +176,8 @@ void GUI::launch_external(const std::string& command)
 
 void GUI::render_image(const std::string& image_path, int x, int y, int w, int h, bool no_overflow)
 {
-    if (image_path.empty()) return;
+    if (image_path.empty())
+        return;
     if (image_cache.find(image_path) == image_cache.end()) {
         SDL_Surface* surface = IMG_Load(image_path.c_str());
         image_cache[image_path] = {
@@ -248,9 +239,8 @@ CachedText& GUI::getCachedText(const std::string& text, TTF_Font* font, SDL_Colo
 {
     for (auto& cached : cached_text) {
         if (cached.text == text && cached.r == color.r && cached.g == color.g &&
-            cached.b == color.b) {
+            cached.b == color.b)
             return cached;
-        }
     }
 
     SDL_Surface* surface = TTF_RenderText_Blended(font, text.c_str(), color);
@@ -265,7 +255,7 @@ CachedText& GUI::getCachedText(const std::string& text, TTF_Font* font, SDL_Colo
         std::cerr << "Failed to create texture: " << SDL_GetError() << std::endl;
     }
 
-    CachedText cached = {texture, surface->w, text, color.r, color.g, color.b};
+    CachedText cached = {texture, surface->w, surface->h, text, color.r, color.g, color.b};
     cached_text.push_back(cached);
 
     SDL_FreeSurface(surface);
@@ -295,51 +285,35 @@ void GUI::render_text(
 void GUI::render_scrollable_text(
     const std::string& text, int x, int y, int width, TTF_Font* font, SDL_Color color)
 {
-
     static int    offset = 0;
     static Uint32 last_update = 0;
+    CachedText&   cached_texture = getCachedText(text, font, color);
 
-    if (scroll_finished) {
-        if (scroll_surface) SDL_FreeSurface(scroll_surface);
-        if (scroll_texture) SDL_DestroyTexture(scroll_texture);
-        scroll_surface = TTF_RenderText_Blended(font, text.c_str(), color);
-        if (!scroll_surface) {
-            std::cerr << "Failed to render text: " << TTF_GetError() << std::endl;
-            TTF_CloseFont(font);
-            return;
-        }
-        scroll_texture = SDL_CreateTextureFromSurface(renderer, scroll_surface);
-
+    if (scroll_reset) {
         last_update = SDL_GetTicks();
-        scroll_finished = false;
+        scroll_reset = false;
         offset = 0;
     }
 
-    if (scroll_surface->w <= width) {
+    if (cached_texture.width <= width) {
         render_text(text, x, y, font, color, width);
         return;
     }
 
     Uint32 current_time = SDL_GetTicks();
-    if (current_time - last_update > (offset > 0 ? 16 : 2000)) { // Adjust delay
+    if (current_time - last_update > (offset > 0 ? 16 : 2000)) { // Adjust delays
         last_update = current_time;
-
-        if (offset >= 0) {
-            offset += 3; // Scrolling speed
-
-            if (offset > scroll_surface->w - width) {
-                if (!scroll_finished) {
-                    scroll_finished = true;
-                }
-            }
-        }
+        offset += 3; // Scrolling speed
+        if (offset > cached_texture.width - width)
+            scroll_reset = true;
     }
 
     SDL_Rect clip_rect = {offset, 0, width, TTF_FontHeight(font)};
     SDL_Rect render_rect = {x, y, width, TTF_FontHeight(font)};
 
-    SDL_RenderCopy(renderer, scroll_texture, &clip_rect, &render_rect);
+    SDL_RenderCopy(renderer, cached_texture.texture, &clip_rect, &render_rect);
 }
+
 static SDL_Color white = {255, 255, 255, 255};
 
 void GUI::render_background(const std::string& overlay)
@@ -384,11 +358,10 @@ void GUI::render_game_list()
         const Rom& rom = filtered_roms_list[j];
         SDL_Color  color = (j == selected_index) ? primary_color : white;
 
-        if (j == selected_index) {
+        if (j == selected_index)
             render_scrollable_text(rom.name, X_0, y, 840, font_middle, color);
-        } else {
+        else
             render_text(rom.name, X_0, y, font_middle, color, 840);
-        }
 
         y += Y_LINE / 2 + 10;
         render_multicolor_text(
@@ -465,25 +438,40 @@ void GUI::render_game_detail()
     SDL_RenderPresent(renderer);
 }
 
+void GUI::render_nodata()
+{
+
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+    SDL_RenderClear(renderer);
+
+    render_text("No datas available", 50, SCREEN_HEIGHT / 2, font_big, white);
+
+    SDL_RenderPresent(renderer);
+}
+
 void GUI::handle_inputs()
 {
     size_t    prev_selected_index = selected_index;
     SDL_Event e;
     Rom&      rom = filtered_roms_list[selected_index];
     while (SDL_PollEvent(&e)) {
-        if (e.type == SDL_QUIT) {
+        switch (e.type) {
+        case SDL_QUIT:
             is_running = false;
-        } else if (e.type == SDL_JOYHATMOTION) {
+            break;
+        case SDL_JOYHATMOTION:
             switch (e.jhat.value) {
             case SDL_HAT_UP: // D-Pad Up
-                if (!in_game_detail && selected_index > 0) selected_index--;
+                if (!in_game_detail && selected_index > 0)
+                    selected_index--;
                 break;
             case SDL_HAT_DOWN: // D-Pad Down
                 if (!in_game_detail && selected_index < filtered_roms_list.size() - 1)
                     selected_index++;
                 break;
             case SDL_HAT_LEFT: // D-Pad Left
-                if (!in_game_detail) selected_index = selected_index > 9 ? selected_index - 10 : 0;
+                if (!in_game_detail)
+                    selected_index = selected_index > 9 ? selected_index - 10 : 0;
                 break;
             case SDL_HAT_RIGHT: // D-Pad Right
                 if (!in_game_detail)
@@ -492,8 +480,10 @@ void GUI::handle_inputs()
                                          : list_size - 1;
                 break;
             }
-            if (!in_game_detail) scroll_finished = true;
-        } else if (e.type == SDL_JOYBUTTONDOWN) {
+            if (!in_game_detail)
+                scroll_reset = true;
+            break;
+        case SDL_JOYBUTTONDOWN:
             switch (e.jbutton.button) {
             case 0: // B (b0)
                 if (in_game_detail && !no_list) {
@@ -509,7 +499,7 @@ void GUI::handle_inputs()
                         "/mnt/SDCARD/Emus/" + rom.system + "/default.sh \"" + rom.file + "\"");
                 } else {
                     in_game_detail = true;
-                    scroll_finished = true;
+                    scroll_reset = true;
                 }
                 break;
             case 2: // Y (b2)
@@ -559,19 +549,21 @@ void GUI::handle_inputs()
             case 10: // Right Stick Button (R3) (b10)
                 break;
             }
-        }
+            break;
 #if defined(USE_KEYBOARD)
-        else if (e.type == SDL_KEYDOWN) {
+        case SDL_KEYDOWN:
             switch (e.key.keysym.sym) {
             case SDLK_UP:
-                if (!in_game_detail && selected_index > 0) selected_index--;
+                if (!in_game_detail && selected_index > 0)
+                    selected_index--;
                 break;
             case SDLK_DOWN:
                 if (!in_game_detail && selected_index < filtered_roms_list.size() - 1)
                     selected_index++;
                 break;
             case SDLK_LEFT:
-                if (!in_game_detail) selected_index = selected_index > 10 ? selected_index - 10 : 0;
+                if (!in_game_detail)
+                    selected_index = selected_index > 10 ? selected_index - 10 : 0;
                 break;
             case SDLK_RIGHT:
                 if (!in_game_detail)
@@ -625,7 +617,7 @@ void GUI::handle_inputs()
                         "/mnt/SDCARD/Emus/" + rom.system + "/default.sh \"" + rom.file + "\"");
                 } else {
                     in_game_detail = true;
-                    scroll_finished = true;
+                    scroll_reset = true;
                 }
                 break;
             case SDLK_ESCAPE:
@@ -637,15 +629,16 @@ void GUI::handle_inputs()
                 }
                 break;
             }
-        }
+            break;
 #endif
+        }
     }
     if (prev_selected_index != selected_index) {
-        scroll_finished = true;
+        scroll_reset = true;
     }
 }
 
-void GUI::init(const std::string& rom_name)
+int GUI::init(const std::string& rom_name)
 {
     load_config_file();
     std::cout << "ActivitiesApp: Initializing GUI" << std::endl;
@@ -653,8 +646,9 @@ void GUI::init(const std::string& rom_name)
     if (rom_name == "") {
         roms_list = db.load_all();
         if (roms_list.empty()) {
-            std::cerr << "ActivitiesApp: The database is empty. Leaving..." << std::endl;
-            return;
+            render_nodata();
+            sleep(5);
+            return -1;
         }
 
         std::set<std::string> unique_systems;
@@ -671,6 +665,7 @@ void GUI::init(const std::string& rom_name)
         roms_list.push_back(db.load(rom_name));
         filtered_roms_list = roms_list;
     }
+    return 0;
 }
 
 void GUI::run()
