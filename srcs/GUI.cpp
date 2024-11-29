@@ -84,7 +84,6 @@ void GUI::load_config_file()
     const std::string& config_file = std::string(APP_DIR) + "activities.cfg";
     std::ifstream      file(config_file);
 
-    // read it and save theme and theme_background values ( first is a string, second is a bool)
     if (file.is_open()) {
         std::string line;
         while (std::getline(file, line)) {
@@ -99,6 +98,10 @@ void GUI::load_config_file()
                         theme_background = value == "true";
                     } else if (key == "default_background") {
                         default_background = value;
+                    } else if (key == "primary_color") {
+                        primary_color = colors.at(value);
+                    } else if (key == "secondary_color") {
+                        secondary_color = colors.at(value);
                     }
                 }
             }
@@ -307,6 +310,7 @@ void GUI::render_scrollable_text(
         }
         scroll_texture = SDL_CreateTextureFromSurface(renderer, scroll_surface);
 
+        last_update = SDL_GetTicks();
         scroll_finished = false;
         offset = 0;
     }
@@ -337,153 +341,124 @@ void GUI::render_scrollable_text(
     SDL_RenderCopy(renderer, scroll_texture, &clip_rect, &render_rect);
 }
 static SDL_Color white = {255, 255, 255, 255};
-static SDL_Color yellow = {255, 238, 180, 255};
-static SDL_Color green = {175, 248, 200, 255};
 
-void GUI::render_game_list()
+void GUI::render_background(const std::string& overlay)
 {
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderClear(renderer);
 
-    std::string background = std::string(APP_DIR) + "assets/" + default_background;
-    if (theme_background) {
-        std::string system_bg =
-            "/mnt/SDCARD/Backgrounds/" + theme + "/" + systems[system_index] + ".png";
-        if (std::filesystem::exists(system_bg)) {
-            render_image(
-                system_bg, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, SCREEN_WIDTH, SCREEN_HEIGHT);
-        } else {
-            render_image(
-                background, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, SCREEN_WIDTH, SCREEN_HEIGHT);
-        }
-    } else {
-        render_image(background, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, SCREEN_WIDTH, SCREEN_HEIGHT);
-    }
-    render_image(LIST_BG, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, SCREEN_WIDTH, SCREEN_HEIGHT);
+    std::string theme_bg_path =
+        "/mnt/SDCARD/Backgrounds/" + theme + "/" + systems[system_index] + ".png";
+    std::string default_bg_path = std::string(APP_DIR) + "assets/" + default_background;
+    auto        bg_color_it = colors.find(default_background);
 
+    auto render_bg_image = [this](const std::string& path) {
+        render_image(path, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, SCREEN_WIDTH, SCREEN_HEIGHT);
+    };
+
+    if (theme_background && std::filesystem::exists(theme_bg_path)) {
+        render_bg_image(theme_bg_path);
+    } else if (std::filesystem::exists(default_bg_path)) {
+        render_bg_image(default_bg_path);
+    } else if (bg_color_it != colors.end()) {
+        const SDL_Color& bg_color = bg_color_it->second;
+        SDL_SetRenderDrawColor(renderer, bg_color.r, bg_color.g, bg_color.b, 255);
+        SDL_RenderClear(renderer);
+    }
+
+    render_bg_image(overlay);
+}
+
+void GUI::render_game_list()
+{
     render_text(completed_names[filter_completed] + " " + systems[system_index] + " Games",
-        X_0 + 75, Y_0, font_big, yellow);
+        X_0 + 75, -5, font_big, secondary_color);
 
-    size_t first;
-    size_t last;
-    if (list_size <= LIST_LINES) {
-        first = 0;
-        last = list_size;
-    } else {
-        first = selected_index < LIST_LINES / 2               ? 0
-                : selected_index < list_size - LIST_LINES / 2 ? selected_index - LIST_LINES / 2
-                                                              : list_size - LIST_LINES;
-        last = first + LIST_LINES < filtered_roms_list.size() ? first + LIST_LINES
-                                                              : filtered_roms_list.size();
-    }
+    size_t first = (list_size <= LIST_LINES)
+                       ? 0
+                       : std::max(0, static_cast<int>(selected_index) - LIST_LINES / 2);
+    size_t last = std::min(first + LIST_LINES, filtered_roms_list.size());
 
-    std::vector<std::pair<std::string, SDL_Color>> multi_color_line;
-    int                                            y = Y_0 + 75;
+    int y = Y_0 + 70;
     for (size_t j = first; j < last; ++j) {
         const Rom& rom = filtered_roms_list[j];
-        SDL_Color  color = (j == selected_index) ? green : white;
+        SDL_Color  color = (j == selected_index) ? primary_color : white;
+
         if (j == selected_index) {
             render_scrollable_text(rom.name, X_0, y, 840, font_middle, color);
         } else {
             render_text(rom.name, X_0, y, font_middle, color, 840);
         }
 
-        y += Y_LINE / 2;
+        y += Y_LINE / 2 + 10;
+        render_multicolor_text(
+            {{"Time: ", secondary_color}, {rom.total_time, color}, {"  Count: ", secondary_color},
+                {std::to_string(rom.count), color}, {"  Last: ", secondary_color},
+                {rom.last, color}},
+            X_0 + 10, y, font_tiny);
 
-        multi_color_line = {{"Time: ", yellow}, {rom.total_time, color}, {"  Count: ", yellow},
-            {std::to_string(rom.count), color}, {"  Last: ", yellow}, {rom.last, color}};
-        render_multicolor_text(multi_color_line, X_0, y, font_tiny);
-
-        y += Y_LINE / 2;
+        y += Y_LINE / 2 - 10;
     }
-    render_image(filtered_roms_list[selected_index].image, X_0 + 1058, 370, 390, 0);
+    render_image(filtered_roms_list[selected_index].image, X_0 + 1059, 370, 399, 0);
 
-    multi_color_line = {{"A: ", yellow}, {"Select", white}, {"  B: ", yellow}, {"Quit", white},
-        {"  L/R: ", yellow}, {"Change system", white}, {"  Select: ", yellow},
-        {"Filter (Un)Completed", white}, {"  Start: ", yellow}, {" Sort by (", white},
-        {sort_names[sort_by], green}, {")", white}};
-    render_multicolor_text(multi_color_line, X_0, SCREEN_HEIGHT - 35, font_mini);
+    render_multicolor_text(
+        {{"A: ", secondary_color}, {"Select", white}, {"  B: ", secondary_color}, {"Quit", white},
+            {"  L/R: ", secondary_color}, {"Change system", white}, {"  Select: ", secondary_color},
+            {"Filter (Un)Completed", white}, {"  Start: ", secondary_color}, {"Sort by (", white},
+            {sort_names[sort_by], primary_color}, {")", white}},
+        X_0, SCREEN_HEIGHT - 35, font_mini);
 
     SDL_RenderPresent(renderer);
 }
 
 void GUI::render_game_detail()
 {
-    std::vector<std::pair<std::string, SDL_Color>> multi_color_line;
-
-    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-    SDL_RenderClear(renderer);
-
-    std::string background = std::string(APP_DIR) + "assets/" + default_background;
-    if (theme_background) {
-        std::string system_bg =
-            "/mnt/SDCARD/Backgrounds/" + theme + "/" + systems[system_index] + ".png";
-        if (std::filesystem::exists(system_bg)) {
-            render_image(
-                system_bg, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, SCREEN_WIDTH, SCREEN_HEIGHT);
-        } else {
-            render_image(
-                background, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, SCREEN_WIDTH, SCREEN_HEIGHT);
-        }
-    } else {
-        render_image(background, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, SCREEN_WIDTH, SCREEN_HEIGHT);
-    }
-    render_image(DETAILS_BG, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, SCREEN_WIDTH, SCREEN_HEIGHT);
-
     const Rom& rom = filtered_roms_list[selected_index];
 
-    int y = Y_0 + 50;
+    // Header: Game name
+    render_scrollable_text(rom.name, 80, -5, 1120, font_middle, secondary_color);
+
+    // Left side: Rom image
+    render_image(rom.image, 300, 350, 0, 560, true);
+
+    // Right side: Game details
+    int y = Y_0 + 150;
     int x0 = X_0 + 25;
     int x1 = x0 + 600;
     int x2 = x1 + 230;
 
-    // Game name
-    render_scrollable_text(rom.name, 80, 0, 1120, font_middle, yellow);
+    std::vector<std::pair<std::string, std::string>> details = {{"Total Time: ", rom.total_time},
+        {"Average Time: ", rom.average_time}, {"Play count: ", std::to_string(rom.count)},
+        {"Last played: ", rom.last}, {"System: ", rom.system},
+        {"Completed: ", rom.completed ? "Yes" : "No"}};
 
-    // Left side: Rom image
-    render_image(rom.image, 300, 350, 0, 550, true);
+    for (const auto& [label, value] : details) {
+        render_text(label, x1, y, font_tiny, primary_color);
+        render_text(value, x2, y, font_tiny, white);
+        y += 50;
+    }
 
-    // Right side: Game details
-    render_text("Total Time:", x1, y + 100, font_tiny, green);
-    render_text(rom.total_time, x2, y + 100, font_tiny, white);
-
-    render_text("Average Time:", x1, y + 150, font_tiny, green);
-    render_text(rom.average_time, x2, y + 150, font_tiny, white);
-
-    render_text("Play count:", x1, y + 200, font_tiny, green);
-    render_text(std::to_string(rom.count), x2, y + 200, font_tiny, white);
-
-    render_text("Last played:", x1, y + 250, font_tiny, green);
-    render_text(rom.last, x2, y + 250, font_tiny, white);
-
-    render_text("System:", x1, y + 300, font_tiny, green);
-    render_text(rom.system, x2, y + 300, font_tiny, white);
-
-    render_text("Completed:", x1, y + 350, font_tiny, green);
-    render_text(rom.completed ? "Yes" : "No", x2, y + 350, font_tiny, white);
-
-    // Bottom file path.
-
-    render_text("File:", x0, y + 595, font_mini, green);
-    render_text(rom.file, x0 + 50, y + 595, font_mini, white);
+    // Bottom: File path.
+    render_text("File:", x0, y + 195, font_mini, primary_color);
+    render_text(rom.file, x0 + 50, y + 195, font_mini, white);
 
     // Footer keybinds.
-    multi_color_line = {{"A: ", yellow}, {"Launch", white}, {"  B: ", yellow}, {"Return", white}};
+    std::vector<std::pair<std::string, SDL_Color>> multi_color_line = {
+        {"A: ", secondary_color}, {"Launch", white}, {"  B: ", secondary_color}, {"Return", white}};
 
     if (!rom.video.empty()) {
-        multi_color_line.push_back({"  Y: ", yellow});
-        multi_color_line.push_back({"Video", white});
+        multi_color_line.emplace_back("  Y: ", secondary_color);
+        multi_color_line.emplace_back("Video", white);
     }
-
     if (!rom.manual.empty()) {
-        multi_color_line.push_back({"  X: ", yellow});
-        multi_color_line.push_back({"Manual", white});
+        multi_color_line.emplace_back("  X: ", secondary_color);
+        multi_color_line.emplace_back("Manual", white);
     }
 
-    multi_color_line.push_back({"  Start: ", yellow});
-    multi_color_line.push_back({"Sort by (", white});
-    multi_color_line.push_back({sort_names[sort_by], green});
-    multi_color_line.push_back({")", white});
+    multi_color_line.emplace_back("  Start: ", secondary_color);
+    multi_color_line.emplace_back("Sort by (", white);
+    multi_color_line.emplace_back(sort_names[sort_by], primary_color);
+    multi_color_line.emplace_back(")", white);
 
     render_multicolor_text(multi_color_line, x0, SCREEN_HEIGHT - 35, font_mini);
 
@@ -521,7 +496,7 @@ void GUI::handle_inputs()
         } else if (e.type == SDL_JOYBUTTONDOWN) {
             switch (e.jbutton.button) {
             case 0: // B (b0)
-                if (in_game_detail && roms_list.size() > 1) {
+                if (in_game_detail && !no_list) {
                     in_game_detail = false;
                     filter();
                 } else {
@@ -654,7 +629,7 @@ void GUI::handle_inputs()
                 }
                 break;
             case SDLK_ESCAPE:
-                if (in_game_detail && roms_list.size() > 1) {
+                if (in_game_detail && !no_list) {
                     in_game_detail = false;
                     filter();
                 } else {
@@ -670,10 +645,10 @@ void GUI::handle_inputs()
     }
 }
 
-void GUI::run(const std::string& rom_name)
+void GUI::init(const std::string& rom_name)
 {
     load_config_file();
-    std::cout << "ActivitiesApp: Starting GUI." << std::endl;
+    std::cout << "ActivitiesApp: Initializing GUI" << std::endl;
     DB db;
     if (rom_name == "") {
         roms_list = db.load_all();
@@ -691,17 +666,23 @@ void GUI::run(const std::string& rom_name)
 
         filter();
     } else {
+        no_list = true;
         in_game_detail = true;
         roms_list.push_back(db.load(rom_name));
         filtered_roms_list = roms_list;
     }
+}
 
-    std::cout << "ActivitiesApp: Roms datas loaded." << std::endl;
+void GUI::run()
+{
+    std::cout << "ActivitiesApp: Starting GUI" << std::endl;
     while (is_running) {
         handle_inputs();
         if (in_game_detail) {
+            render_background(DETAILS_OVERLAY);
             render_game_detail();
         } else {
+            render_background(LIST_OVERLAY);
             render_game_list();
         }
         SDL_Delay(16); // ~60 FPS

@@ -23,7 +23,8 @@ int main(int argc, char* argv[])
         db.remove(argv[2]);
     } else if (argc > 1 && std::string(argv[1]) == "gui") {
         GUI gui;
-        gui.run(argc > 2 ? argv[2] : "");
+        gui.init(argc > 2 ? argv[2] : "");
+        gui.run();
     } else {
         std::cout << HELP_MESSAGE << std::endl;
     }
