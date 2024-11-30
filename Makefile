@@ -1,6 +1,6 @@
 NAME=activities
 
-SRCS= srcs/main.cpp srcs/utils.cpp srcs/DB.cpp srcs/GUI.cpp srcs/Timer.cpp
+SRCS= srcs/main.cpp srcs/utils.cpp srcs/DB.cpp srcs/GUI.cpp srcs/Timer.cpp srcs/App.cpp srcs/Config.cpp
 OBJS=$(patsubst srcs/%, build/%,$(SRCS:.cpp=.o))
 
 CXX=g++

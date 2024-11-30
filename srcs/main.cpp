@@ -1,5 +1,5 @@
+#include "App.h"
 #include "DB.h"
-#include "GUI.h"
 #include "Timer.h"
 
 #define HELP_MESSAGE                                                                               \
@@ -22,9 +22,8 @@ int main(int argc, char* argv[])
         DB db;
         db.remove(argv[2]);
     } else if (argc > 1 && std::string(argv[1]) == "gui") {
-        GUI gui;
-        if (gui.init(argc > 2 ? argv[2] : "") == 0)
-            gui.run();
+        App app(argc > 2 ? argv[2] : "");
+        app.run();
     } else {
         std::cout << HELP_MESSAGE << std::endl;
     }
