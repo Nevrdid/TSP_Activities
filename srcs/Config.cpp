@@ -2,7 +2,7 @@
 
 Config::Config()
 {
-    std::ifstream file(std::string(APP_DIR) + "activities.cfg");
+    std::ifstream file(std::string(APP_DIR) + "data/config.ini");
 
     if (file.is_open()) {
         std::string line;
@@ -12,10 +12,44 @@ Config::Config()
             if (std::getline(is_line, key, '=')) {
                 std::string value;
                 if (std::getline(is_line, value)) {
-                    if (key == "width") {
-                        width = std::stoi(value);
-                    } else if (key == "height") {
-                        height = std::stoi(value);
+                    if (key == "device") {
+                        if (value == "tsp") {
+                            width = 1280;
+                            height = 720;
+                            list_mid = 430;
+                            list_dy = 8;
+
+                            list_y0 = 125;
+                            list_y1 = 680;
+                            list_x0 = 10;
+                            list_x1 = 600;
+                            list_x2 = 830;
+
+                            details_img_size = 550;
+                            details_y0 = 220;
+                            details_y1 = 650;
+                            details_x0 = 10;
+                            details_x1 = 600;
+                            details_x2 = 830;
+                        } else if (value == "brick") {
+                            width = 1024;
+                            height = 768;
+
+                            list_mid = 512;
+                            list_dy = 8;
+                            list_y0 = 140;
+                            list_y1 = 687;
+                            list_x0 = 20;
+                            list_x1 = 490;
+                            list_x2 = 670;
+
+                            details_img_size = 450;
+                            details_y0 = 220;
+                            details_y1 = 687;
+                            details_x0 = 8;
+                            details_x1 = 490;
+                            details_x2 = 670;
+                        }
                     } else if (key == "backgrounds_theme") {
                         backgrounds_theme = value;
                     } else if (key == "skins_theme") {

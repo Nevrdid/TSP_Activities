@@ -55,8 +55,21 @@ class Config
     Config();
     ~Config();
 
-    size_t      width;
-    size_t      height;
+    size_t width;
+    size_t height;
+    size_t list_mid;
+    size_t list_dy;
+    size_t details_img_size;
+    size_t list_y0;
+    size_t list_y1;
+    size_t list_x0;
+    size_t list_x1;
+    size_t list_x2;
+    size_t details_y0;
+    size_t details_y1;
+    size_t details_x0;
+    size_t details_x1;
+    size_t details_x2;
 
     SDL_Color   primary_color = {0, 255, 0, 255};
     SDL_Color   secondary_color = {255, 238, 180, 255};
@@ -67,5 +80,5 @@ class Config
     std::string default_background = "";
 
     std::string theme_path = "";
-    Theme theme;
+    Theme       theme;
 };

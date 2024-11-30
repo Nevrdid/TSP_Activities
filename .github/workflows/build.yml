@@ -62,9 +62,8 @@ jobs:
         run: |
           mkdir -p package/System/bin
           mkdir -p package/Apps/Activities
-          mv activities package/System/bin/
-          cp -r assets package/Apps/Activities/
-          cp activities.cfg package/Apps/Activities/
+          cp -r data package/Apps/Activities/
+          cp activities package/System/bin/
           cp icon.png package/Apps/Activities/
           cp launch.sh package/Apps/Activities/
           cp config.json package/Apps/Activities/

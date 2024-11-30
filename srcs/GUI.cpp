@@ -78,10 +78,10 @@ void GUI::launch_external(const std::string& command)
     SDL_FlushEvents(SDL_JOYBUTTONDOWN, SDL_JOYBUTTONUP);
 }
 
-void GUI::render_image(const std::string& image_path, int x, int y, int w, int h, bool no_overflow)
+Vec2 GUI::render_image(const std::string& image_path, int x, int y, int w, int h, bool no_overflow)
 {
     if (image_path.empty())
-        return;
+        return {0,0};
     if (image_cache.find(image_path) == image_cache.end()) {
         SDL_Surface* surface = IMG_Load(image_path.c_str());
         image_cache[image_path] = {
@@ -113,6 +113,7 @@ void GUI::render_image(const std::string& image_path, int x, int y, int w, int h
     int      y0 = y - height / 2;
     SDL_Rect dest_rect = {x0, y0, width, height};
     SDL_RenderCopy(renderer, cached_texture.texture, nullptr, &dest_rect);
+    return {width, height};
 }
 
 CachedText& GUI::getCachedText(const std::string& text, TTF_Font* font, SDL_Color color)
@@ -239,10 +240,4 @@ void GUI::render_background(const std::string& system)
         bg = "/mnt/SDCARD/Backgrounds/" + cfg.backgrounds_theme + "/" + system + ".png";
     }
     render_bg_image(bg);
-}
-
-void GUI::render_overlay(const std::string& overlay)
-{
-    if (std::filesystem::exists(overlay))
-        render_image(overlay, cfg.width / 2, cfg.height / 2, cfg.width, cfg.height);
 }

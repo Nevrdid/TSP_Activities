@@ -69,7 +69,6 @@ void App::switch_completed()
 void App::filter_roms()
 {
     const std::string& current_system = systems[system_index];
-
     filtered_roms_list.clear();
     for (const auto& rom : roms_list) {
         if (rom.system == current_system || system_index == 0) {
@@ -82,6 +81,7 @@ void App::filter_roms()
         }
     }
     list_size = filtered_roms_list.size();
+
     sort_roms();
 
     if (selected_index >= filtered_roms_list.size())
@@ -111,37 +111,51 @@ void App::sort_roms()
     gui.reset_scroll();
 }
 
-const SDL_Color& white = {255,255,255,255};
+const SDL_Color& white = {255, 255, 255, 255};
+
 void             App::game_list()
 {
+    Vec2 prevSize;
+    gui.render_image(cfg.theme_path + "skin/icon-back.png", 40, 40, 60, 60);
     gui.render_text(completed_names[filter_completed] + " " + systems[system_index] + " Games",
-        X_0 + 75, -5, font_big, cfg.secondary_color);
+        cfg.list_x0 + 75, -5, font_big, cfg.secondary_color);
 
     size_t first = (list_size <= LIST_LINES)
                        ? 0
                        : std::max(0, static_cast<int>(selected_index) - LIST_LINES / 2);
     size_t last = std::min(first + LIST_LINES, filtered_roms_list.size());
 
-    int y = Y_0 + 70;
+    int y = cfg.list_y0;
+    int i = 0;
     for (size_t j = first; j < last; ++j) {
         const Rom& rom = filtered_roms_list[j];
         SDL_Color  color = (j == selected_index) ? cfg.primary_color : white;
 
-        if (j == selected_index)
-            gui.render_scrollable_text(rom.name, X_0, y, 840, font_middle, color);
-        else
-            gui.render_text(rom.name, X_0, y, font_middle, color, 840);
+        if (j == selected_index) {
+            prevSize = gui.render_image(
+                cfg.theme_path + "skin/list-item-1line-sort-bg-f.png", cfg.list_mid, y);
+            gui.render_scrollable_text(
+                rom.name, cfg.list_x0, y - prevSize.y / 2, prevSize.x, font_middle, color);
+        } else {
+            prevSize = gui.render_image(
+                cfg.theme_path + "skin/list-item-1line-sort-bg-n.png", cfg.list_mid, y);
+            gui.render_text(
+                rom.name, cfg.list_x0, y - prevSize.y / 2, font_middle, color, prevSize.x);
+        }
 
-        y += Y_LINE / 2 + 10;
         gui.render_multicolor_text(
             {{"Time: ", cfg.secondary_color}, {rom.total_time, color},
                 {"  Count: ", cfg.secondary_color}, {std::to_string(rom.count), color},
                 {"  Last: ", cfg.secondary_color}, {rom.last, color}},
-            X_0 + 10, y, font_tiny);
+            cfg.list_x0 + 10, y + 10, font_tiny);
 
-        y += Y_LINE / 2 - 10;
+        y += prevSize.y + cfg.list_dy;
+        i++;
     }
-    gui.render_image(filtered_roms_list[selected_index].image, X_0 + 1059, 370, 399, 0);
+    if (list_size && cfg.width == 1280) {
+        gui.render_image(cfg.theme_path + "skin/ic-game-580.png", 1070, 370, 400, 580);
+        gui.render_image(filtered_roms_list[selected_index].image, 1070, 370, 400, 0);
+    }
 
     gui.render_multicolor_text(
         {{"A: ", cfg.secondary_color}, {"Select", white}, {"  B: ", cfg.secondary_color},
@@ -149,41 +163,51 @@ void             App::game_list()
             {"  Select: ", cfg.secondary_color}, {"Filter (Un)Completed", white},
             {"  Start: ", cfg.secondary_color}, {"Sort by (", white},
             {sort_names[sort_by], cfg.primary_color}, {")", white}},
-        X_0, cfg.height - 35, font_mini);
+        cfg.list_x0, cfg.height - 35, font_mini);
 
     gui.render();
 }
 
 void App::game_detail()
 {
+    Vec2       prevSize;
     const Rom& rom = filtered_roms_list[selected_index];
 
+    gui.render_image(cfg.theme_path + "skin/icon-back.png", 40, 40, 60, 60);
+    // gui.render_image(std::string(APP_DIR) + "assets/details_overlay.png", cfg.width / 2,
+    // cfg.height / 2, cfg.width, cfg.height);
     // Header: Game name
     gui.render_scrollable_text(rom.name, 80, -5, 1120, font_middle, cfg.secondary_color);
 
     // Left side: Rom image
-    gui.render_image(rom.image, 300, 350, 0, 560, true);
+    gui.render_image(cfg.theme_path + "skin/bg-menu-09.png", cfg.width / 4, cfg.height / 2,
+        cfg.details_img_size + 10, cfg.details_img_size + 10);
+    if (!rom.image.empty())
+        gui.render_image(rom.image, cfg.width / 4, cfg.height / 2, 0, cfg.details_img_size, true);
+    else
+        gui.render_image(cfg.theme_path + "skin/ic-keymap-n.png", cfg.width / 4, cfg.height / 2);
 
     // Right side: Game details
-    int y = Y_0 + 150;
-    int x0 = X_0 + 25;
-    int x1 = x0 + 600;
-    int x2 = x1 + 230;
+
+    prevSize = gui.render_image(
+        cfg.theme_path + "skin/bg-menu-09.png", 3 * cfg.width / 4, cfg.height / 2, 520, 360);
 
     std::vector<std::pair<std::string, std::string>> details = {{"Total Time: ", rom.total_time},
         {"Average Time: ", rom.average_time}, {"Play count: ", std::to_string(rom.count)},
         {"Last played: ", rom.last}, {"System: ", rom.system},
         {"Completed: ", rom.completed ? "Yes" : "No"}};
-
+    int                                              y = cfg.details_y0;
     for (const auto& [label, value] : details) {
-        gui.render_text(label, x1, y, font_tiny, cfg.primary_color);
-        gui.render_text(value, x2, y, font_tiny, white);
+        gui.render_multicolor_text({{label, cfg.primary_color}, {value, white}},
+            3 * cfg.width / 4 - prevSize.x / 2 + cfg.details_x0, y, font_tiny);
         y += 50;
     }
 
     // Bottom: File path.
-    gui.render_text("File:", x0, y + 195, font_mini, cfg.primary_color);
-    gui.render_text(rom.file, x0 + 50, y + 195, font_mini, white);
+    gui.render_image(cfg.theme_path + "skin/list-item-1line-sort-bg-n.png", cfg.width / 2,
+        cfg.details_y1 + 15, cfg.width - 2 * cfg.details_x0, 30, true);
+    gui.render_text("File:", cfg.details_x0, cfg.details_y1, font_mini, cfg.primary_color);
+    gui.render_text(rom.file, cfg.details_x0 + 50, cfg.details_y1, font_mini, white);
 
     // Footer keybinds.
     std::vector<std::pair<std::string, SDL_Color>> multi_color_line = {{"A: ", cfg.secondary_color},
@@ -203,7 +227,7 @@ void App::game_detail()
     multi_color_line.emplace_back(sort_names[sort_by], cfg.primary_color);
     multi_color_line.emplace_back(")", white);
 
-    gui.render_multicolor_text(multi_color_line, x0, cfg.height - 35, font_mini);
+    gui.render_multicolor_text(multi_color_line, cfg.details_x0, cfg.height - 35, font_mini);
     gui.render();
 }
 
@@ -280,13 +304,13 @@ void App::handle_inputs()
                 }
                 break;
             case 4: // L1 (b4)
-                if (!systems.empty()) {
+                if (!in_game_detail) {
                     system_index = (system_index == 0) ? systems.size() - 1 : system_index - 1;
                     filter_roms();
                 }
                 break;
             case 5: // R1 (b5)
-                if (!systems.empty()) {
+                if (!in_game_detail) {
                     system_index = (system_index + 1) % systems.size();
                     filter_roms();
                 }
@@ -367,13 +391,13 @@ void App::handle_inputs()
                 }
                 break;
             case SDLK_g:
-                if (!systems.empty()) {
+                if (!in_game_detail) {
                     system_index = (system_index == 0) ? systems.size() - 1 : system_index - 1;
                     filter_roms();
                 }
                 break;
             case SDLK_h:
-                if (!systems.empty()) {
+                if (!in_game_detail) {
                     system_index = (system_index + 1) % systems.size();
                     filter_roms();
                 }
@@ -415,11 +439,9 @@ void App::run()
         handle_inputs();
         if (in_game_detail) {
             gui.render_background(systems[system_index]);
-            gui.render_overlay(DETAILS_OVERLAY);
             game_detail();
         } else {
             gui.render_background(systems[system_index]);
-            gui.render_overlay(LIST_OVERLAY);
             game_list();
         }
         SDL_Delay(16); // ~60 FPS

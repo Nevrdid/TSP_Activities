@@ -5,13 +5,12 @@
 #include <SDL.h>
 #include <SDL_image.h>
 #include <SDL_ttf.h>
+#include <filesystem>
+#include <iostream>
 #include <string>
 #include <unistd.h>
 #include <unordered_map>
 #include <vector>
-#include <iostream>
-#include <filesystem>
-
 
 #define LIST_OVERLAY APP_DIR "assets/list_overlay.png"
 #define DETAILS_OVERLAY APP_DIR "assets/details_overlay.png"
@@ -24,9 +23,12 @@
 #define FONT_MINI_SIZE 24
 
 #define LIST_LINES 6
-#define X_0 10
-#define Y_0 0
-#define Y_LINE 590 / LIST_LINES
+
+struct Vec2
+{
+    int x = 0;
+    int y = 0;
+};
 
 struct CachedText
 {
@@ -71,8 +73,8 @@ class GUI
     void clear_screen();
     void render();
 
-    void launch_external(const std::string& command);
-    void render_image(const std::string& image_path, int x, int y, int w = 0, int h = 0,
+    void    launch_external(const std::string& command);
+    Vec2 render_image(const std::string& image_path, int x, int y, int w = 0, int h = 0,
         bool no_overflow = false);
 
     void render_text(const std::string& text, int x, int y, TTF_Font* font,
@@ -85,5 +87,4 @@ class GUI
     void reset_scroll();
 
     void render_background(const std::string& system = "");
-    void render_overlay(const std::string& overlay = "");
 };

@@ -5,7 +5,7 @@
 #include <string>
 #include <vector>
 
-#define DB_FILE APP_DIR "assets/games.db"
+#define DB_FILE APP_DIR "data/games.db"
 
 typedef struct
 {
