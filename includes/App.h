@@ -7,6 +7,7 @@
 #include <set>
 #include <string>
 #include <vector>
+#include "utils.h"
 
 enum Sort
 {
@@ -52,6 +53,8 @@ class App
     void handle_inputs();
     void game_list();
     void game_detail();
+    void overall_stats();
+    bool confirmation_popup(const std::string& message);
     void empty_db();
 
   public:

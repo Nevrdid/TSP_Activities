@@ -44,7 +44,7 @@ Config::Config()
                             list_x2 = 670;
 
                             details_img_size = 450;
-                            details_y0 = 220;
+                            details_y0 = 235;
                             details_y1 = 687;
                             details_x0 = 8;
                             details_x1 = 490;

@@ -1,7 +1,7 @@
 [Core]
 ; device choices: tsp, brick
 ; tsp have preview in list, brick don't
-device=tsp
+device=brick
 
 [Themes]
 ; colors available :
@@ -12,5 +12,5 @@ device=tsp
 primary_color=lightgreen
 secondary_color=lightorange
 
-skins_theme=CrossMix - OS
+skins_theme=TRIMUI Syber
 backgrounds_theme=Default

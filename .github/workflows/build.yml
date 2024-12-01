@@ -60,19 +60,27 @@ jobs:
 
       - name: Organize Artifacts
         run: |
-          mkdir -p package/System/bin
-          mkdir -p package/Apps/Activities
-          cp -r data package/Apps/Activities/
-          cp activities package/System/bin/
-          cp icon.png package/Apps/Activities/
-          cp launch.sh package/Apps/Activities/
-          cp config.json package/Apps/Activities/
+          mkdir -p tsp/System/bin
+          mkdir -p tsp/Apps/Activities/data/
 
-      - name: Create Archive
+          cp activities tsp/System/bin/
+          cp icon.png tsp/Apps/Activities/
+          cp launch.sh tsp/Apps/Activities/
+          cp config.json tsp/Apps/Activities/
+          cp data/config.ini.tsp tsp/Apps/Activities/data/config.ini
+
+          cp -rf tsp brick
+          cp -f data/config.ini.brick brick/Apps/Activities/data/config.ini
+
+
+      - name: Create Archives
         run: |
-          tar -czvf Activities_TSP.tar.gz -C package .
+          tar -czvf Activities_tsp.tar.gz -C tsp .
+          tar -czvf Activities_brick.tar.gz -C brick .
 
       - name: Release
         uses: softprops/action-gh-release@v2
         with:
-          files: Activities_TSP.tar.gz
+          files: |
+            Activities_tsp.tar.gz
+            Activities_brick.tar.gz

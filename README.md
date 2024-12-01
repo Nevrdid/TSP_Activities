@@ -1,4 +1,3 @@
-
 # Timer
 
 ## Usage
@@ -9,6 +8,8 @@ You can so use it like that for example:
 `flycast "$mygame" &`
 `activities "$mygame" $!`
 
+_____
+
 # GUI
 
 ## Usage
@@ -18,10 +19,17 @@ You can so use it like that for example:
   (If the game is not in the database, it will be added)
 
 ## Config
-Edit the activities.cfg for gui design settings.
-- default_background (string) - background image to use if not using theme or if a theme image is missing.
-- theme_background (bool) - use system's background per system instead of default on
-- theme_name (string) - select the theme to get images from
+Edit the config.ini file for:
+- Set target device
+    `device=tsp/brick`
+- Set theme to grab systems background from
+    `background_theme=Burst!/CrossMix - OS/TRIMUI Blue...`
+- Set theme to grab skin from:
+    `skin_theme=Default/Burst!/Greys-Dark...`
+- Set primary/secondary colors ( should be removed to use themes ones soon)
+    `primary_color=blue,red,lightgreen,black`
+    `secondary_color=...`
+
 
 ## Keybinds
 
@@ -36,14 +44,18 @@ Edit the activities.cfg for gui design settings.
 - L1/R1: Filter systems
 - Select: Filter (un)completed/All
 - Start: Change sorting method
+- Menu: Open overall stats
 
 ### Details window
 
 - A: Launch game
 - B: Return to list
+
 - Y: Start game's video (/mnt/SDCARD/Videos/[System]/[gamename].mp4
 - X: Start game's manual (upcomming)
+
 - Select: Set game as completed
+- Menu: Remove the game from the database.
 
 
 ## Licenses

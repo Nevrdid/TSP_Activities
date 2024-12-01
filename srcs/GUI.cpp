@@ -81,7 +81,7 @@ void GUI::launch_external(const std::string& command)
 Vec2 GUI::render_image(const std::string& image_path, int x, int y, int w, int h, bool no_overflow)
 {
     if (image_path.empty())
-        return {0,0};
+        return {0, 0};
     if (image_cache.find(image_path) == image_cache.end()) {
         SDL_Surface* surface = IMG_Load(image_path.c_str());
         image_cache[image_path] = {
@@ -168,7 +168,7 @@ void GUI::render_multicolor_text(
 }
 
 void GUI::render_text(
-    const std::string& text, int x, int y, TTF_Font* font, SDL_Color color, int width)
+    const std::string& text, int x, int y, TTF_Font* font, SDL_Color color, int width, bool center)
 {
     CachedText& cached = getCachedText(text, font, color);
 
@@ -177,6 +177,9 @@ void GUI::render_text(
         return;
     }
 
+    if (center) {
+        x -= cached.width / 2;
+    }
     if (width && cached.width > width) {
         SDL_Rect render_rect = {x, y, width, TTF_FontHeight(font)};
         SDL_Rect clip_rect = {0, 0, width, TTF_FontHeight(font)};

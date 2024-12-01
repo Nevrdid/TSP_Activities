@@ -73,12 +73,12 @@ class GUI
     void clear_screen();
     void render();
 
-    void    launch_external(const std::string& command);
+    void launch_external(const std::string& command);
     Vec2 render_image(const std::string& image_path, int x, int y, int w = 0, int h = 0,
         bool no_overflow = false);
 
     void render_text(const std::string& text, int x, int y, TTF_Font* font,
-        SDL_Color color = {255, 255, 255, 255}, int width = 0);
+        SDL_Color color = {255, 255, 255, 255}, int width = 0, bool center = false);
 
     void render_multicolor_text(const vecColorString& colored_texts, int x, int y, TTF_Font* font);
 

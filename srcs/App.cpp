@@ -113,7 +113,7 @@ void App::sort_roms()
 
 const SDL_Color& white = {255, 255, 255, 255};
 
-void             App::game_list()
+void App::game_list()
 {
     Vec2 prevSize;
     gui.render_image(cfg.theme_path + "skin/icon-back.png", 40, 40, 60, 60);
@@ -189,8 +189,8 @@ void App::game_detail()
 
     // Right side: Game details
 
-    prevSize = gui.render_image(
-        cfg.theme_path + "skin/bg-menu-09.png", 3 * cfg.width / 4, cfg.height / 2, 520, 360);
+    prevSize = gui.render_image(cfg.theme_path + "skin/bg-menu-09.png",
+        3 * cfg.width / 4 - cfg.details_x0, cfg.height / 2, 520, 360);
 
     std::vector<std::pair<std::string, std::string>> details = {{"Total Time: ", rom.total_time},
         {"Average Time: ", rom.average_time}, {"Play count: ", std::to_string(rom.count)},
@@ -199,7 +199,7 @@ void App::game_detail()
     int                                              y = cfg.details_y0;
     for (const auto& [label, value] : details) {
         gui.render_multicolor_text({{label, cfg.primary_color}, {value, white}},
-            3 * cfg.width / 4 - prevSize.x / 2 + cfg.details_x0, y, font_tiny);
+            3 * cfg.width / 4 - prevSize.x / 2, y, font_tiny);
         y += 50;
     }
 
@@ -221,14 +221,120 @@ void App::game_detail()
         multi_color_line.emplace_back("  X: ", cfg.secondary_color);
         multi_color_line.emplace_back("Manual", white);
     }
-
-    multi_color_line.emplace_back("  Start: ", cfg.secondary_color);
-    multi_color_line.emplace_back("Sort by (", white);
-    multi_color_line.emplace_back(sort_names[sort_by], cfg.primary_color);
-    multi_color_line.emplace_back(")", white);
+    if (rom.completed) {
+        multi_color_line.emplace_back("  Select: ", cfg.secondary_color);
+        multi_color_line.emplace_back("Uncomplete", white);
+    } else {
+        multi_color_line.emplace_back("  Select: ", cfg.secondary_color);
+        multi_color_line.emplace_back("Complete", white);
+    }
 
     gui.render_multicolor_text(multi_color_line, cfg.details_x0, cfg.height - 35, font_mini);
     gui.render();
+}
+
+void App::overall_stats()
+{
+    while (true) {
+        gui.render_background();
+        gui.render_text("Overall stats", cfg.width / 2, 50, font_big, cfg.secondary_color, 0, true);
+
+        int count = 0;
+        int completed = 0;
+        int time = 0;
+        for (const auto& rom : roms_list) {
+            count += rom.count;
+            time += rom.time;
+            completed += rom.completed;
+        }
+        int         average = count ? time / count : 0;
+        std::string total_time = utils::sec2hhmmss(time);
+        std::string average_time = utils::sec2hhmmss(average);
+
+        gui.render_text("Total games: " + std::to_string(roms_list.size()), cfg.width / 2, 150,
+            font_middle, white, 0, true);
+        gui.render_text("Total completed: " + std::to_string(completed), cfg.width / 2, 200,
+            font_middle, white, 0, true);
+        gui.render_text("Total play count: " + std::to_string(count), cfg.width / 2, 250,
+            font_middle, white, 0, true);
+        gui.render_text(
+            "Total play time: " + total_time, cfg.width / 2, 300, font_middle, white, 0, true);
+        gui.render_text(
+            "Average play time: " + average_time, cfg.width / 2, 350, font_middle, white, 0, true);
+
+        gui.render();
+        SDL_Event e;
+        while (SDL_PollEvent(&e)) {
+            switch (e.type) {
+            case SDL_JOYBUTTONDOWN:
+                if (e.jbutton.button == 0) // B (b0)
+                    return;
+                break;
+            case SDL_KEYDOWN:
+                if (e.key.keysym.sym == SDLK_ESCAPE)
+                    return;
+                break;
+            }
+        }
+    }
+}
+
+bool App::confirmation_popup(const std::string& message)
+{
+    bool confirmed = false;
+    Vec2 prevSize;
+
+    while (true) {
+        gui.render_background();
+        gui.render_text(message, cfg.width / 2, cfg.height / 3, font_middle, white, 0, true);
+
+        prevSize = gui.render_image(
+            cfg.theme_path + "skin/bg-button-02-" + (confirmed ? "selected" : "unselect") + ".png",
+            cfg.width / 3, 2 * cfg.height / 3);
+        gui.render_text("Yes", cfg.width / 3, 2 * cfg.height / 3 - prevSize.y / 2, font_middle,
+            confirmed ? cfg.primary_color : white, 0, true);
+        prevSize = gui.render_image(
+            cfg.theme_path + "skin/bg-button-02-" + (confirmed ? "unselect" : "selected") + ".png",
+            2 * cfg.width / 3, 2 * cfg.height / 3);
+        gui.render_text("No", 2 * cfg.width / 3, 2 * cfg.height / 3 - prevSize.y / 2, font_middle,
+            confirmed ? white : cfg.primary_color, 0, true);
+        gui.render();
+        SDL_Event e;
+        while (SDL_PollEvent(&e)) {
+            switch (e.type) {
+            case SDL_JOYHATMOTION:
+                switch (e.jhat.value) {
+                case SDL_HAT_LEFT: // D-Pad Left
+                    confirmed = true;
+                    break;
+                case SDL_HAT_RIGHT: // D-Pad Right
+                    confirmed = false;
+                    break;
+                }
+                break;
+            case SDL_JOYBUTTONDOWN:
+                if (e.jbutton.button == 0) // B (b0)
+                    return confirmed;
+                else if (e.jbutton.button == 1) // A (b1)
+                    return confirmed;
+                break;
+            case SDL_KEYDOWN:
+                switch (e.key.keysym.sym) {
+                case SDLK_LEFT:
+                    confirmed = true;
+                    break;
+                case SDLK_RIGHT:
+                    confirmed = false;
+                    break;
+                case SDLK_RETURN:
+                    return confirmed;
+                case SDLK_ESCAPE:
+                    return false;
+                }
+                break;
+            }
+        }
+    }
 }
 
 void App::empty_db()
@@ -334,6 +440,19 @@ void App::handle_inputs()
                 }
                 break;
             case 8: // Guide button (Home) (b8)
+                if (in_game_detail) {
+                    if (confirmation_popup("Remove game from DB?")) {
+                        DB db;
+                        db.remove(rom.file);
+                        roms_list.erase(std::remove_if(roms_list.begin(), roms_list.end(),
+                                            [&rom](const Rom& r) { return r.file == rom.file; }),
+                            roms_list.end());
+                        filter_roms();
+                        in_game_detail = false;
+                    }
+                } else {
+                    overall_stats();
+                }
                 break;
             case 9: // Left Stick Button (L3) (b9)
                 break;
@@ -400,6 +519,21 @@ void App::handle_inputs()
                 if (!in_game_detail) {
                     system_index = (system_index + 1) % systems.size();
                     filter_roms();
+                }
+                break;
+            case SDLK_DELETE:
+                if (in_game_detail) {
+                    if (confirmation_popup("Remove game from DB?")) {
+                        DB db;
+                        db.remove(rom.file);
+                        roms_list.erase(std::remove_if(roms_list.begin(), roms_list.end(),
+                                            [&rom](const Rom& r) { return r.file == rom.file; }),
+                            roms_list.end());
+                        filter_roms();
+                        in_game_detail = false;
+                    }
+                } else {
+                    overall_stats();
                 }
                 break;
             case SDLK_RETURN:

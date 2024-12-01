@@ -1,2 +1,5 @@
 build/
 activities
+
+data/games.db
+data/config.ini
