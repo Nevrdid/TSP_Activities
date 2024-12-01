@@ -24,6 +24,37 @@
 
 #define LIST_LINES 6
 
+enum class InputAction
+{
+    None,
+    Up,
+    Down,
+    Left,
+    Right,
+    A,
+    B,
+    X,
+    Y,
+    L1,
+    R1,
+    Select,
+    Start,
+    Menu,
+    Quit,
+};
+
+static std::unordered_map<std::string, std::string> buttons_icons = {
+    {"A", "tips-A.png"},
+    {"B", "tips-B.png"},
+    {"X", "button-tips-X.png"},
+    {"Y", "button-tips-Y.png"},
+    {"L1", "tips-L.png"},
+    {"R1", "tips-R.png"},
+    {"Select", "tips-SELECT.png"},
+    {"Start", "button-tips-START.png"},
+    {"Menu", "tips-MENU.png"},
+};
+
 struct Vec2
 {
     int x = 0;
@@ -68,14 +99,15 @@ class GUI
     GUI(const Config& cfg);
     ~GUI();
 
-    int  init();
-    void handle_inputs();
-    void clear_screen();
-    void render();
+    int init();
+
+    InputAction map_input(const SDL_Event& e);
+    void        clear_screen();
+    void        render();
 
     void launch_external(const std::string& command);
     Vec2 render_image(const std::string& image_path, int x, int y, int w = 0, int h = 0,
-        bool no_overflow = false);
+        bool no_overflow = false, bool center = true);
 
     void render_text(const std::string& text, int x, int y, TTF_Font* font,
         SDL_Color color = {255, 255, 255, 255}, int width = 0, bool center = false);
@@ -87,4 +119,8 @@ class GUI
     void reset_scroll();
 
     void render_background(const std::string& system = "");
+    void display_keybind(const std::string& btn, const std::string& text, int x, int y,
+        TTF_Font* font, SDL_Color color);
+    void display_keybind(const std::string& btn1, const std::string& btn2, const std::string& text,
+        int x, int y, TTF_Font* font, SDL_Color color);
 };

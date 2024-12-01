@@ -57,6 +57,54 @@ GUI::~GUI()
     SDL_Quit();
 }
 
+InputAction GUI::map_input(const SDL_Event& e)
+{
+    if (e.type == SDL_JOYHATMOTION) {
+        switch (e.jhat.value) {
+        case SDL_HAT_UP: return InputAction::Up;
+        case SDL_HAT_DOWN: return InputAction::Down;
+        case SDL_HAT_LEFT: return InputAction::Left;
+        case SDL_HAT_RIGHT: return InputAction::Right;
+        }
+    } else if (e.type == SDL_JOYBUTTONDOWN) {
+        switch (e.jbutton.button) {
+        case 0: return InputAction::B;
+        case 1: return InputAction::A;
+        case 2: return InputAction::Y;
+        case 3: return InputAction::X;
+        case 4: return InputAction::L1;
+        case 5: return InputAction::R1;
+        case 6: return InputAction::Select;
+        case 7: return InputAction::Start;
+        case 8: return InputAction::Menu;
+        }
+#if defined(USE_KEYBOARD)
+    } else if (e.type == SDL_KEYDOWN) {
+        switch (e.key.keysym.sym) {
+        case SDLK_k: return InputAction::Up;
+        case SDLK_j: return InputAction::Down;
+        case SDLK_h: return InputAction::Left;
+        case SDLK_l: return InputAction::Right;
+        case SDLK_RETURN: return InputAction::A;
+        case SDLK_ESCAPE: return InputAction::B;
+        case SDLK_s: return InputAction::Start;
+        case SDLK_c: return InputAction::Select;
+        case SDLK_v: return InputAction::Y;
+        case SDLK_m: return InputAction::X;
+        case SDLK_f: return InputAction::L1;
+        case SDLK_g: return InputAction::R1;
+        case SDLK_DELETE: return InputAction::Menu;
+        }
+#endif
+    }
+
+    if (e.type == SDL_QUIT) {
+        return InputAction::Quit;
+    }
+
+    return InputAction::None;
+}
+
 void GUI::render()
 {
     SDL_RenderPresent(renderer);
@@ -78,7 +126,8 @@ void GUI::launch_external(const std::string& command)
     SDL_FlushEvents(SDL_JOYBUTTONDOWN, SDL_JOYBUTTONUP);
 }
 
-Vec2 GUI::render_image(const std::string& image_path, int x, int y, int w, int h, bool no_overflow)
+Vec2 GUI::render_image(
+    const std::string& image_path, int x, int y, int w, int h, bool no_overflow, bool center)
 {
     if (image_path.empty())
         return {0, 0};
@@ -109,8 +158,8 @@ Vec2 GUI::render_image(const std::string& image_path, int x, int y, int w, int h
         height = cached_texture.height;
     }
 
-    int      x0 = x - width / 2;
-    int      y0 = y - height / 2;
+    int      x0 = center ? x - width / 2 : x;
+    int      y0 = center ? y - height / 2 : y;
     SDL_Rect dest_rect = {x0, y0, width, height};
     SDL_RenderCopy(renderer, cached_texture.texture, nullptr, &dest_rect);
     return {width, height};
@@ -244,3 +293,17 @@ void GUI::render_background(const std::string& system)
     }
     render_bg_image(bg);
 }
+
+void GUI::display_keybind(const std::string& btn, const std::string& text, int x, int y,
+    TTF_Font* font, const SDL_Color color)
+{
+    int prevX = render_image(cfg.theme_path + "skin/" + buttons_icons[btn], x, y, 30, 30).x;
+    render_text(text, x + prevX / 2, y - 15, font, color);
+};
+void GUI::display_keybind(const std::string& btn1, const std::string& btn2, const std::string& text,
+    int x, int y, TTF_Font* font, SDL_Color color)
+{
+    int prevX = render_image(cfg.theme_path + "skin/" + buttons_icons[btn1], x, y, 30, 30).x;
+    prevX = render_image(cfg.theme_path + "skin/" + buttons_icons[btn2], x + prevX, y, 30, 30).x;
+    render_text(text, x + 3 * prevX / 2, y - 15, font, color);
+};

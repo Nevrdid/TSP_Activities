@@ -2,19 +2,19 @@
 
 #include "DB.h"
 #include "GUI.h"
+#include "utils.h"
 
 #include <algorithm>
 #include <set>
 #include <string>
 #include <vector>
-#include "utils.h"
 
 enum Sort
 {
-    e_name,
-    e_time,
-    e_count,
-    e_last
+    Name,
+    Time,
+    Count,
+    Last
 };
 
 static const std::string sort_names[] = {"Name", "Time", "Count", "Last"};
@@ -41,7 +41,7 @@ class App
     size_t           selected_index = 0;
     bool             no_list = false;
     int              filter_completed = 0;
-    Sort             sort_by = e_time;
+    Sort             sort_by = Sort::Last;
 
     std::vector<std::string> systems;
     size_t                   system_index = 0;
