@@ -38,6 +38,7 @@ class App
     std::vector<Rom> roms_list;
     std::vector<Rom> filtered_roms_list;
     size_t           list_size = 0;
+    size_t           total_time = 0;
     size_t           selected_index = 0;
     bool             no_list = false;
     int              filter_completed = 0;

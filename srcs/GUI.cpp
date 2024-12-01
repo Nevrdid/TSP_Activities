@@ -169,7 +169,7 @@ CachedText& GUI::getCachedText(const std::string& text, TTF_Font* font, SDL_Colo
 {
     for (auto& cached : cached_text) {
         if (cached.text == text && cached.r == color.r && cached.g == color.g &&
-            cached.b == color.b)
+            cached.b == color.b && cached.a == color.a)
             return cached;
     }
 
@@ -185,7 +185,7 @@ CachedText& GUI::getCachedText(const std::string& text, TTF_Font* font, SDL_Colo
         std::cerr << "Failed to create texture: " << SDL_GetError() << std::endl;
     }
 
-    CachedText cached = {texture, surface->w, surface->h, text, color.r, color.g, color.b};
+    CachedText cached = {texture, surface->w, surface->h, text, color.r, color.g, color.b, color.a};
     cached_text.push_back(cached);
 
     SDL_FreeSurface(surface);

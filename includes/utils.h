@@ -13,5 +13,6 @@ namespace utils
 {
 std::string getCurrentDateTime();
 std::string sec2hhmmss(int total_seconds);
+std::string stringifyTime(int total_seconds);
 std::string stringifyDate(const std::string& date);
 } // namespace utils

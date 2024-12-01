@@ -1,16 +1,7 @@
 [Core]
 ; device choices: tsp, brick
-; tsp have preview in list, brick don't
 device=tsp
 
 [Themes]
-; colors available :
-; black, white, red, green, blue, yellow, cyan, magenta, orange, purple, pink, brown, grey
-; lightgrey, darkgrey, lightblue, lightgreen, lightyellow, lightcyan, lightmagenta,
-; lightorange, lightpurple, lightpink, lightbrown
-
-primary_color=lightgreen
-secondary_color=lightorange
-
 skins_theme=TRIMUI Blue
 backgrounds_theme=Default

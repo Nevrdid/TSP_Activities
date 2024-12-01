@@ -71,8 +71,10 @@ class Config
     size_t details_x1;
     size_t details_x2;
 
-    SDL_Color   primary_color = {0, 255, 0, 255};
-    SDL_Color   secondary_color = {255, 238, 180, 255};
+    SDL_Color   selected_color = {0, 255, 0, 255};
+    SDL_Color   unselect_color = {255, 238, 180, 255};
+    SDL_Color   title_color = {0, 255, 0, 255};
+    SDL_Color   info_color = {255, 238, 180, 255};
     SDL_Color   background_color = {0, 0, 0, 0};
     std::string backgrounds_theme = "Default";
     std::string skins_theme = "CrossMix - OS";

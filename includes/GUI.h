@@ -67,7 +67,7 @@ struct CachedText
     int          width = 0;
     int          height = 0;
     std::string  text = "";
-    int          r = 0, g = 0, b = 0;
+    int          r = 0, g = 0, b = 0, a = 255;
 };
 
 struct CachedImg

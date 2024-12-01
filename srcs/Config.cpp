@@ -54,10 +54,6 @@ Config::Config()
                         backgrounds_theme = value;
                     } else if (key == "skins_theme") {
                         skins_theme = value;
-                    } else if (key == "primary_color") {
-                        primary_color = colors.at(value);
-                    } else if (key == "secondary_color") {
-                        secondary_color = colors.at(value);
                     }
                 }
             }
@@ -67,6 +63,10 @@ Config::Config()
     std::string theme_config = theme_path + "/config.json";
     if (std::filesystem::exists(theme_config))
         load_theme(theme_config);
+    selected_color = theme.fontColor["content_color4"];
+    unselect_color = theme.fontColor["content_color1"];
+    title_color = theme.fontColor["nav_color1"];
+    info_color = theme.fontColor["stat_color1"];
 }
 
 bool Config::load_theme(const std::string& filePath)

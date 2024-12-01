@@ -29,6 +29,26 @@ std::string sec2hhmmss(int total_seconds)
     return oss.str();
 }
 
+std::string stringifyTime(int total_seconds)
+{
+    int hours = total_seconds / 3600;
+    int minutes = (total_seconds % 3600) / 60;
+    int seconds = total_seconds % 60;
+
+    std::ostringstream oss;
+    if (hours == 0) {
+    oss << std::setw(2) << std::setfill('0') << minutes << "' " << std::setw(2) << std::setfill('0')
+        << seconds << "\"";
+
+  } else {
+    oss << std::setw(2) << std::setfill('0') << hours << "h " << std::setw(2) << std::setfill('0')
+        << minutes << "\'";
+
+  }
+
+    return oss.str();
+}
+
 std::string stringifyDate(const std::string& date)
 {
     if (date == "-") return date;
