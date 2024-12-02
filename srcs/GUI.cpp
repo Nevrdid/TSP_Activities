@@ -284,12 +284,18 @@ void GUI::render_background(const std::string& system)
         render_image(path, cfg.width / 2, cfg.height / 2, cfg.width, cfg.height);
     };
 
-    std::string bg;
-
-    if (system == "") {
-        bg = cfg.theme_path + "skin/bg.png";
-    } else {
+    std::string bg = "";
+    if (system != "") {
         bg = "/mnt/SDCARD/Backgrounds/" + cfg.backgrounds_theme + "/" + system + ".png";
+        if (!std::filesystem::exists(bg))
+            bg = "";
+    }
+    if (bg == "") {
+        bg = cfg.theme_path + "skin/bg.png";
+        if (!std::filesystem::exists(bg)) {
+            return;
+        }
+
     }
     render_bg_image(bg);
 }
