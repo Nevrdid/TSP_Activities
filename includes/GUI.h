@@ -94,6 +94,7 @@ class GUI
     CachedText& getCachedText(const std::string& text, TTF_Font* font, SDL_Color color);
 
     bool scroll_reset = false;
+    SDL_Texture* background_texture = nullptr;
 
   public:
     GUI(const Config& cfg);
@@ -123,4 +124,8 @@ class GUI
         TTF_Font* font, SDL_Color color);
     void display_keybind(const std::string& btn1, const std::string& btn2, const std::string& text,
         int x, int y, TTF_Font* font, SDL_Color color);
+
+    void load_background_texture();
+    void unload_background_texture();
+    bool confirmation_popup(const std::string& message, TTF_Font* font);
 };

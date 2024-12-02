@@ -295,7 +295,6 @@ void GUI::render_background(const std::string& system)
         if (!std::filesystem::exists(bg)) {
             return;
         }
-
     }
     render_bg_image(bg);
 }
@@ -313,3 +312,80 @@ void GUI::display_keybind(const std::string& btn1, const std::string& btn2, cons
     prevX = render_image(cfg.theme_path + "skin/" + buttons_icons[btn2], x + prevX, y, 30, 30).x;
     render_text(text, x + 3 * prevX / 2, y - 15, font, color);
 };
+
+void GUI::load_background_texture()
+{
+    if (background_texture){
+        SDL_RenderCopy(renderer, background_texture, nullptr, nullptr);
+        return;
+  }
+
+    SDL_Surface* screen_surface =
+        SDL_CreateRGBSurfaceWithFormat(0, cfg.width, cfg.height, 32, SDL_PIXELFORMAT_RGBA8888);
+
+    if (!screen_surface) {
+        std::cerr << "Failed to create screen surface: " << SDL_GetError() << std::endl;
+        return ;
+    }
+
+    if (SDL_RenderReadPixels(renderer, nullptr, SDL_PIXELFORMAT_RGBA8888, screen_surface->pixels,
+            screen_surface->pitch) != 0) {
+        std::cerr << "Failed to read pixels: " << SDL_GetError() << std::endl;
+        SDL_FreeSurface(screen_surface);
+        return ;
+    }
+
+    background_texture = SDL_CreateTextureFromSurface(renderer, screen_surface);
+    SDL_FreeSurface(screen_surface); // Free the surface since it's no longer needed
+
+    if (!background_texture) {
+        std::cerr << "Failed to create background texture: " << SDL_GetError() << std::endl;
+        return ;
+    }
+    SDL_RenderCopy(renderer, background_texture, nullptr, nullptr);
+}
+
+void GUI::unload_background_texture()
+{
+
+    if (background_texture) {
+        SDL_DestroyTexture(background_texture);
+        background_texture = nullptr;
+    }
+}
+
+bool GUI::confirmation_popup(const std::string& message, TTF_Font* font)
+{
+    bool confirmed = false;
+    bool running = true;
+    Vec2 prevSize;
+    while (running) {
+        load_background_texture();
+        render_image(cfg.theme_path + "skin/float-win-mask.png", cfg.width / 2, cfg.height / 2);
+        render_image(
+            cfg.theme_path + "skin/pop-bg.png", cfg.width / 2, cfg.height / 2, 0, 0, false, true);
+        render_text(message, cfg.width / 2, cfg.height / 3, font, cfg.title_color, 0, true);
+
+        prevSize = render_image(cfg.theme_path + "skin/btn-bg-" + (confirmed ? "f" : "n") + ".png",
+            cfg.width / 3, 2 * cfg.height / 3);
+        render_text("Yes", cfg.width / 3, 2 * cfg.height / 3 - prevSize.y / 2, font,
+            confirmed ? cfg.selected_color : cfg.unselect_color, 0, true);
+        prevSize = render_image(cfg.theme_path + "skin/btn-bg-" + (confirmed ? "n" : "f") + ".png",
+            2 * cfg.width / 3, 2 * cfg.height / 3);
+        render_text("No", 2 * cfg.width / 3, 2 * cfg.height / 3 - prevSize.y / 2, font,
+            confirmed ? cfg.unselect_color : cfg.selected_color, 0, true);
+        render();
+        SDL_Event e;
+        while (SDL_PollEvent(&e)) {
+            switch (map_input(e)) {
+            case InputAction::Left: confirmed = true; break;
+            case InputAction::Right: confirmed = false; break;
+            case InputAction::B: running = false; break;
+            case InputAction::A: running = false; break;
+            default: break;
+            }
+        }
+    }
+    unload_background_texture();
+    return confirmed;
+}

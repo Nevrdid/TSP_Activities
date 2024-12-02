@@ -49,11 +49,12 @@ void Timer::timer_handler(int signum)
             char state = buffer[i];
             if (state == 'Z')
                 instance->running = false;
+            else if (state == 'R')
+                instance->tick_counter++;
             break;
         }
     }
 
-    instance->tick_counter++;
     if (instance->tick_counter == 4) {
         instance->elapsed_seconds++;
         instance->tick_counter = 0;

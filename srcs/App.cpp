@@ -114,7 +114,8 @@ void App::sort_roms()
 void App::game_list()
 {
     Vec2 prevSize;
-    gui.render_text(completed_names[filter_completed] + " " + systems[system_index] + " Games", cfg.list_x0, 7, font_middle, cfg.unselect_color);
+    gui.render_text(completed_names[filter_completed] + " " + systems[system_index] + " Games",
+        cfg.list_x0, 7, font_middle, cfg.unselect_color);
 
     prevSize = gui.render_image(
         std::string(APP_DIR) + "icon.png", cfg.width - 60, 35, 80, 80, false, true);
@@ -226,8 +227,8 @@ void App::game_detail()
     const Rom& rom = filtered_roms_list[selected_index];
 
     // Header: Game name
-    gui.render_scrollable_text(rom.name, cfg.details_x0, 7,
-        cfg.width - 2 * cfg.details_x0, font_middle, cfg.unselect_color);
+    gui.render_scrollable_text(rom.name, cfg.details_x0, 7, cfg.width - 2 * cfg.details_x0,
+        font_middle, cfg.unselect_color);
 
     // Left side: Rom image
     gui.render_image(cfg.theme_path + "skin/bg-menu-09.png", cfg.width / 4, cfg.height / 2,
@@ -261,15 +262,17 @@ void App::game_detail()
 
     gui.display_keybind("A", "Start", 25, cfg.height - 20, font_mini, cfg.info_color);
     gui.display_keybind("B", "Return", 140, cfg.height - 20, font_mini, cfg.info_color);
-    gui.display_keybind("Menu", "Remove", cfg.width / 2 - 150, cfg.height - 20, font_mini, cfg.info_color);
+    gui.display_keybind(
+        "Menu", "Remove", cfg.width / 2 - 150, cfg.height - 20, font_mini, cfg.info_color);
     gui.display_keybind("Select", rom.completed ? "Uncomplete" : "Complete", cfg.width / 2,
         cfg.height - 20, font_mini, cfg.info_color);
     if (!rom.video.empty())
-        gui.display_keybind("Y", "Video", cfg.width - 240, cfg.height - 20, font_mini, cfg.info_color);
+        gui.display_keybind(
+            "Y", "Video", cfg.width - 240, cfg.height - 20, font_mini, cfg.info_color);
     if (!rom.manual.empty())
-        gui.display_keybind("X", "Manual", cfg.width - 125, cfg.height - 20, font_mini, cfg.info_color);
+        gui.display_keybind(
+            "X", "Manual", cfg.width - 125, cfg.height - 20, font_mini, cfg.info_color);
 
-    gui.render();
     SDL_Event e;
     while (SDL_PollEvent(&e)) {
         switch (gui.map_input(e)) {
@@ -288,7 +291,7 @@ void App::game_detail()
             break;
         case InputAction::Select: switch_completed(); break;
         case InputAction::Menu:
-            if (confirmation_popup("Remove game from DB?")) {
+            if (gui.confirmation_popup("Remove game from DB?", font_middle)) {
                 DB db;
                 db.remove(rom.file);
                 roms_list.erase(std::remove_if(roms_list.begin(), roms_list.end(),
@@ -301,13 +304,17 @@ void App::game_detail()
         default: break;
         }
     }
+    gui.render();
 }
 
 void App::overall_stats()
 {
-    while (true) {
-        gui.render_background();
-        gui.render_text("Overall stats", cfg.width / 2, 30, font_big, cfg.selected_color, 0, true);
+    bool running = true;
+    while (running) {
+        gui.load_background_texture();
+        gui.render_image(cfg.theme_path + "skin/float-win-mask.png", cfg.width / 2, cfg.height / 2);
+        gui.render_image(
+            cfg.theme_path + "skin/pop-bg.png", cfg.width / 2, cfg.height / 2, 0, 0, false, true);
 
         int count = 0;
         int completed = 0;
@@ -321,66 +328,37 @@ void App::overall_stats()
         std::string total_time = utils::stringifyTime(time);
         std::string average_time = utils::stringifyTime(average);
 
-        gui.render_text("Total games: " + std::to_string(roms_list.size()), cfg.width / 2, 150,
+        gui.render_text("Overall stats", cfg.width / 2, 140, font_big, cfg.selected_color, 0, true);
+        gui.render_text("Total games: " + std::to_string(roms_list.size()), cfg.width / 2, 220,
             font_middle, cfg.info_color, 0, true);
-        gui.render_text("Total completed: " + std::to_string(completed), cfg.width / 2, 250,
+        gui.render_text("Total completed: " + std::to_string(completed), cfg.width / 2, 300,
             font_middle, cfg.info_color, 0, true);
-        gui.render_text("Total play count: " + std::to_string(count), cfg.width / 2, 350,
+        gui.render_text("Total play count: " + std::to_string(count), cfg.width / 2, 380,
             font_middle, cfg.info_color, 0, true);
-        gui.render_text(
-            "Total play time: " + total_time, cfg.width / 2, 450, font_middle, cfg.info_color, 0, true);
-        gui.render_text(
-            "Average play time: " + average_time, cfg.width / 2, 550, font_middle, cfg.info_color, 0, true);
+        gui.render_text("Total play time: " + total_time, cfg.width / 2, 460, font_middle,
+            cfg.info_color, 0, true);
+        gui.render_text("Average play time: " + average_time, cfg.width / 2, 540, font_middle,
+            cfg.info_color, 0, true);
 
         gui.render();
         SDL_Event e;
         while (SDL_PollEvent(&e)) {
             switch (gui.map_input(e)) {
-            case InputAction::B: return; break;
-            case InputAction::A: return; break;
+            case InputAction::Menu:
+            case InputAction::B:
+            case InputAction::A: running = false; break;
             default: break;
             }
         }
     }
-}
-
-bool App::confirmation_popup(const std::string& message)
-{
-    bool confirmed = false;
-    Vec2 prevSize;
-
-    while (true) {
-        gui.render_background();
-        gui.render_text(message, cfg.width / 2, cfg.height / 3, font_middle, cfg.title_color, 0, true);
-
-        prevSize = gui.render_image(
-            cfg.theme_path + "skin/bg-button-02-" + (confirmed ? "selected" : "unselect") + ".png",
-            cfg.width / 3, 2 * cfg.height / 3);
-        gui.render_text("Yes", cfg.width / 3, 2 * cfg.height / 3 - prevSize.y / 2, font_middle,
-            confirmed ? cfg.selected_color : cfg.unselect_color, 0, true);
-        prevSize = gui.render_image(
-            cfg.theme_path + "skin/bg-button-02-" + (confirmed ? "unselect" : "selected") + ".png",
-            2 * cfg.width / 3, 2 * cfg.height / 3);
-        gui.render_text("No", 2 * cfg.width / 3, 2 * cfg.height / 3 - prevSize.y / 2, font_middle,
-            confirmed ? cfg.unselect_color : cfg.selected_color, 0, true);
-        gui.render();
-        SDL_Event e;
-        while (SDL_PollEvent(&e)) {
-            switch (gui.map_input(e)) {
-            case InputAction::Left: confirmed = true; break;
-            case InputAction::Right: confirmed = false; break;
-            case InputAction::B: return false; break;
-            case InputAction::A: return confirmed; break;
-            default: break;
-            }
-        }
-    }
+    gui.unload_background_texture();
 }
 
 void App::empty_db()
 {
     gui.render_background();
-    gui.render_text("No datas available.", cfg.width / 2, cfg.height / 2, font_big, cfg.title_color, 0, true);
+    gui.render_text(
+        "No datas available.", cfg.width / 2, cfg.height / 2, font_big, cfg.title_color, 0, true);
     gui.render();
 }
 
