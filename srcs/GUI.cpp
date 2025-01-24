@@ -37,8 +37,13 @@ int GUI::init()
     return 0;
 }
 
-GUI::~GUI()
+GUI::~GUI(){}
+
+void GUI::clean()
 {
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+    SDL_RenderClear(renderer);
+    SDL_RenderPresent(renderer);
 
     for (auto& texture : image_cache)
         if (texture.second.texture)
@@ -121,8 +126,10 @@ void GUI::launch_external(const std::string& command)
 
     SDL_EventState(SDL_JOYBUTTONDOWN, SDL_ENABLE);
     SDL_EventState(SDL_JOYBUTTONUP, SDL_ENABLE);
+
     while (SDL_WaitEvent(NULL) < 0) {
     }
+
     SDL_FlushEvents(SDL_JOYBUTTONDOWN, SDL_JOYBUTTONUP);
 }
 
@@ -382,6 +389,7 @@ bool GUI::confirmation_popup(const std::string& message, TTF_Font* font)
             case InputAction::Right: confirmed = false; break;
             case InputAction::B: running = false; break;
             case InputAction::A: running = false; break;
+            case InputAction::Quit: running = false; break;
             default: break;
             }
         }

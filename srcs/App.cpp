@@ -47,7 +47,7 @@ App::App(const std::string& rom_name)
 
 App::~App()
 {
-
+    gui.clean();
     TTF_CloseFont(font_mini);
     TTF_CloseFont(font_tiny);
     TTF_CloseFont(font_middle);
@@ -176,6 +176,7 @@ void App::game_list()
     while (SDL_PollEvent(&e)) {
         InputAction action = gui.map_input(e);
         switch (action) {
+        case InputAction::Quit: is_running = false; break;
         case InputAction::Up:
             if (selected_index > 0)
                 selected_index--;
@@ -276,6 +277,7 @@ void App::game_detail()
     SDL_Event e;
     while (SDL_PollEvent(&e)) {
         switch (gui.map_input(e)) {
+        case InputAction::Quit: is_running = false; break;
         case InputAction::B: in_game_detail = false; break;
         case InputAction::A:
             gui.launch_external(
@@ -310,7 +312,7 @@ void App::game_detail()
 void App::overall_stats()
 {
     bool running = true;
-    while (running) {
+    while (is_running && running) {
         gui.load_background_texture();
         gui.render_image(cfg.theme_path + "skin/float-win-mask.png", cfg.width / 2, cfg.height / 2);
         gui.render_image(
@@ -344,6 +346,7 @@ void App::overall_stats()
         SDL_Event e;
         while (SDL_PollEvent(&e)) {
             switch (gui.map_input(e)) {
+            case InputAction::Quit: is_running = false; break;
             case InputAction::Menu:
             case InputAction::B:
             case InputAction::A: running = false; break;

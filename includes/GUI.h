@@ -99,6 +99,7 @@ class GUI
   public:
     GUI(const Config& cfg);
     ~GUI();
+    void clean();
 
     int init();
 
