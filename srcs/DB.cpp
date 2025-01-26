@@ -145,6 +145,7 @@ Rom DB::save(const std::string& file, int time, int completed)
         rom.manual = "";
 
     rom.system = std::regex_replace(rom.file, sys_pattern, R"($1)");
+    rom.pid = -1;
     return rom;
 }
 
@@ -199,6 +200,7 @@ Rom DB::load(const std::string& file)
             rom.manual = "";
 
         rom.system = std::regex_replace(rom.file, sys_pattern, R"($1)");
+        rom.pid = -1;
     } else if (result == SQLITE_DONE) {
         return save(file);
         std::cerr << "No record found for rom: " << file << std::endl;
@@ -208,7 +210,7 @@ Rom DB::load(const std::string& file)
     return rom;
 }
 
-std::vector<Rom> DB::load_all()
+std::vector<Rom> DB::load()
 {
     std::vector<Rom> roms;
     std::cout << "DB: Loading all roms." << std::endl;
@@ -255,6 +257,7 @@ std::vector<Rom> DB::load_all()
             rom.manual = "";
 
         rom.system = std::regex_replace(rom.file, sys_pattern, R"($1)");
+        rom.pid = -1;
 
         roms.push_back(rom);
     }

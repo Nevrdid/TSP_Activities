@@ -20,8 +20,8 @@ int GUI::init()
 
     SDL_JoystickEventState(SDL_ENABLE);
 
-    window = SDL_CreateWindow("Game Timer", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-        cfg.width, cfg.height, SDL_WINDOW_SHOWN);
+    window = SDL_CreateWindow("Game Timer", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 320,
+        200, SDL_WINDOW_FULLSCREEN | SDL_WINDOW_SHOWN);
     if (!window) {
         std::cerr << "Window could not be created! SDL_Error: " << SDL_GetError() << std::endl;
         return -1;
@@ -33,11 +33,37 @@ int GUI::init()
         SDL_DestroyWindow(window);
         return -1;
     }
+    // Wait the window to be resized to fullscreen
+    SDL_Event e;
+    while (SDL_PollEvent(&e)) {
+    }
+
+    SDL_GetRendererOutputSize(renderer, &Width, &Height);
+    std::cout << "Width: " << Width << ", Height: " << Height << std::endl;
+
+    if (TTF_Init()) {
+        std::cerr << "Failed to init ttf: " << TTF_GetError() << std::endl;
+        return -1;
+    }
 
     return 0;
 }
 
-GUI::~GUI(){}
+GUI::~GUI()
+{
+}
+
+TTF_Font* GUI::get_font(int size)
+{
+    if (fonts.find(size) == fonts.end()) {
+        fonts[size] = TTF_OpenFont((cfg.theme_path + cfg.theme.font).c_str(), size * 4 / 3);
+        if (!fonts[size]) {
+            std::cerr << "Failed to load font: " << TTF_GetError() << std::endl;
+            return nullptr;
+        }
+    }
+    return fonts[size];
+}
 
 void GUI::clean()
 {
@@ -58,6 +84,14 @@ void GUI::clean()
     SDL_JoystickClose(joystick);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
+
+    for (auto& font : fonts)
+        TTF_CloseFont(font.second);
+    for (const std::pair<std::string, pid_t> child : childs){
+      utils::resume_process_group(child.second);
+      utils::kill_process_group(child.second);
+      waitpid(child.second,NULL,0);
+    }
 
     SDL_Quit();
 }
@@ -133,10 +167,70 @@ void GUI::launch_external(const std::string& command)
     SDL_FlushEvents(SDL_JOYBUTTONDOWN, SDL_JOYBUTTONUP);
 }
 
-Vec2 GUI::render_image(
-    const std::string& image_path, int x, int y, int w, int h, bool no_overflow, bool center)
+pid_t GUI::wait_game(const std::string& romName)
 {
-    if (image_path.empty())
+    int  combo = 0;
+    int  status;
+    pid_t pid = childs[romName];
+    std::cout << "ActivitiesApp: Waiting for " << romName << std::endl;
+    while (true) {
+        waitpid(pid, &status, WNOHANG);
+        SDL_Event e;
+        while (SDL_PollEvent(&e)) {
+            if (e.type == SDL_JOYBUTTONDOWN) {
+                switch (e.jbutton.button) {
+                case 6: combo |= 1; break;
+                case 8: combo |= 2; break;
+                default: break;
+                }
+            } else if (e.type == SDL_JOYBUTTONUP) {
+                switch (e.jbutton.button) {
+                case 6: combo &= ~1; break;
+                case 8: combo &= ~2; break;
+                default: break;
+                }
+            }
+            if (combo == 3) {
+                utils::suspend_process_group(utils::get_pgid_of_process(pid));
+                return pid;
+            }
+        }
+        if (WIFEXITED(status)) {
+          std::cout << "ActivitiesApp: Game " << romName << " exited." << std::endl;
+          break;
+        }
+        SDL_Delay(16);
+    }
+    childs.erase(romName);
+    return -1;
+}
+
+void GUI::launch_game(const std::string& romName, const std::string& system, const std::string& romFile)
+{
+    std::cout << "ActivitiesApp: Launching " << romName << std::endl;
+
+    if (childs.find(romName) != childs.end()) {
+        pid_t pid = childs[romName];
+        pid_t gpid = utils::get_pgid_of_process(pid);
+        utils::resume_process_group(gpid);
+        std::cout << "Resuming process group: " << romName << std::endl;
+    } else {
+        pid_t pid = fork();
+        if (pid == 0) {
+            setsid();
+            std::string launcher = "/mnt/SDCARD/Emus/" + system + "/default.sh";
+            execl(launcher.c_str(), launcher.c_str(), romFile.c_str(), (char *)NULL);
+            std::cerr << "Failed to launch " << romName << std::endl;
+            exit(1);
+        } else {
+            childs[romName] = pid;
+        }
+    }
+}
+
+Vec2 GUI::render_image(const std::string& image_path, int x, int y, int w, int h, int flags)
+{
+    if (image_path.empty() || !std::filesystem::exists(image_path))
         return {0, 0};
     if (image_cache.find(image_path) == image_cache.end()) {
         SDL_Surface* surface = IMG_Load(image_path.c_str());
@@ -150,13 +244,13 @@ Vec2 GUI::render_image(
     int height = h;
     if (h == 0 && w) {
         height = w * cached_texture.height / cached_texture.width;
-        if (no_overflow && height > width) {
+        if ((flags & IMG_FIT) && height > width) {
             height = width;
             width = height * cached_texture.width / cached_texture.height;
         }
     } else if (w == 0 && h) {
         width = h * cached_texture.width / cached_texture.height;
-        if (no_overflow && width > height) {
+        if ((flags & IMG_FIT) && width > height) {
             width = height;
             height = width * cached_texture.height / cached_texture.width;
         }
@@ -165,22 +259,23 @@ Vec2 GUI::render_image(
         height = cached_texture.height;
     }
 
-    int      x0 = center ? x - width / 2 : x;
-    int      y0 = center ? y - height / 2 : y;
+    int      x0 = (flags & IMG_CENTER) ? x - width / 2 : x;
+    int      y0 = (flags & IMG_CENTER) ? y - height / 2 : y;
     SDL_Rect dest_rect = {x0, y0, width, height};
     SDL_RenderCopy(renderer, cached_texture.texture, nullptr, &dest_rect);
     return {width, height};
 }
 
-CachedText& GUI::getCachedText(const std::string& text, TTF_Font* font, SDL_Color color)
+CachedText& GUI::getCachedText(const Text& text)
 {
     for (auto& cached : cached_text) {
-        if (cached.text == text && cached.r == color.r && cached.g == color.g &&
-            cached.b == color.b && cached.a == color.a)
+        if (cached.text == text)
             return cached;
     }
 
-    SDL_Surface* surface = TTF_RenderText_Blended(font, text.c_str(), color);
+    TTF_Font* font = get_font(text.size);
+
+    SDL_Surface* surface = TTF_RenderText_Blended(font, text.str.c_str(), text.color);
     if (!surface) {
         std::cerr << "Failed to render text: " << TTF_GetError() << std::endl;
         TTF_CloseFont(font);
@@ -192,7 +287,7 @@ CachedText& GUI::getCachedText(const std::string& text, TTF_Font* font, SDL_Colo
         std::cerr << "Failed to create texture: " << SDL_GetError() << std::endl;
     }
 
-    CachedText cached = {texture, surface->w, surface->h, text, color.r, color.g, color.b, color.a};
+    CachedText cached = {texture, surface->w, surface->h, text};
     cached_text.push_back(cached);
 
     SDL_FreeSurface(surface);
@@ -201,21 +296,21 @@ CachedText& GUI::getCachedText(const std::string& text, TTF_Font* font, SDL_Colo
 
 void GUI::render_multicolor_text(
     const std::vector<std::pair<std::string, SDL_Color>>& colored_texts, int x, int y,
-    TTF_Font* font)
+    int font_size)
 {
     int current_x = x;
     for (const auto& text_pair : colored_texts) {
         const std::string& text = text_pair.first;
         SDL_Color          color = text_pair.second;
 
-        CachedText& cached = getCachedText(text, font, color);
+        CachedText& cached = getCachedText({text, font_size, color});
 
         if (!cached.texture) {
             std::cerr << "Failed to retrieve or cache text texture." << std::endl;
             return;
         }
 
-        SDL_Rect dest_rect = {current_x, y, cached.width, TTF_FontHeight(font)};
+        SDL_Rect dest_rect = {current_x, y, cached.width, cached.height};
 
         SDL_RenderCopy(renderer, cached.texture, nullptr, &dest_rect);
 
@@ -224,9 +319,9 @@ void GUI::render_multicolor_text(
 }
 
 void GUI::render_text(
-    const std::string& text, int x, int y, TTF_Font* font, SDL_Color color, int width, bool center)
+    const std::string& text, int x, int y, int font_size, SDL_Color color, int width, bool center)
 {
-    CachedText& cached = getCachedText(text, font, color);
+    CachedText& cached = getCachedText({text, font_size, color});
 
     if (!cached.texture) {
         std::cerr << "Failed to retrieve or cache text texture." << std::endl;
@@ -237,21 +332,21 @@ void GUI::render_text(
         x -= cached.width / 2;
     }
     if (width && cached.width > width) {
-        SDL_Rect render_rect = {x, y, width, TTF_FontHeight(font)};
-        SDL_Rect clip_rect = {0, 0, width, TTF_FontHeight(font)};
+        SDL_Rect clip_rect = {0, 0, width, cached.height};
+        SDL_Rect render_rect = {x, y, width, cached.height};
         SDL_RenderCopy(renderer, cached.texture, &clip_rect, &render_rect);
     } else {
-        SDL_Rect dest_rect = {x, y, cached.width, TTF_FontHeight(font)};
+        SDL_Rect dest_rect = {x, y, cached.width, cached.height};
         SDL_RenderCopy(renderer, cached.texture, nullptr, &dest_rect);
     }
 }
 
 void GUI::render_scrollable_text(
-    const std::string& text, int x, int y, int width, TTF_Font* font, SDL_Color color)
+    const std::string& text, int x, int y, int width, int font_size, SDL_Color color)
 {
     static int    offset = 0;
     static Uint32 last_update = 0;
-    CachedText&   cached_texture = getCachedText(text, font, color);
+    CachedText&   cached = getCachedText({text, font_size, color});
 
     if (scroll_reset) {
         last_update = SDL_GetTicks();
@@ -259,8 +354,8 @@ void GUI::render_scrollable_text(
         offset = 0;
     }
 
-    if (cached_texture.width <= width) {
-        render_text(text, x, y, font, color, width);
+    if (cached.width <= width) {
+        render_text(text, x, y, font_size, color, width);
         return;
     }
 
@@ -268,14 +363,14 @@ void GUI::render_scrollable_text(
     if (current_time - last_update > (offset > 0 ? 16 : 2000)) { // Adjust delays
         last_update = current_time;
         offset += 3; // Scrolling speed
-        if (offset > cached_texture.width - width)
+        if (offset > cached.width - width)
             scroll_reset = true;
     }
 
-    SDL_Rect clip_rect = {offset, 0, width, TTF_FontHeight(font)};
-    SDL_Rect render_rect = {x, y, width, TTF_FontHeight(font)};
+    SDL_Rect clip_rect = {offset, 0, width, cached.height};
+    SDL_Rect render_rect = {x, y, width, cached.height};
 
-    SDL_RenderCopy(renderer, cached_texture.texture, &clip_rect, &render_rect);
+    SDL_RenderCopy(renderer, cached.texture, &clip_rect, &render_rect);
 }
 
 void GUI::reset_scroll()
@@ -288,7 +383,7 @@ void GUI::render_background(const std::string& system)
     SDL_RenderClear(renderer);
 
     auto render_bg_image = [this](const std::string& path) {
-        render_image(path, cfg.width / 2, cfg.height / 2, cfg.width, cfg.height);
+        render_image(path, Width / 2, Height / 2, Width, Height);
     };
 
     std::string bg = "";
@@ -306,40 +401,46 @@ void GUI::render_background(const std::string& system)
     render_bg_image(bg);
 }
 
-void GUI::display_keybind(const std::string& btn, const std::string& text, int x, int y,
-    TTF_Font* font, const SDL_Color color)
+void GUI::display_keybind(const std::string& btn, const std::string& text, int x)
 {
-    int prevX = render_image(cfg.theme_path + "skin/" + buttons_icons[btn], x, y, 30, 30).x;
-    render_text(text, x + prevX / 2, y - 15, font, color);
+    int prevX =
+        render_image(cfg.theme_path + "skin/" + buttons_icons[btn], x, Height - 20, 30, 30).x;
+
+    render_text(text, x + prevX / 2, Height - 35, FONT_MINI_SIZE, cfg.info_color);
 };
 void GUI::display_keybind(const std::string& btn1, const std::string& btn2, const std::string& text,
-    int x, int y, TTF_Font* font, SDL_Color color)
+
+    int x)
 {
-    int prevX = render_image(cfg.theme_path + "skin/" + buttons_icons[btn1], x, y, 30, 30).x;
-    prevX = render_image(cfg.theme_path + "skin/" + buttons_icons[btn2], x + prevX, y, 30, 30).x;
-    render_text(text, x + 3 * prevX / 2, y - 15, font, color);
+    int prevX =
+        render_image(cfg.theme_path + "skin/" + buttons_icons[btn1], x, Height - 20, 30, 30).x;
+
+    prevX =
+        render_image(cfg.theme_path + "skin/" + buttons_icons[btn2], x + prevX, Height - 20, 30, 30)
+            .x;
+    render_text(text, x + 3 * prevX / 2, Height - 35, FONT_MINI_SIZE, cfg.info_color);
 };
 
 void GUI::load_background_texture()
 {
-    if (background_texture){
+    if (background_texture) {
         SDL_RenderCopy(renderer, background_texture, nullptr, nullptr);
         return;
-  }
+    }
 
     SDL_Surface* screen_surface =
-        SDL_CreateRGBSurfaceWithFormat(0, cfg.width, cfg.height, 32, SDL_PIXELFORMAT_RGBA8888);
+        SDL_CreateRGBSurfaceWithFormat(0, Width, Height, 32, SDL_PIXELFORMAT_RGBA8888);
 
     if (!screen_surface) {
         std::cerr << "Failed to create screen surface: " << SDL_GetError() << std::endl;
-        return ;
+        return;
     }
 
     if (SDL_RenderReadPixels(renderer, nullptr, SDL_PIXELFORMAT_RGBA8888, screen_surface->pixels,
             screen_surface->pitch) != 0) {
         std::cerr << "Failed to read pixels: " << SDL_GetError() << std::endl;
         SDL_FreeSurface(screen_surface);
-        return ;
+        return;
     }
 
     background_texture = SDL_CreateTextureFromSurface(renderer, screen_surface);
@@ -347,7 +448,7 @@ void GUI::load_background_texture()
 
     if (!background_texture) {
         std::cerr << "Failed to create background texture: " << SDL_GetError() << std::endl;
-        return ;
+        return;
     }
     SDL_RenderCopy(renderer, background_texture, nullptr, nullptr);
 }
@@ -361,25 +462,25 @@ void GUI::unload_background_texture()
     }
 }
 
-bool GUI::confirmation_popup(const std::string& message, TTF_Font* font)
+bool GUI::confirmation_popup(const std::string& message, int font_size)
 {
     bool confirmed = false;
     bool running = true;
     Vec2 prevSize;
     while (running) {
         load_background_texture();
-        render_image(cfg.theme_path + "skin/float-win-mask.png", cfg.width / 2, cfg.height / 2);
         render_image(
-            cfg.theme_path + "skin/pop-bg.png", cfg.width / 2, cfg.height / 2, 0, 0, false, true);
-        render_text(message, cfg.width / 2, cfg.height / 3, font, cfg.title_color, 0, true);
+            cfg.theme_path + "skin/float-win-mask.png", Width / 2, Height / 2, Width, Height);
+        render_image(cfg.theme_path + "skin/pop-bg.png", Width / 2, Height / 2, 0, 0);
+        render_text(message, Width / 2, Height / 3, font_size, cfg.title_color, 0, true);
 
         prevSize = render_image(cfg.theme_path + "skin/btn-bg-" + (confirmed ? "f" : "n") + ".png",
-            cfg.width / 3, 2 * cfg.height / 3);
-        render_text("Yes", cfg.width / 3, 2 * cfg.height / 3 - prevSize.y / 2, font,
+            Width / 3, 2 * Height / 3);
+        render_text("Yes", Width / 3, 2 * Height / 3 - prevSize.y / 2, font_size,
             confirmed ? cfg.selected_color : cfg.unselect_color, 0, true);
         prevSize = render_image(cfg.theme_path + "skin/btn-bg-" + (confirmed ? "n" : "f") + ".png",
-            2 * cfg.width / 3, 2 * cfg.height / 3);
-        render_text("No", 2 * cfg.width / 3, 2 * cfg.height / 3 - prevSize.y / 2, font,
+            2 * Width / 3, 2 * Height / 3);
+        render_text("No", 2 * Width / 3, 2 * Height / 3 - prevSize.y / 2, font_size,
             confirmed ? cfg.unselect_color : cfg.selected_color, 0, true);
         render();
         SDL_Event e;
@@ -396,4 +497,23 @@ bool GUI::confirmation_popup(const std::string& message, TTF_Font* font)
     }
     unload_background_texture();
     return confirmed;
+}
+
+void GUI::infos_window(std::string title, int title_size,
+    std::vector<std::pair<std::string, std::string>> content, int content_size, int x, int y,
+    int width, int height)
+{
+    render_image(cfg.theme_path + "skin/pop-bg.png", x, y, width, height);
+    int y0 = y - height / 2;
+
+    render_text(title, x, y0, title_size, cfg.title_color, 0, true);
+    int content_height = height - 3 * title_size / 2;
+    y0 = y0 + height - content_height;
+    int dy = content_height / content.size();
+
+    for (size_t i = 0; i < content.size(); i++) {
+        render_multicolor_text(
+            {{content[i].first, cfg.selected_color}, {content[i].second, cfg.info_color}},
+            x - width / 2 + 20, y0 + dy * i, content_size);
+    }
 }

@@ -1,13 +1,13 @@
-#include "App.h"
+#include "Activities.h"
 #include "DB.h"
 #include "Timer.h"
 #include <wait.h>
+#include <cstring>
 
 #define HELP_MESSAGE                                                                               \
     "Usage:\n\
-  ./activities add <rom_file> <pid>\n\
-  ./activivites del <rom_file>\n\
-  ./activities gui [rom_file]"
+  ./MaxUI time <rom_file> <pid>\n\
+  ./MaxUI activities [rom_file]"
 
 Timer* Timer::instance = nullptr;
 
@@ -82,13 +82,10 @@ void timer_daemonize(const std::string& rom_file, const std::string& program_pid
 
 int main(int argc, char* argv[])
 {
-    if (argc == 4 && std::string(argv[1]) == "add") {
+    if (argc == 4 && std::strcmp(argv[1], "time") == 0) {
         timer_daemonize(argv[2], argv[3]);
-    } else if (argc == 3 && std::string(argv[1]) == "del") {
-        DB db;
-        db.remove(argv[2]);
-    } else if (argc > 1 && std::string(argv[1]) == "gui") {
-        App app(argc > 2 ? argv[2] : "");
+    } else if (argc > 1 && std::strcmp(argv[1], "gui") == 0) {
+        Activities app(argc > 2 ? argv[2] : "");
         app.run();
     } else {
         std::cout << HELP_MESSAGE << std::endl;

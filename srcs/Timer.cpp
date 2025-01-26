@@ -33,26 +33,25 @@ void Timer::timer_handler(int signum)
         instance->running = false;
         return;
     }
-
     char    buffer[128];
     ssize_t bytes_read = read(instance->fd, buffer, sizeof(buffer) - 1);
     if (bytes_read <= 0) {
         instance->running = false;
         return;
     }
-
     int space_count = 0;
     for (ssize_t i = 0; i < bytes_read; i++) {
         if (buffer[i] == ' ')
             space_count++;
         if (space_count == 2 && ++i < bytes_read) {
-            char state = buffer[i];
-            if (state == 'Z')
-                instance->running = false;
+            switch (buffer[i]) {
+            case 'Z': instance->running = false; return;
+            case 'T': return;
+            default: break;
+            }
             break;
         }
     }
-
     instance->tick_counter++;
     if (instance->tick_counter == 4) {
         instance->elapsed_seconds++;

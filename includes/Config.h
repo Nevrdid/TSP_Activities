@@ -55,29 +55,13 @@ class Config
     Config();
     ~Config();
 
-    size_t width;
-    size_t height;
-    size_t list_mid;
-    size_t list_dy;
-    size_t details_img_size;
-    size_t list_y0;
-    size_t list_y1;
-    size_t list_x0;
-    size_t list_x1;
-    size_t list_x2;
-    size_t details_y0;
-    size_t details_y1;
-    size_t details_x0;
-    size_t details_x1;
-    size_t details_x2;
-
     SDL_Color   selected_color = {0, 255, 0, 255};
     SDL_Color   unselect_color = {255, 238, 180, 255};
     SDL_Color   title_color = {0, 255, 0, 255};
     SDL_Color   info_color = {255, 238, 180, 255};
     SDL_Color   background_color = {0, 0, 0, 0};
     std::string backgrounds_theme = "Default";
-    std::string skins_theme = "CrossMix - OS";
+    std::string skins_theme = "TRIMUI Blue";
     bool        theme_background = true;
     std::string default_background = "";
 

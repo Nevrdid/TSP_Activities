@@ -19,18 +19,13 @@ enum Sort
 
 static const std::string sort_names[] = {"Name", "Time", "Count", "Last"};
 
-static const std::string completed_names[] = {"All", "Completed", "Not completed"};
+static const std::string states_names[] = {"All", "Running", "Completed", "Not completed"};
 
-class App
+class Activities
 {
   private:
     Config cfg;
     GUI    gui;
-
-    TTF_Font* font_big;
-    TTF_Font* font_middle;
-    TTF_Font* font_tiny;
-    TTF_Font* font_mini;
 
     bool is_running = false;
     bool in_game_detail = false;
@@ -41,7 +36,7 @@ class App
     size_t           total_time = 0;
     size_t           selected_index = 0;
     bool             no_list = false;
-    int              filter_completed = 0;
+    int              filter_state = 0;
     Sort             sort_by = Sort::Last;
 
     std::vector<std::string> systems;
@@ -51,16 +46,16 @@ class App
     void filter_roms();
 
     void switch_completed();
+    void set_pid(pid_t pid);
     void handle_inputs();
     void game_list();
     void game_detail();
     void overall_stats();
-    bool confirmation_popup(const std::string& message);
     void empty_db();
 
   public:
-    App(const std::string& rom_file = "");
-    ~App();
+    Activities(const std::string& rom_file = "");
+    ~Activities();
 
     void run();
 };

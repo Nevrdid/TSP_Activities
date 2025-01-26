@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Config.h"
+#include "utils.h"
 
 #include <SDL.h>
 #include <SDL_image.h>
@@ -8,6 +9,7 @@
 #include <filesystem>
 #include <iostream>
 #include <string>
+#include <sys/wait.h>
 #include <unistd.h>
 #include <unordered_map>
 #include <vector>
@@ -17,10 +19,10 @@
 
 #define FONT APP_DIR "assets/Lato-Medium.ttf"
 
-#define FONT_BIG_SIZE 72
-#define FONT_MIDDLE_SIZE 54
-#define FONT_TINY_SIZE 32
-#define FONT_MINI_SIZE 24
+#define FONT_BIG_SIZE 54
+#define FONT_MIDDLE_SIZE 36
+#define FONT_TINY_SIZE 24
+#define FONT_MINI_SIZE 18
 
 #define LIST_LINES 6
 
@@ -43,6 +45,13 @@ enum class InputAction
     Quit,
 };
 
+enum
+{
+    IMG_NONE = 0,
+    IMG_FIT = 1,
+    IMG_CENTER = 2
+};
+
 static std::unordered_map<std::string, std::string> buttons_icons = {
     {"A", "tips-A.png"},
     {"B", "tips-B.png"},
@@ -61,13 +70,25 @@ struct Vec2
     int y = 0;
 };
 
+struct Text
+{
+    std::string str = "";
+    int         size = 0;
+    SDL_Color   color = {0, 0, 0, 0};
+
+    bool operator==(const Text& other) const
+    {
+        return str == other.str && size == other.size && color.r == other.color.r &&
+               color.g == other.color.g && color.b == other.color.b && color.a == other.color.a;
+    };
+};
+
 struct CachedText
 {
     SDL_Texture* texture = nullptr;
     int          width = 0;
     int          height = 0;
-    std::string  text = "";
-    int          r = 0, g = 0, b = 0, a = 255;
+    Text         text;
 };
 
 struct CachedImg
@@ -88,12 +109,15 @@ class GUI
     SDL_Renderer* renderer = nullptr;
     SDL_Joystick* joystick;
 
+    std::map<int, TTF_Font*>     fonts;
+    std::map<std::string, pid_t> childs;
+
     std::vector<CachedText>                    cached_text;
     std::unordered_map<std::string, CachedImg> image_cache;
 
-    CachedText& getCachedText(const std::string& text, TTF_Font* font, SDL_Color color);
+    CachedText& getCachedText(const Text& text);
 
-    bool scroll_reset = false;
+    bool         scroll_reset = false;
     SDL_Texture* background_texture = nullptr;
 
   public:
@@ -103,30 +127,39 @@ class GUI
 
     int init();
 
+    int Width;
+    int Height;
+
     InputAction map_input(const SDL_Event& e);
     void        clear_screen();
     void        render();
 
+    void launch_game(const std::string& romName, const std::string& system, const std::string& rom);
+    pid_t wait_game(const std::string& romName);
     void launch_external(const std::string& command);
-    Vec2 render_image(const std::string& image_path, int x, int y, int w = 0, int h = 0,
-        bool no_overflow = false, bool center = true);
+    Vec2 render_image(
+        const std::string& image_path, int x, int y, int w = 0, int h = 0, int flags = IMG_CENTER);
 
-    void render_text(const std::string& text, int x, int y, TTF_Font* font,
+    void render_text(const std::string& text, int x, int y, int font_size,
         SDL_Color color = {255, 255, 255, 255}, int width = 0, bool center = false);
 
-    void render_multicolor_text(const vecColorString& colored_texts, int x, int y, TTF_Font* font);
+    void render_multicolor_text(const vecColorString& colored_texts, int x, int y, int font_size);
 
     void render_scrollable_text(
-        const std::string& text, int x, int y, int width, TTF_Font* font, SDL_Color color);
+        const std::string& text, int x, int y, int width, int font_size, SDL_Color color);
     void reset_scroll();
 
     void render_background(const std::string& system = "");
-    void display_keybind(const std::string& btn, const std::string& text, int x, int y,
-        TTF_Font* font, SDL_Color color);
-    void display_keybind(const std::string& btn1, const std::string& btn2, const std::string& text,
-        int x, int y, TTF_Font* font, SDL_Color color);
+    void display_keybind(const std::string& btn, const std::string& text, int x);
+    void display_keybind(
+        const std::string& btn1, const std::string& btn2, const std::string& text, int x);
+    TTF_Font* get_font(int size);
 
     void load_background_texture();
     void unload_background_texture();
-    bool confirmation_popup(const std::string& message, TTF_Font* font);
+    bool confirmation_popup(const std::string& message, int font_size);
+
+    void infos_window(std::string title, int title_size,
+        std::vector<std::pair<std::string, std::string>> content, int content_size, int x, int y,
+        int width, int height);
 };

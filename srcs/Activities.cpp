@@ -1,31 +1,15 @@
-#include "App.h"
+#include "Activities.h"
 
-App::App(const std::string& rom_name)
+Activities::Activities(const std::string& rom_name)
     : cfg()
     , gui(cfg)
 {
 
     gui.init();
-    if (TTF_Init()) {
-        std::cerr << "Failed to init ttf: " << TTF_GetError() << std::endl;
-        return;
-    }
-
-    std::string font = cfg.theme_path + cfg.theme.font;
-
-    font_big = TTF_OpenFont(font.c_str(), FONT_BIG_SIZE);
-    font_middle = TTF_OpenFont(font.c_str(), FONT_MIDDLE_SIZE);
-    font_tiny = TTF_OpenFont(font.c_str(), FONT_TINY_SIZE);
-    font_mini = TTF_OpenFont(font.c_str(), FONT_MINI_SIZE);
-
-    if (!font_tiny || !font_middle || !font_big || !font_mini) {
-        std::cerr << "Failed to load fonts: " << TTF_GetError() << std::endl;
-        return;
-    }
 
     DB db;
     if (rom_name == "") {
-        roms_list = db.load_all();
+        roms_list = db.load();
         if (roms_list.empty())
             return;
 
@@ -45,16 +29,12 @@ App::App(const std::string& rom_name)
     is_running = true;
 }
 
-App::~App()
+Activities::~Activities()
 {
     gui.clean();
-    TTF_CloseFont(font_mini);
-    TTF_CloseFont(font_tiny);
-    TTF_CloseFont(font_middle);
-    TTF_CloseFont(font_big);
 }
 
-void App::switch_completed()
+void Activities::switch_completed()
 {
     Rom& rom = filtered_roms_list[selected_index];
     DB   db;
@@ -66,15 +46,30 @@ void App::switch_completed()
     }
 }
 
-void App::filter_roms()
+void Activities::set_pid(pid_t pid)
+{
+    Rom& rom = filtered_roms_list[selected_index];
+    DB   db;
+    for (auto& r : roms_list) {
+        if (r.file == rom.file) {
+            r.pid = rom.pid = pid;
+            break;
+        }
+    }
+
+
+}
+
+void Activities::filter_roms()
 {
     const std::string& current_system = systems[system_index];
     filtered_roms_list.clear();
     total_time = 0;
     for (const auto& rom : roms_list) {
         if (rom.system == current_system || system_index == 0) {
-            if (filter_completed == 0 || (filter_completed == 1 && rom.completed == 1) ||
-                (filter_completed == 2 && rom.completed == 0)) {
+            if (filter_state == 0 || (filter_state == 1 && rom.pid != -1) ||
+                (filter_state == 2 && rom.completed == 1) ||
+                (filter_state == 3 && rom.completed == 0)) {
                 filtered_roms_list.push_back(rom);
                 total_time += rom.time;
             }
@@ -84,11 +79,11 @@ void App::filter_roms()
 
     sort_roms();
 
-    if (selected_index >= filtered_roms_list.size())
-        selected_index = filtered_roms_list.empty() ? 0 : filtered_roms_list.size() - 1;
+    if (selected_index >= list_size)
+        selected_index = list_size == 0 ? 0 : list_size - 1;
 }
 
-void App::sort_roms()
+void Activities::sort_roms()
 {
     switch (sort_by) {
     case Sort::Name:
@@ -111,63 +106,59 @@ void App::sort_roms()
     gui.reset_scroll();
 }
 
-void App::game_list()
+void Activities::game_list()
 {
     Vec2 prevSize;
-    gui.render_text(completed_names[filter_completed] + " " + systems[system_index] + " Games",
-        cfg.list_x0, 7, font_middle, cfg.unselect_color);
+    gui.render_image(cfg.theme_path + "skin/title-bg.png", gui.Width / 2, FONT_MIDDLE_SIZE,
+        gui.Width, 2 * FONT_MIDDLE_SIZE);
+    gui.render_text(states_names[filter_state] + " " + systems[system_index] + " Games", 10, 0,
+        FONT_MIDDLE_SIZE, cfg.unselect_color);
 
-    prevSize = gui.render_image(
-        std::string(APP_DIR) + "icon.png", cfg.width - 60, 35, 80, 80, false, true);
-    gui.render_text(utils::stringifyTime(total_time), cfg.width - 55, 40, font_tiny,
-        cfg.unselect_color, 0, true);
+    gui.render_text(utils::stringifyTime(total_time), gui.Width - 2 * FONT_MIDDLE_SIZE,
+        0.4 * FONT_MIDDLE_SIZE, FONT_TINY_SIZE, cfg.unselect_color, 0, true);
 
     size_t first = (list_size <= LIST_LINES)
                        ? 0
                        : std::max(0, static_cast<int>(selected_index) - LIST_LINES / 2);
     size_t last = std::min(first + LIST_LINES, filtered_roms_list.size());
 
-    int y = cfg.list_y0;
-    int i = 0;
+    int y = 80;
+    int x = 10;
     for (size_t j = first; j < last; ++j) {
         const Rom& rom = filtered_roms_list[j];
         SDL_Color  color = (j == selected_index) ? cfg.selected_color : cfg.unselect_color;
 
         if (j == selected_index) {
             prevSize = gui.render_image(
-                cfg.theme_path + "skin/list-item-1line-sort-bg-f.png", cfg.list_mid, y);
-            gui.render_scrollable_text(
-                rom.name, cfg.list_x0, y - prevSize.y / 2, prevSize.x, font_middle, color);
+                cfg.theme_path + "skin/list-item-1line-sort-bg-f.png", x, y, 0, 0, IMG_NONE);
+            gui.render_scrollable_text(rom.name, x + 5, y, prevSize.x - 5, FONT_MIDDLE_SIZE, color);
         } else {
             prevSize = gui.render_image(
-                cfg.theme_path + "skin/list-item-1line-sort-bg-n.png", cfg.list_mid, y);
-            gui.render_text(
-                rom.name, cfg.list_x0, y - prevSize.y / 2, font_middle, color, prevSize.x);
+                cfg.theme_path + "skin/list-item-1line-sort-bg-n.png", x, y, 0, 0, IMG_NONE);
+            gui.render_text(rom.name, x + 5, y, FONT_MIDDLE_SIZE, color, prevSize.x - 5);
         }
 
         gui.render_multicolor_text(
             {{"Time: ", cfg.unselect_color}, {rom.total_time, color},
                 {"  Count: ", cfg.unselect_color}, {std::to_string(rom.count), color},
                 {"  Last: ", cfg.unselect_color}, {rom.last, color}},
-            cfg.list_x0 + 10, y + 10, font_tiny);
+            x + 10, y + prevSize.y / 2, FONT_TINY_SIZE);
 
-        y += prevSize.y + cfg.list_dy;
-        i++;
+        y += prevSize.y + 8;
     }
-    if (list_size && cfg.width == 1280) {
+    if (list_size && gui.Width == 1280) {
         gui.render_image(cfg.theme_path + "skin/ic-game-580.png", 1070, 370, 400, 580);
         gui.render_image(filtered_roms_list[selected_index].image, 1070, 370, 400, 0);
     }
 
-    gui.display_keybind("A", "Select", 25, cfg.height - 20, font_mini, cfg.info_color);
-    gui.display_keybind("B", "Quit", 140, cfg.height - 20, font_mini, cfg.info_color);
-    gui.display_keybind("Menu", "Global stats", 230, cfg.height - 20, font_mini, cfg.info_color);
-    gui.display_keybind(
-        "L1", "R1", "Change system", cfg.width - 620, cfg.height - 20, font_mini, cfg.info_color);
-    gui.display_keybind(
-        "Select", "State filter", cfg.width - 350, cfg.height - 20, font_mini, cfg.info_color);
-    gui.display_keybind("Start", "Sort by (" + sort_names[sort_by] + ")", cfg.width - 180,
-        cfg.height - 20, font_mini, cfg.info_color);
+    gui.render_image(cfg.theme_path + "skin/tips-bar-bg.png", gui.Width / 2, gui.Height - 20,
+        gui.Width, FONT_MINI_SIZE * 2);
+    gui.display_keybind("A", "Select", 25);
+    gui.display_keybind("B", "Quit", 140);
+    gui.display_keybind("Menu", "Global stats", 230);
+    gui.display_keybind("L1", "R1", "Change system", gui.Width - 620);
+    gui.display_keybind("Select", "State filter", gui.Width - 350);
+    gui.display_keybind("Start", "Sort by (" + sort_names[sort_by] + ")", gui.Width - 180);
 
     gui.render();
 
@@ -182,7 +173,7 @@ void App::game_list()
                 selected_index--;
             break;
         case InputAction::Down:
-            if (selected_index < filtered_roms_list.size() - 1)
+            if (selected_index < list_size - 1)
                 selected_index++;
             break;
         case InputAction::Left:
@@ -207,7 +198,7 @@ void App::game_list()
             break;
 
         case InputAction::Select:
-            filter_completed = (filter_completed + 1) % 3;
+            filter_state = (filter_state + 1) % 4;
             filter_roms();
             break;
         case InputAction::Start:
@@ -222,57 +213,52 @@ void App::game_list()
         gui.reset_scroll();
 }
 
-void App::game_detail()
+void Activities::game_detail()
 {
-    Vec2       prevSize;
-    const Rom& rom = filtered_roms_list[selected_index];
+    Rom& rom = filtered_roms_list[selected_index];
 
     // Header: Game name
-    gui.render_scrollable_text(rom.name, cfg.details_x0, 7, cfg.width - 2 * cfg.details_x0,
-        font_middle, cfg.unselect_color);
+    gui.render_image(cfg.theme_path + "skin/title-bg.png", gui.Width / 2, FONT_MIDDLE_SIZE,
+        gui.Width, 2 * FONT_MIDDLE_SIZE);
+    gui.render_scrollable_text(
+        rom.name, 10, 0, gui.Width - 2 * 10, FONT_MIDDLE_SIZE, cfg.unselect_color);
 
     // Left side: Rom image
-    gui.render_image(cfg.theme_path + "skin/bg-menu-09.png", cfg.width / 4, cfg.height / 2,
-        cfg.details_img_size + 10, cfg.details_img_size + 10);
+    gui.render_image(cfg.theme_path + "skin/bg-menu-09.png", gui.Width / 4, gui.Height / 2,
+        gui.Width / 2 - 60, gui.Width / 2 - 60);
     if (!rom.image.empty())
-        gui.render_image(rom.image, cfg.width / 4, cfg.height / 2, 0, cfg.details_img_size, true);
+        gui.render_image(
+            rom.image, gui.Width / 4, gui.Height / 2, 0, gui.Width / 2 - 75, IMG_FIT | IMG_CENTER);
     else
-        gui.render_image(cfg.theme_path + "skin/ic-keymap-n.png", cfg.width / 4, cfg.height / 2);
+        gui.render_image(cfg.theme_path + "skin/ic-keymap-n.png", gui.Width / 4, gui.Height / 2);
 
     // Right side: Game details
-
-    prevSize = gui.render_image(cfg.theme_path + "skin/bg-menu-09.png",
-        3 * cfg.width / 4 - cfg.details_x0, cfg.height / 2, 520, 360);
-
     std::vector<std::pair<std::string, std::string>> details = {{"Total Time: ", rom.total_time},
         {"Average Time: ", rom.average_time}, {"Play count: ", std::to_string(rom.count)},
         {"Last played: ", rom.last}, {"System: ", rom.system},
         {"Completed: ", rom.completed ? "Yes" : "No"}};
-    int                                              y = cfg.details_y0;
-    for (const auto& [label, value] : details) {
-        gui.render_multicolor_text({{label, cfg.selected_color}, {value, cfg.info_color}},
-            3 * cfg.width / 4 - prevSize.x / 2, y, font_tiny);
-        y += 50;
-    }
+    gui.infos_window("Informations", FONT_TINY_SIZE, details, FONT_MINI_SIZE,
+        3 * gui.Width / 4 - 10, gui.Height / 2, gui.Width / 2 - 50, gui.Height / 2);
 
     // Bottom: File path.
-    gui.render_image(cfg.theme_path + "skin/list-item-1line-sort-bg-n.png", cfg.width / 2,
-        cfg.details_y1 + 15, cfg.width - 2 * cfg.details_x0, 30, true);
-    gui.render_text("File:", cfg.details_x0, cfg.details_y1, font_mini, cfg.selected_color);
-    gui.render_text(rom.file, cfg.details_x0 + 50, cfg.details_y1, font_mini, cfg.info_color);
+    gui.render_image(cfg.theme_path + "skin/bg-menu-01.png", gui.Width / 2,
+        gui.Height - FONT_MINI_SIZE * 3.5, gui.Width - 2 * 10, FONT_MINI_SIZE * 2,
+        IMG_FIT | IMG_CENTER);
+    gui.render_text(
+        "File:", 50, gui.Height - FONT_MINI_SIZE * 4.5, FONT_MINI_SIZE, cfg.selected_color);
+    gui.render_text(
+        rom.file, 100, gui.Height - FONT_MINI_SIZE * 4.5, FONT_MINI_SIZE, cfg.info_color);
 
-    gui.display_keybind("A", "Start", 25, cfg.height - 20, font_mini, cfg.info_color);
-    gui.display_keybind("B", "Return", 140, cfg.height - 20, font_mini, cfg.info_color);
-    gui.display_keybind(
-        "Menu", "Remove", cfg.width / 2 - 150, cfg.height - 20, font_mini, cfg.info_color);
-    gui.display_keybind("Select", rom.completed ? "Uncomplete" : "Complete", cfg.width / 2,
-        cfg.height - 20, font_mini, cfg.info_color);
+    gui.render_image(cfg.theme_path + "skin/tips-bar-bg.png", gui.Width / 2, gui.Height - 20,
+        gui.Width, FONT_MINI_SIZE * 2);
+    gui.display_keybind("A", "Start", 25);
+    gui.display_keybind("B", "Return", 140);
+    gui.display_keybind("Menu", "Remove", gui.Width / 2 - 150);
+    gui.display_keybind("Select", rom.completed ? "Uncomplete" : "Complete", gui.Width / 2);
     if (!rom.video.empty())
-        gui.display_keybind(
-            "Y", "Video", cfg.width - 240, cfg.height - 20, font_mini, cfg.info_color);
+        gui.display_keybind("Y", "Video", gui.Width - 240);
     if (!rom.manual.empty())
-        gui.display_keybind(
-            "X", "Manual", cfg.width - 125, cfg.height - 20, font_mini, cfg.info_color);
+        gui.display_keybind("X", "Manual", gui.Width - 125);
 
     SDL_Event e;
     while (SDL_PollEvent(&e)) {
@@ -280,8 +266,8 @@ void App::game_detail()
         case InputAction::Quit: is_running = false; break;
         case InputAction::B: in_game_detail = false; break;
         case InputAction::A:
-            gui.launch_external(
-                "/mnt/SDCARD/Emus/" + rom.system + "/default.sh \"" + rom.file + "\"");
+            gui.launch_game(rom.name, rom.system, rom.file);
+            set_pid(gui.wait_game(rom.name));
             break;
         case InputAction::Y:
             if (!rom.video.empty())
@@ -293,7 +279,7 @@ void App::game_detail()
             break;
         case InputAction::Select: switch_completed(); break;
         case InputAction::Menu:
-            if (gui.confirmation_popup("Remove game from DB?", font_middle)) {
+            if (gui.confirmation_popup("Remove game from DB?", FONT_MIDDLE_SIZE)) {
                 DB db;
                 db.remove(rom.file);
                 roms_list.erase(std::remove_if(roms_list.begin(), roms_list.end(),
@@ -309,14 +295,10 @@ void App::game_detail()
     gui.render();
 }
 
-void App::overall_stats()
+void Activities::overall_stats()
 {
     bool running = true;
     while (is_running && running) {
-        gui.load_background_texture();
-        gui.render_image(cfg.theme_path + "skin/float-win-mask.png", cfg.width / 2, cfg.height / 2);
-        gui.render_image(
-            cfg.theme_path + "skin/pop-bg.png", cfg.width / 2, cfg.height / 2, 0, 0, false, true);
 
         int count = 0;
         int completed = 0;
@@ -326,21 +308,18 @@ void App::overall_stats()
             time += rom.time;
             completed += rom.completed;
         }
-        int         average = count ? time / count : 0;
-        std::string total_time = utils::stringifyTime(time);
-        std::string average_time = utils::stringifyTime(average);
+        std::vector<std::pair<std::string, std::string>> content = {
+            {"Total games: ", std::to_string(roms_list.size())},
+            {"Total completed: ", std::to_string(completed)},
+            {"Total play count: ", std::to_string(count)},
+            {"Total play time: ", utils::stringifyTime(time)},
+            {"Average play time: ", utils::stringifyTime(count ? time / count : 0)}};
 
-        gui.render_text("Overall stats", cfg.width / 2, 140, font_big, cfg.selected_color, 0, true);
-        gui.render_text("Total games: " + std::to_string(roms_list.size()), cfg.width / 2, 220,
-            font_middle, cfg.info_color, 0, true);
-        gui.render_text("Total completed: " + std::to_string(completed), cfg.width / 2, 300,
-            font_middle, cfg.info_color, 0, true);
-        gui.render_text("Total play count: " + std::to_string(count), cfg.width / 2, 380,
-            font_middle, cfg.info_color, 0, true);
-        gui.render_text("Total play time: " + total_time, cfg.width / 2, 460, font_middle,
-            cfg.info_color, 0, true);
-        gui.render_text("Average play time: " + average_time, cfg.width / 2, 540, font_middle,
-            cfg.info_color, 0, true);
+        gui.load_background_texture();
+        gui.render_image(cfg.theme_path + "skin/float-win-mask.png", gui.Width / 2, gui.Height / 2,
+            gui.Width, gui.Height);
+        gui.infos_window("Overall stats", FONT_MIDDLE_SIZE, content, FONT_TINY_SIZE, gui.Width / 2,
+            gui.Height / 2, gui.Width / 2, gui.Height / 2);
 
         gui.render();
         SDL_Event e;
@@ -357,15 +336,15 @@ void App::overall_stats()
     gui.unload_background_texture();
 }
 
-void App::empty_db()
+void Activities::empty_db()
 {
     gui.render_background();
-    gui.render_text(
-        "No datas available.", cfg.width / 2, cfg.height / 2, font_big, cfg.title_color, 0, true);
+    gui.render_text("No datas available.", gui.Width / 2, gui.Height / 2, FONT_BIG_SIZE,
+        cfg.title_color, 0, true);
     gui.render();
 }
 
-void App::run()
+void Activities::run()
 {
     std::cout << "ActivitiesApp: Starting GUI" << std::endl;
     if (!is_running) {

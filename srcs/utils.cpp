@@ -37,21 +37,21 @@ std::string stringifyTime(int total_seconds)
 
     std::ostringstream oss;
     if (hours == 0) {
-    oss << std::setw(2) << std::setfill('0') << minutes << "' " << std::setw(2) << std::setfill('0')
-        << seconds << "\"";
+        oss << std::setw(2) << std::setfill('0') << minutes << "' " << std::setw(2)
+            << std::setfill('0') << seconds << "\"";
 
-  } else {
-    oss << std::setw(2) << std::setfill('0') << hours << "h " << std::setw(2) << std::setfill('0')
-        << minutes << "\'";
-
-  }
+    } else {
+        oss << std::setw(2) << std::setfill('0') << hours << "h " << std::setw(2)
+            << std::setfill('0') << minutes << "\'";
+    }
 
     return oss.str();
 }
 
 std::string stringifyDate(const std::string& date)
 {
-    if (date == "-") return date;
+    if (date == "-")
+        return date;
     std::string year = date.substr(0, 4);
     std::string month = date.substr(4, 2);
     std::string day = date.substr(6, 2);
@@ -61,4 +61,41 @@ std::string stringifyDate(const std::string& date)
 
     return year + "-" + month + "-" + day + " " + hour + ":" + minute + ":" + second;
 }
+
+pid_t get_pid_of_process(const std::string& command)
+{
+    std::string pid_command = "pgrep -f '" + command + "'";
+    FILE*       pipe = popen(pid_command.c_str(), "r");
+    pid_t       pid = 0;
+    if (pipe) {
+        fscanf(pipe, "%d", &pid);
+        fclose(pipe);
+    }
+    return pid;
+}
+
+pid_t get_pgid_of_process(pid_t pid)
+{
+    pid_t pgid = getpgid(pid);
+    return pgid;
+}
+
+void suspend_process_group(pid_t pgid)
+{
+    if (pgid > 0)
+        kill(-pgid, SIGSTOP);
+}
+
+void resume_process_group(pid_t pgid)
+{
+    if (pgid > 0)
+        kill(-pgid, SIGCONT);
+}
+
+void kill_process_group(pid_t pgid)
+{
+    if (pgid > 0)
+        kill(-pgid, SIGTERM);
+}
+
 } // namespace utils

@@ -1,5 +1,5 @@
 build/
+.cache/
 activities
 
 data/games.db
-data/config.ini

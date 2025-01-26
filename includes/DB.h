@@ -22,6 +22,7 @@ typedef struct
     std::string image;
     std::string video;
     std::string manual;
+    pid_t         pid;
 } Rom;
 
 class DB
@@ -35,6 +36,6 @@ class DB
     ~DB();
     Rom              save(const std::string& rom_file, int elapsed_time = 0, int completed = -1);
     Rom              load(const std::string& rom_file);
-    std::vector<Rom> load_all();
+    std::vector<Rom> load();
     void             remove(const std::string& file);
 };
