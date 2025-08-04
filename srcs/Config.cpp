@@ -23,7 +23,7 @@ Config::Config()
     }
     theme_path = "/mnt/SDCARD/Themes/" + skins_theme + "/";
     std::string theme_config = theme_path + "/config.json";
-    if (std::filesystem::exists(theme_config))
+    if (fs::exists(theme_config))
         load_theme(theme_config);
     selected_color = theme.fontColor["content_color4"];
     unselect_color = theme.fontColor["content_color1"];
@@ -59,12 +59,11 @@ bool Config::load_theme(const std::string& filePath)
                 theme.fontColor[key] = parseColor(value.get<std::string>());
             }
         }
-
-        return true;
     } catch (const std::exception& e) {
         std::cerr << "Error parsing JSON file: " << e.what() << std::endl;
         return false;
     }
+    return true;
 }
 
 SDL_Color Config::parseColor(const std::string& colorStr) const

@@ -1,13 +1,27 @@
 #pragma once
-#include "json.hpp"
+
+#if __has_include(<filesystem>)
+#include <filesystem>
+namespace fs = std::filesystem;
+#elif __has_include(<experimental/filesystem>)
+#include <experimental/filesystem>
+namespace fs = std::experimental::filesystem;
+#else
+#error "No filesystem support"
+#endif
 
 #include <SDL.h>
-#include <filesystem>
+#include "json.hpp"
 #include <fstream>
 #include <iostream>
-#include <sstream>
+#include <map>
 #include <string>
+#include <vector>
 #include <unordered_map>
+
+#define CONFIG_FILE APP_DIR "data/config.ini"
+
+using json = nlohmann::json;
 
 static const std::unordered_map<std::string, SDL_Color> colors = {
     {"black", SDL_Color{0, 0, 0, 255}},

@@ -51,10 +51,10 @@ Rom DB::save(const std::string& file, int time, int completed)
         std::cerr << "Error preparing SELECT query: " << sqlite3_errmsg(db) << std::endl;
         return rom;
     }
-    std::filesystem::path filepath(file);
+    fs::path filepath(file);
 
-    if (std::filesystem::exists(filepath))
-        rom.file = std::filesystem::canonical(filepath);
+    if (fs::exists(filepath))
+        rom.file = fs::canonical(filepath);
     else
         rom.file = filepath;
     rom.name = filepath.stem();
@@ -131,17 +131,17 @@ Rom DB::save(const std::string& file, int time, int completed)
     rom.last = utils::stringifyDate(rom.last);
 
     rom.image = std::regex_replace(rom.file, img_pattern, R"(/Imgs/$1)") + "/" + rom.name + ".png";
-    if (!std::filesystem::exists(rom.image))
+    if (!fs::exists(rom.image))
         rom.image = "";
 
     rom.video =
         std::regex_replace(rom.file, img_pattern, R"(/Videos/$1)") + "/" + rom.name + ".mp4";
-    if (!std::filesystem::exists(rom.video))
+    if (!fs::exists(rom.video))
         rom.video = "";
 
     rom.manual =
         std::regex_replace(rom.file, img_pattern, R"(/Manuals/$1)") + "/" + rom.name + ".pdf";
-    if (!std::filesystem::exists(rom.manual))
+    if (!fs::exists(rom.manual))
         rom.manual = "";
 
     rom.system = std::regex_replace(rom.file, sys_pattern, R"($1)");
@@ -186,17 +186,17 @@ Rom DB::load(const std::string& file)
 
         rom.image =
             std::regex_replace(rom.file, img_pattern, R"(/Imgs/$1)") + "/" + rom.name + ".png";
-        if (!std::filesystem::exists(rom.image))
+        if (!fs::exists(rom.image))
             rom.image = "";
 
         rom.video =
             std::regex_replace(rom.file, img_pattern, R"(/Videos/$1)") + "/" + rom.name + ".mp4";
-        if (!std::filesystem::exists(rom.video))
+        if (!fs::exists(rom.video))
             rom.video = "";
 
         rom.manual =
             std::regex_replace(rom.file, img_pattern, R"(/Manuals/$1)") + "/" + rom.name + ".pdf";
-        if (!std::filesystem::exists(rom.manual))
+        if (!fs::exists(rom.manual))
             rom.manual = "";
 
         rom.system = std::regex_replace(rom.file, sys_pattern, R"($1)");
@@ -243,17 +243,17 @@ std::vector<Rom> DB::load()
 
         rom.image =
             std::regex_replace(rom.file, img_pattern, R"(/Imgs/$1)") + "/" + rom.name + ".png";
-        if (!std::filesystem::exists(rom.image))
+        if (!fs::exists(rom.image))
             rom.image = "";
 
         rom.video =
             std::regex_replace(rom.file, img_pattern, R"(/Videos/$1)") + "/" + rom.name + ".mp4";
-        if (!std::filesystem::exists(rom.video))
+        if (!fs::exists(rom.video))
             rom.video = "";
 
         rom.manual =
             std::regex_replace(rom.file, img_pattern, R"(/Manuals/$1)") + "/" + rom.name + ".pdf";
-        if (!std::filesystem::exists(rom.manual))
+        if (!fs::exists(rom.manual))
             rom.manual = "";
 
         rom.system = std::regex_replace(rom.file, sys_pattern, R"($1)");

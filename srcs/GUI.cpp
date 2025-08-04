@@ -230,7 +230,7 @@ void GUI::launch_game(const std::string& romName, const std::string& system, con
 
 Vec2 GUI::render_image(const std::string& image_path, int x, int y, int w, int h, int flags)
 {
-    if (image_path.empty() || !std::filesystem::exists(image_path))
+    if (image_path.empty() || !fs::exists(image_path))
         return {0, 0};
     if (image_cache.find(image_path) == image_cache.end()) {
         SDL_Surface* surface = IMG_Load(image_path.c_str());
@@ -389,12 +389,12 @@ void GUI::render_background(const std::string& system)
     std::string bg = "";
     if (system != "") {
         bg = "/mnt/SDCARD/Backgrounds/" + cfg.backgrounds_theme + "/" + system + ".png";
-        if (!std::filesystem::exists(bg))
+        if (!fs::exists(bg))
             bg = "";
     }
     if (bg == "") {
         bg = cfg.theme_path + "skin/bg.png";
-        if (!std::filesystem::exists(bg)) {
+        if (!fs::exists(bg)) {
             return;
         }
     }

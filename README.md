@@ -8,6 +8,28 @@ You can so use it like that for example:
 `flycast "$mygame" &`
 `activities "$mygame" $!`
 
+- **NEW**: Watch for file presence and track time:
+  `activities -flag <file_path>`
+
+Example:
+```bash
+# Start watching a file - tracks time while file exists
+activities -flag /tmp/cmd_to_run.sh
+
+# The daemon will:
+# 1. Start counting time when the file exists
+# 2. Stop counting when the file is deleted/moved
+# 3. Use inotify for very low CPU usage
+# 4. Check every second with minimal overhead
+```
+
+**File Watcher Features:**
+- Uses `inotify` for efficient file system monitoring
+- Very low CPU usage (select() with 1-second timeout)
+- Tracks time only while file exists
+- Automatically stops when file is removed
+- Logs activity to `/mnt/SDCARD/Apps/Activities/log/file_watcher.log`
+
 _____
 
 # GUI
@@ -73,4 +95,62 @@ Permission is hereby granted, free of charge, to any person obtaining a copy of 
 The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 
 THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+```
+
+## Cross-compilation for TrimUI TSP
+
+### Prerequisites
+
+You need the aarch64 cross-compilation toolchain. Based on the example provided:
+
+```bash
+# Toolchain path
+/opt/aarch64-linux-gnu-7.5.0-linaro/bin/aarch64-linux-gnu-gcc
+
+# Sysroot 
+/opt/aarch64-linux-gnu-7.5.0-linaro/sysroot
+
+# TSP specific libraries
+/root/workspace/minui-presenter/platform/tg5040/lib/
+```
+
+### Compilation
+
+1. **Test your environment:**
+   ```bash
+   chmod +x test_crosscompile.sh
+   ./test_crosscompile.sh
+   ```
+
+2. **Compile for TrimUI TSP:**
+   ```bash
+   # Using Makefile
+   make tsp
+   
+   # Or using the build script
+   chmod +x build_tsp.sh
+   ./build_tsp.sh
+   ```
+
+3. **Compile for testing (native):**
+   ```bash
+   make test
+   ```
+
+### Makefile Features
+
+- **Cross-compilation support**: Automatically uses aarch64 toolchain when not in TEST mode
+- **Optimized for TSP**: Uses `-O3 -Ofast -flto` for maximum performance
+- **Proper linking**: Links against TSP-specific SDL2, sqlite3, and system libraries
+- **Sysroot support**: Uses proper cross-compilation sysroot
+- **Debug info**: `make info` shows compilation variables
+
+### File Structure
+
+```
+activities              # Final binary for TrimUI TSP
+activities.x86          # Test binary for x86 systems
+build/                  # Object files directory
+build_tsp.sh           # Cross-compilation script
+test_crosscompile.sh   # Environment test script
 ```
