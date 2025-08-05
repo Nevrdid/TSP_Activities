@@ -381,10 +381,25 @@ void Activities::run()
     while (is_running) {
         // Refreshes data after game return, with a one-second pause
         if (need_refresh) {
+            // Save the current selected rom file (if any)
+            std::string selected_file;
+            if (!filtered_roms_list.empty() && selected_index < filtered_roms_list.size())
+                selected_file = filtered_roms_list[selected_index].file;
+
             SDL_Delay(1000); // wait 1 second before reloading the DB
             DB db;
             roms_list = db.load();
             filter_roms();
+
+            // Restore selection to the same rom if possible
+            if (!selected_file.empty()) {
+                for (size_t i = 0; i < filtered_roms_list.size(); ++i) {
+                    if (filtered_roms_list[i].file == selected_file) {
+                        selected_index = i;
+                        break;
+                    }
+                }
+            }
             need_refresh = false;
         }
         gui.render_background(systems[system_index]);
