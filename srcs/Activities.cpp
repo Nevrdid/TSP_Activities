@@ -79,8 +79,8 @@ void Activities::filter_roms()
 
     sort_roms();
 
-    if (selected_index >= list_size)
-        selected_index = list_size == 0 ? 0 : list_size - 1;
+    if (selected_index >= static_cast<int>(list_size))
+        selected_index = list_size == 0 ? 0 : static_cast<int>(list_size - 1);
 }
 
 void Activities::sort_roms()
@@ -131,9 +131,9 @@ void Activities::game_list()
     int x = 10;
     for (size_t j = first; j < last; ++j) {
         const Rom& rom = filtered_roms_list[j];
-        SDL_Color  color = (j == selected_index) ? cfg.selected_color : cfg.unselect_color;
+        SDL_Color  color = (static_cast<int>(j) == selected_index) ? cfg.selected_color : cfg.unselect_color;
 
-        if (j == selected_index) {
+        if (static_cast<int>(j) == selected_index) {
             prevSize = gui.render_image(
                 cfg.theme_path + "skin/list-item-1line-sort-bg-f.png", x, y, 0, 0, IMG_NONE);
             gui.render_scrollable_text(rom.name, x + 15, y + 2, prevSize.x - 5, FONT_MIDDLE_SIZE, color);
@@ -178,15 +178,15 @@ void Activities::game_list()
                 selected_index--;
             break;
         case InputAction::Down:
-            if (selected_index < list_size - 1)
+            if (selected_index < static_cast<int>(list_size) - 1)
                 selected_index++;
             break;
         case InputAction::Left:
             selected_index = selected_index > 10 ? selected_index - 10 : 0;
             break;
         case InputAction::Right:
-            selected_index = list_size > 10 && selected_index < list_size - 10 ? selected_index + 10
-                                                                               : list_size - 1;
+            selected_index = list_size > 10 && selected_index < static_cast<int>(list_size) - 10 ? selected_index + 10
+                                                                               : static_cast<int>(list_size) - 1;
             break;
         case InputAction::L1:
             system_index = (system_index == 0) ? systems.size() - 1 : system_index - 1;
@@ -214,7 +214,7 @@ void Activities::game_list()
         default: break;
         }
     }
-    if (prev_selected_index != selected_index)
+    if (static_cast<int>(prev_selected_index) != selected_index)
         gui.reset_scroll();
 }
 
@@ -273,7 +273,7 @@ void Activities::game_detail()
             gui.render_image(cfg.theme_path + "skin/ic-right-arrow-n.png", gui.Width - 10, gui.Height / 2, 40, 40);
         }
         // Flèche droite (éléments plus anciens)
-        if (selected_index < filtered_roms_list.size() - 1) {
+        if (selected_index < static_cast<int>(filtered_roms_list.size()) - 1) {
             gui.render_image(cfg.theme_path + "skin/ic-left-arrow-n.png", 10, gui.Height / 2, 40, 40);
         }
 
@@ -296,7 +296,15 @@ void Activities::game_detail()
         case InputAction::Quit: is_running = false; break;
         case InputAction::B: in_game_detail = false; break;
         case InputAction::Left:
-            if (selected_index < filtered_roms_list.size() - 1) {
+            if (selected_index < static_cast<int>(filtered_roms_list.size()) - 1) {
+                selected_index++;
+                gui.reset_scroll();
+            }
+        if (selected_index < static_cast<int>(filtered_roms_list.size()) - 1) {
+            selected_index++;
+            gui.reset_scroll();
+        }
+            if (selected_index < static_cast<int>(filtered_roms_list.size()) - 1) {
                 selected_index++;
                 gui.reset_scroll();
             }
@@ -308,36 +316,15 @@ void Activities::game_detail()
             }
             break;
         case InputAction::A:
-        {
-            // Record session start time
-            auto session_start = std::chrono::steady_clock::now();
             gui.launch_game(rom.name, rom.system, rom.file);
-            pid_t ret = gui.wait_game(rom.name);
-            // Record session end time
-            auto session_end = std::chrono::steady_clock::now();
-            int session_seconds = std::chrono::duration_cast<std::chrono::seconds>(session_end - session_start).count();
-            // Update DB with lastsessiontime
-            DB db;
-            db.save(rom.file, 0, -1); // Save to update other fields if needed
-            // Update in-memory value for immediate display
-            for (auto& r : roms_list) {
-                if (r.file == rom.file) {
-                    r.lastsessiontime = session_seconds;
-                    break;
-                }
+            {
+                pid_t ret = gui.wait_game(rom.name);
+                set_pid(ret);
+                // If the game is exited or paused, request a refresh from the GUI return.
+                if (ret == -1 || ret == 0)
+                    need_refresh = true;
             }
-            for (auto& r : filtered_roms_list) {
-                if (r.file == rom.file) {
-                    r.lastsessiontime = session_seconds;
-                    break;
-                }
-            }
-            set_pid(ret);
-            // If the game is exited or paused, request a refresh from the GUI return.
-            if (ret == -1 || ret == 0)
-                need_refresh = true;
-        }
-        break;
+            break;
         case InputAction::Y:
             if (!rom.video.empty())
                 gui.launch_external(std::string(VIDEO_PLAYER) + " \"" + rom.video + "\"");
@@ -425,7 +412,7 @@ void Activities::run()
         if (need_refresh) {
             // Save the current selected rom file (if any)
             std::string selected_file;
-            if (!filtered_roms_list.empty() && selected_index < filtered_roms_list.size())
+            if (!filtered_roms_list.empty() && selected_index < static_cast<int>(filtered_roms_list.size()))
                 selected_file = filtered_roms_list[selected_index].file;
 
             SDL_Delay(1000); // wait 1 second before reloading the DB
