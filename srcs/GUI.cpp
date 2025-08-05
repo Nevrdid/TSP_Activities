@@ -218,8 +218,12 @@ void GUI::launch_game(const std::string& romName, const std::string& system, con
         pid_t pid = fork();
         if (pid == 0) {
             setsid();
-            std::string launcher = "/mnt/SDCARD/Emus/" + system + "/default.sh";
-            execl(launcher.c_str(), launcher.c_str(), romFile.c_str(), (char *)NULL);
+            // Créer le script temporaire
+            std::ofstream script("/tmp/cmd_to_run.sh");
+            script << "/mnt/SDCARD/Emus/" << system << "/default.sh '" << romFile << "'\n";
+            script.close();
+            chmod("/tmp/cmd_to_run.sh", 0755);
+            execl("/tmp/cmd_to_run.sh", "/tmp/cmd_to_run.sh", (char *)NULL);
             std::cerr << "Failed to launch " << romName << std::endl;
             exit(1);
         } else {
