@@ -241,9 +241,9 @@ void Activities::game_detail()
     std::vector<std::pair<std::string, std::string>> details = {
         {"Total Time: ", rom.total_time},
         {"Average Time: ", rom.average_time},
-        {"Play count: ", std::to_string(rom.count)},
         {"Last played: ", rom.last},
         {"Last session: ", utils::stringifyTime(rom.lastsessiontime)},
+        {"Play count: ", std::to_string(rom.count)},
         {"System: ", rom.system},
         {"Completed: ", rom.completed ? "Yes" : "No"}
     };
