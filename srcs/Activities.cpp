@@ -160,8 +160,10 @@ void Activities::game_list()
         gui.Width, FONT_MINI_SIZE * 2);
     gui.display_keybind("A", "Select", 25);
     gui.display_keybind("B", "Quit", 140);
-    gui.display_keybind("Menu", "Global stats", 230);
+    gui.display_keybind("X", "Details", 230);
+    gui.display_keybind("Menu", "Global stats", 320);
     gui.display_keybind("L1", "R1", "Change system", gui.Width - 620);
+    //gui.display_keybind("L2", "Manual", gui.Width - 500);
     gui.display_keybind("Select", "State filter", gui.Width - 350);
     gui.display_keybind("Start", "Sort by (" + sort_names[sort_by] + ")", gui.Width - 180);
 
@@ -171,6 +173,9 @@ void Activities::game_list()
     SDL_Event e;
     while (SDL_PollEvent(&e)) {
         InputAction action = gui.map_input(e);
+        // Make sure filtered_roms_list is not empty before accessing selected_index
+        const bool has_rom = !filtered_roms_list.empty() && selected_index < static_cast<int>(filtered_roms_list.size());
+        const Rom& rom = has_rom ? filtered_roms_list[selected_index] : *(Rom*)nullptr;
         switch (action) {
         case InputAction::Quit: is_running = false; break;
         case InputAction::Up:
@@ -197,9 +202,27 @@ void Activities::game_list()
             filter_roms();
             break;
         case InputAction::B: is_running = false; break;
+        // case InputAction::A:
+        //     in_game_detail = true;
+        //     gui.reset_scroll();
+        //     break;
         case InputAction::A:
+            if (has_rom) {
+                gui.launch_game(rom.name, rom.system, rom.file);
+                pid_t ret = gui.wait_game(rom.name);
+                set_pid(ret);
+                // If the game is exited or paused, request a refresh from the GUI return.
+                if (ret == -1 || ret == 0)
+                    need_refresh = true;
+            }
+            break;
+        case InputAction::X:
             in_game_detail = true;
             gui.reset_scroll();
+            break;
+        case InputAction::ZR:
+            if (has_rom && !rom.manual.empty())
+                gui.launch_external(std::string(MANUAL_READER) + " \"" + rom.manual + "\"");
             break;
 
         case InputAction::Select:
@@ -263,7 +286,9 @@ void Activities::game_detail()
         gui.Width, FONT_MINI_SIZE * 2);
     gui.display_keybind("A", "Start", 25);
     gui.display_keybind("B", "Return", 140);
+    gui.display_keybind("X", "Back to list", 230);
     gui.display_keybind("Menu", "Remove", gui.Width / 2 - 150);
+    //gui.display_keybind("L2", "Manual", gui.Width / 2 - 80);
     gui.display_keybind("Select", rom.completed ? "Uncomplete" : "Complete", gui.Width / 2);
     
     // Display navigation arrows on the screen sides if navigation is possible
@@ -294,16 +319,9 @@ void Activities::game_detail()
     while (SDL_PollEvent(&e)) {
         switch (gui.map_input(e)) {
         case InputAction::Quit: is_running = false; break;
-        case InputAction::B: in_game_detail = false; break;
+        //case InputAction::B: in_game_detail = false; break;
+        case InputAction::B: is_running = false; break;
         case InputAction::Left:
-            if (selected_index < static_cast<int>(filtered_roms_list.size()) - 1) {
-                selected_index++;
-                gui.reset_scroll();
-            }
-        if (selected_index < static_cast<int>(filtered_roms_list.size()) - 1) {
-            selected_index++;
-            gui.reset_scroll();
-        }
             if (selected_index < static_cast<int>(filtered_roms_list.size()) - 1) {
                 selected_index++;
                 gui.reset_scroll();
@@ -325,11 +343,14 @@ void Activities::game_detail()
                     need_refresh = true;
             }
             break;
-        case InputAction::Y:
+        case InputAction::ZL:
             if (!rom.video.empty())
                 gui.launch_external(std::string(VIDEO_PLAYER) + " \"" + rom.video + "\"");
             break;
         case InputAction::X:
+            in_game_detail = false;
+            break;
+        case InputAction::ZR:
             if (!rom.manual.empty())
                 gui.launch_external(std::string(MANUAL_READER) + " \"" + rom.manual + "\"");
             break;

@@ -98,6 +98,17 @@ void GUI::clean()
 
 InputAction GUI::map_input(const SDL_Event& e)
 {
+    // Handle triggers as axes for ZL (lefttrigger, a2) and ZR (righttrigger, a5)
+    // Typical threshold for trigger activation
+    const int16_t TRIGGER_THRESHOLD = 16000;
+    if (e.type == SDL_JOYAXISMOTION) {
+        if (e.jaxis.axis == 2 && e.jaxis.value > TRIGGER_THRESHOLD) {
+            return InputAction::ZL;
+        }
+        if (e.jaxis.axis == 5 && e.jaxis.value > TRIGGER_THRESHOLD) {
+            return InputAction::ZR;
+        }
+    }
     if (e.type == SDL_JOYHATMOTION) {
         switch (e.jhat.value) {
         case SDL_HAT_UP: return InputAction::Up;
@@ -116,6 +127,8 @@ InputAction GUI::map_input(const SDL_Event& e)
         case 6: return InputAction::Select;
         case 7: return InputAction::Start;
         case 8: return InputAction::Menu;
+        case 9: return InputAction::ZL;
+        case 10: return InputAction::ZR;
         }
 #if defined(USE_KEYBOARD)
     } else if (e.type == SDL_KEYDOWN) {
@@ -180,13 +193,13 @@ pid_t GUI::wait_game(const std::string& romName)
             if (e.type == SDL_JOYBUTTONDOWN) {
                 switch (e.jbutton.button) {
                 case 6: combo |= 1; break;
-                case 8: combo |= 2; break;
+                case 7: combo |= 2; break;
                 default: break;
                 }
             } else if (e.type == SDL_JOYBUTTONUP) {
                 switch (e.jbutton.button) {
                 case 6: combo &= ~1; break;
-                case 8: combo &= ~2; break;
+                case 7: combo &= ~2; break;
                 default: break;
                 }
             }

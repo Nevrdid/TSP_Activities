@@ -51,6 +51,8 @@ enum class InputAction
     Y,
     L1,
     R1,
+    ZL,
+    ZR,
     Select,
     Start,
     Menu,
