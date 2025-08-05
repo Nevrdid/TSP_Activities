@@ -109,14 +109,19 @@ void Activities::sort_roms()
 void Activities::game_list()
 {
     Vec2 prevSize;
+
     gui.render_image(cfg.theme_path + "skin/title-bg.png", gui.Width / 2, FONT_MIDDLE_SIZE,
         gui.Width, 2 * FONT_MIDDLE_SIZE);
-    gui.render_text(states_names[filter_state] + " " + systems[system_index] + " Games", 10, 0,
-        FONT_MIDDLE_SIZE, cfg.unselect_color);
 
-    gui.render_text(utils::stringifyTime(total_time), gui.Width - 2 * FONT_MIDDLE_SIZE,
-        0.4 * FONT_MIDDLE_SIZE, FONT_TINY_SIZE, cfg.unselect_color, 0, true);
+    // Display the current/total index at the bottom right
+    if (list_size > 0)
+        gui.render_text(std::to_string(selected_index + 1) + "/" + std::to_string(list_size), gui.Width - 55, gui.Height - FONT_MINI_SIZE * 2.5 - 50, FONT_TINY_SIZE, cfg.unselect_color);
+    // Centered title
+    gui.render_text(states_names[filter_state] + " " + systems[system_index] + " Games",
+        gui.Width / 2 - 100, 0, FONT_MIDDLE_SIZE, cfg.unselect_color);
 
+    // Total time to the right of the title
+    gui.render_text("(" + utils::stringifyTime(total_time) + ")", gui.Width - 2 * FONT_MIDDLE_SIZE, 0.4 * FONT_MIDDLE_SIZE, FONT_TINY_SIZE, cfg.unselect_color, 0, true);
     size_t first = (list_size <= LIST_LINES)
                        ? 0
                        : std::max(0, static_cast<int>(selected_index) - LIST_LINES / 2);
