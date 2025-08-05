@@ -76,6 +76,12 @@ Rom DB::save(const std::string& file, int time, int completed)
             rom.last = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 5)));
         rom.completed = completed == -1 ? sqlite3_column_int(stmt, 6) : completed;
 
+        // Do not record if last session is too short
+        if (rom.lastsessiontime < 5) {
+            sqlite3_finalize(stmt);
+            return rom;
+        }
+
         std::string   update_query = "UPDATE games_datas SET name = ?, count = ?, time = ?, "
                                      " lastsessiontime = ?, last = ?, completed = ? WHERE file = ?";
         sqlite3_stmt* update_stmt;
@@ -101,6 +107,11 @@ Rom DB::save(const std::string& file, int time, int completed)
 
         sqlite3_finalize(update_stmt);
     } else if (result == SQLITE_DONE) {
+        // Do not record if last session is too short
+        if (rom.time < 5) {
+            sqlite3_finalize(stmt);
+            return rom;
+        }
         std::string   insert_query = "INSERT INTO games_datas (file, name, count, time, "
                                      "lastsessiontime, last, completed) VALUES (?, ?, ?, ?, ?, ?, ?)";
         sqlite3_stmt* insert_stmt;
