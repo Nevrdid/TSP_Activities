@@ -1,6 +1,8 @@
 
 #include "GUI.h"
 #include <map>
+#include <errno.h>
+#include <signal.h>
 std::map<std::string, pid_t>& GUI::get_childs() { return childs; }
 
 #include "GUI.h"
@@ -201,11 +203,29 @@ void GUI::launch_external(const std::string& command)
 pid_t GUI::wait_game(const std::string& romName)
 {
     int   combo = 0;
-    int   status;
+    int   status = 0;
     pid_t pid = childs[romName];
-    std::cout << "ActivitiesApp: Waiting for " << romName << std::endl;
+    std::cout << "ActivitiesApp: Waiting for " << romName << " (PID: " << pid << ")" << std::endl;
+    
+    // Pause the GUI interface while the game is running
+    SDL_Event event_buffer;
+    SDL_FlushEvents(SDL_FIRSTEVENT, SDL_LASTEVENT);
+    
     while (true) {
-        waitpid(pid, &status, WNOHANG);
+        // Check if the process still exists
+        if (kill(pid, 0) != 0 && errno == ESRCH) {
+            std::cout << "ActivitiesApp: Game " << romName << " exited (process no longer exists)" << std::endl;
+            break;
+        }
+        
+        // Check if the process has terminated
+        pid_t result = waitpid(pid, &status, WNOHANG);
+        if (result == pid) {
+            std::cout << "ActivitiesApp: Game " << romName << " exited with status " << status << std::endl;
+            break;
+        }
+        
+        // Process SDL events
         SDL_Event e;
         while (SDL_PollEvent(&e)) {
             if (e.type == SDL_JOYBUTTONDOWN) {
@@ -223,14 +243,12 @@ pid_t GUI::wait_game(const std::string& romName)
             }
             if (combo == 3) {
                 utils::suspend_process_group(utils::get_pgid_of_process(pid));
+                std::cout << "ActivitiesApp: Game " << romName << " suspended" << std::endl;
                 return pid;
             }
         }
-        if (WIFEXITED(status)) {
-            std::cout << "ActivitiesApp: Game " << romName << " exited." << std::endl;
-            break;
-        }
-        SDL_Delay(16);
+        
+        SDL_Delay(100); // Increased delay to reduce CPU load
     }
     childs.erase(romName);
     return -1;
