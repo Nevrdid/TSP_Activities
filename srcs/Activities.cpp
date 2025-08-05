@@ -453,6 +453,23 @@ void Activities::run()
             SDL_Delay(1000); // wait 1 second before reloading the DB
             DB db;
             roms_list = db.load();
+
+            // Reinjects pids for games still running (present in gui.childs)
+            auto& childs = gui.get_childs();
+            for (auto& rom : roms_list) {
+                auto it = childs.find(rom.name);
+                if (it != childs.end()) {
+                    // Checks that the process still exists
+                    if (kill(it->second, 0) == 0) {
+                        rom.pid = it->second;
+                    } else {
+                        rom.pid = -1;
+                        childs.erase(it); // Cleans up dead pids
+                    }
+                } else {
+                    rom.pid = -1;
+                }
+            }
             filter_roms();
 
             // Restore selection to the same rom if possible

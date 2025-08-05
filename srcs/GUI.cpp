@@ -1,5 +1,9 @@
 
 #include "GUI.h"
+#include <map>
+std::map<std::string, pid_t>& GUI::get_childs() { return childs; }
+
+#include "GUI.h"
 #include <SDL.h>
 
 void GUI::draw_green_dot(int x, int y, int radius)

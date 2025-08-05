@@ -138,6 +138,7 @@ class GUI
 
   public:
     void draw_green_dot(int x, int y, int radius = 8);
+    std::map<std::string, pid_t>& get_childs();
     GUI(const Config& cfg);
     ~GUI();
     void clean();
