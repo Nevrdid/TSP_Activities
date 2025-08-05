@@ -288,7 +288,13 @@ void Activities::game_detail()
             break;
         case InputAction::A:
             gui.launch_game(rom.name, rom.system, rom.file);
-            set_pid(gui.wait_game(rom.name));
+            {
+                pid_t ret = gui.wait_game(rom.name);
+                set_pid(ret);
+                // If the game is exited or paused, request a refresh from the GUI return.
+                if (ret == -1 || ret == 0)
+                    need_refresh = true;
+            }
             break;
         case InputAction::Y:
             if (!rom.video.empty())
@@ -373,6 +379,14 @@ void Activities::run()
         sleep(5);
     }
     while (is_running) {
+        // Refreshes data after game return, with a one-second pause
+        if (need_refresh) {
+            SDL_Delay(1000); // wait 1 second before reloading the DB
+            DB db;
+            roms_list = db.load();
+            filter_roms();
+            need_refresh = false;
+        }
         gui.render_background(systems[system_index]);
         if (in_game_detail)
             game_detail();

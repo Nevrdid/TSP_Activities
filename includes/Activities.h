@@ -29,6 +29,7 @@ class Activities
 
     bool is_running = false;
     bool in_game_detail = false;
+    bool need_refresh = false;
 
     std::vector<Rom> roms_list;
     std::vector<Rom> filtered_roms_list;

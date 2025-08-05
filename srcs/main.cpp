@@ -24,7 +24,7 @@ namespace fs = std::experimental::filesystem;
 
 Timer* Timer::instance = nullptr;
 
-// Daemonize the timer to avoid it beeing killed before it saved time.
+// Daemonize the timer to avoid it being killed before it saves time.
 void timer_daemonize(const std::string& rom_file, const std::string& program_pid)
 {
     int pipe_fd[2];
@@ -33,7 +33,7 @@ void timer_daemonize(const std::string& rom_file, const std::string& program_pid
         exit(1);
     }
 
-    // Fork to create detached process
+    // Fork to create a detached process
     pid_t pid = fork();
     if (pid < 0) {
         std::cerr << "Failed to fork" << std::endl;
@@ -43,7 +43,7 @@ void timer_daemonize(const std::string& rom_file, const std::string& program_pid
     if (pid > 0) {
         close(pipe_fd[1]);
 
-        // Original process just wait daemon to terminate
+        // Original process just waits for the daemon to terminate
         char buffer[1];
         while (read(pipe_fd[0], buffer, 1) > 0) {
         }
@@ -55,13 +55,13 @@ void timer_daemonize(const std::string& rom_file, const std::string& program_pid
 
     close(pipe_fd[0]);
 
-    // Leaving original session
+    // Leave the original session
     if (setsid() == -1) {
         std::cerr << "Failed to start new session" << std::endl;
         exit(1);
     }
 
-    // Create the daemon
+    // Create the daemon process
     pid = fork();
     if (pid < 0) {
         std::cerr << "Failed to fork again" << std::endl;
@@ -89,7 +89,7 @@ void timer_daemonize(const std::string& rom_file, const std::string& program_pid
     DB db;
     db.save(rom_file, duration);
 
-    // Notify original process save is finish
+    // Notify the original process that saving is finished
     close(pipe_fd[1]);
 }
 
@@ -102,7 +102,7 @@ void file_watcher_daemonize(const std::string& activity_name, const std::string&
         exit(1);
     }
 
-    // Fork to create detached process
+    // Fork to create a detached process
     pid_t pid = fork();
     if (pid < 0) {
         std::cerr << "Failed to fork" << std::endl;
@@ -112,7 +112,7 @@ void file_watcher_daemonize(const std::string& activity_name, const std::string&
     if (pid > 0) {
         close(pipe_fd[1]);
 
-        // Original process just wait daemon to terminate
+        // Original process just waits for the daemon to terminate
         char buffer[1];
         while (read(pipe_fd[0], buffer, 1) > 0) {
         }
@@ -124,13 +124,13 @@ void file_watcher_daemonize(const std::string& activity_name, const std::string&
 
     close(pipe_fd[0]);
 
-    // Leaving original session
+    // Leave the original session
     if (setsid() == -1) {
         std::cerr << "Failed to start new session" << std::endl;
         exit(1);
     }
 
-    // Create the daemon
+    // Create the daemon process
     pid = fork();
     if (pid < 0) {
         std::cerr << "Failed to fork again" << std::endl;
@@ -154,7 +154,7 @@ void file_watcher_daemonize(const std::string& activity_name, const std::string&
     DB db;
     db.save(activity_name, duration);
 
-    // Notify original process save is finish
+    // Notify the original process that saving is finished
     close(pipe_fd[1]);
 }
 
@@ -169,12 +169,12 @@ int main(int argc, char* argv[])
         if (argc == 4) {
             timer_daemonize(argv[2], argv[3]);
         } else if (argc == 5 && std::strcmp(argv[3], "-flag") == 0) {
-            // Extraire le système du chemin de la rom pour construire le chemin du launcher
+            // Extract the system from the rom path to build the launcher path
             std::string romPath = argv[2];
             fs::path p(romPath);
             std::string system = p.parent_path().parent_path().filename().string();
 
-            // Créer le script temporaire pour la surveillance
+            // Create the temporary script for monitoring
             std::ofstream script("/tmp/cmd_to_run.sh");
             script << "#!/bin/sh\n";
             script << "exec /mnt/SDCARD/Emus/" << system << "/default.sh '" << romPath << "'\n";
