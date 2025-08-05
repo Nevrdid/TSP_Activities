@@ -131,11 +131,11 @@ void Activities::game_list()
         if (j == selected_index) {
             prevSize = gui.render_image(
                 cfg.theme_path + "skin/list-item-1line-sort-bg-f.png", x, y, 0, 0, IMG_NONE);
-            gui.render_scrollable_text(rom.name, x + 5, y, prevSize.x - 5, FONT_MIDDLE_SIZE, color);
+            gui.render_scrollable_text(rom.name, x + 5, y-10, prevSize.x - 5, FONT_MIDDLE_SIZE, color);
         } else {
             prevSize = gui.render_image(
                 cfg.theme_path + "skin/list-item-1line-sort-bg-n.png", x, y, 0, 0, IMG_NONE);
-            gui.render_text(rom.name, x + 5, y, FONT_MIDDLE_SIZE, color, prevSize.x - 5);
+            gui.render_text(rom.name, x + 5, y-10, FONT_MIDDLE_SIZE, color, prevSize.x - 5);
         }
 
         gui.render_multicolor_text(
