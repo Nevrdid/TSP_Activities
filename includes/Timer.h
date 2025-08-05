@@ -29,11 +29,11 @@ class Timer
     int                    fd = -1;
     int                    inotify_fd = -1;
     int                    watch_fd = -1;
+    volatile bool          running = false;
+    bool                   is_file_mode = false;
     std::string            file_to_watch;
     std::string            watch_dir;
     std::string            watch_filename;
-    bool                   is_file_mode = false;
-    volatile bool          running = false;
     volatile unsigned long elapsed_seconds = 0;
     volatile unsigned int  tick_counter = 0;
 

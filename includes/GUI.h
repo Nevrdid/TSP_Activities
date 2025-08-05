@@ -20,9 +20,11 @@ namespace fs = std::experimental::filesystem;
 #include <iostream>
 #include <string>
 #include <sys/wait.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #include <unordered_map>
 #include <vector>
+#include <fstream>
 
 #define LIST_OVERLAY APP_DIR "assets/list_overlay.png"
 #define DETAILS_OVERLAY APP_DIR "assets/details_overlay.png"

@@ -1,8 +1,20 @@
 #include "Activities.h"
 #include "DB.h"
 #include "Timer.h"
-#include <wait.h>
 #include <cstring>
+#include <fstream>
+#include <sys/stat.h>
+#include <sys/wait.h>
+
+#if __has_include(<filesystem>)
+#include <filesystem>
+namespace fs = std::filesystem;
+#elif __has_include(<experimental/filesystem>)
+#include <experimental/filesystem>
+namespace fs = std::experimental::filesystem;
+#else
+#error "No filesystem support"
+#endif
 
 #define HELP_MESSAGE                                                                               \
     "Usage:\n\
@@ -157,6 +169,18 @@ int main(int argc, char* argv[])
         if (argc == 4) {
             timer_daemonize(argv[2], argv[3]);
         } else if (argc == 5 && std::strcmp(argv[3], "-flag") == 0) {
+            // Extraire le système du chemin de la rom pour construire le chemin du launcher
+            std::string romPath = argv[2];
+            fs::path p(romPath);
+            std::string system = p.parent_path().parent_path().filename().string();
+
+            // Créer le script temporaire pour la surveillance
+            std::ofstream script("/tmp/cmd_to_run.sh");
+            script << "#!/bin/sh\n";
+            script << "exec /mnt/SDCARD/Emus/" << system << "/default.sh '" << romPath << "'\n";
+            script.close();
+            chmod("/tmp/cmd_to_run.sh", 0755);
+
             file_watcher_daemonize(argv[2], argv[4]);
         } else {
             std::cout << HELP_MESSAGE << std::endl;
