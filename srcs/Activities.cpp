@@ -238,10 +238,15 @@ void Activities::game_detail()
         gui.render_image(cfg.theme_path + "skin/ic-keymap-n.png", gui.Width / 4, gui.Height / 2);
 
     // Right side: Game details
-    std::vector<std::pair<std::string, std::string>> details = {{"Total Time: ", rom.total_time},
-        {"Average Time: ", rom.average_time}, {"Play count: ", std::to_string(rom.count)},
-        {"Last played: ", rom.last}, {"System: ", rom.system},
-        {"Completed: ", rom.completed ? "Yes" : "No"}};
+    std::vector<std::pair<std::string, std::string>> details = {
+        {"Total Time: ", rom.total_time},
+        {"Average Time: ", rom.average_time},
+        {"Play count: ", std::to_string(rom.count)},
+        {"Last played: ", rom.last},
+        {"Last session: ", utils::stringifyTime(rom.lastsessiontime)},
+        {"System: ", rom.system},
+        {"Completed: ", rom.completed ? "Yes" : "No"}
+    };
     gui.infos_window("Informations", FONT_TINY_SIZE, details, FONT_MINI_SIZE,
         3 * gui.Width / 4 - 10, gui.Height / 2, gui.Width / 2 - 50, gui.Height / 2);
 
@@ -303,15 +308,36 @@ void Activities::game_detail()
             }
             break;
         case InputAction::A:
+        {
+            // Record session start time
+            auto session_start = std::chrono::steady_clock::now();
             gui.launch_game(rom.name, rom.system, rom.file);
-            {
-                pid_t ret = gui.wait_game(rom.name);
-                set_pid(ret);
-                // If the game is exited or paused, request a refresh from the GUI return.
-                if (ret == -1 || ret == 0)
-                    need_refresh = true;
+            pid_t ret = gui.wait_game(rom.name);
+            // Record session end time
+            auto session_end = std::chrono::steady_clock::now();
+            int session_seconds = std::chrono::duration_cast<std::chrono::seconds>(session_end - session_start).count();
+            // Update DB with lastsessiontime
+            DB db;
+            db.save(rom.file, 0, -1); // Save to update other fields if needed
+            // Update in-memory value for immediate display
+            for (auto& r : roms_list) {
+                if (r.file == rom.file) {
+                    r.lastsessiontime = session_seconds;
+                    break;
+                }
             }
-            break;
+            for (auto& r : filtered_roms_list) {
+                if (r.file == rom.file) {
+                    r.lastsessiontime = session_seconds;
+                    break;
+                }
+            }
+            set_pid(ret);
+            // If the game is exited or paused, request a refresh from the GUI return.
+            if (ret == -1 || ret == 0)
+                need_refresh = true;
+        }
+        break;
         case InputAction::Y:
             if (!rom.video.empty())
                 gui.launch_external(std::string(VIDEO_PLAYER) + " \"" + rom.video + "\"");

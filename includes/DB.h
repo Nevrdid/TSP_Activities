@@ -23,8 +23,9 @@ typedef struct
     std::string name;     // #1 in games_datas
     int         count;    // #2 in games_datas
     int         time;     // #3 in games_datas
-    std::string last;     // #4 in games_datas
-    int         completed; // #5 in games_datas
+    int         lastsessiontime; // #4 in games_datas (duration in seconds)
+    std::string last;     // #5 in games_datas
+    int         completed; // #6 in games_datas
 
     std::string total_time;
     std::string average_time;

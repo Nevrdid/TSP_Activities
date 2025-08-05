@@ -20,6 +20,7 @@ DB::DB()
                         "name TEXT NOT NULL,"
                         "count INTEGER NOT NULL,"
                         "time INTEGER NOT NULL,"
+                        "lastsessiontime INTEGER NOT NULL DEFAULT 0,"
                         "last TEXT NOT NULL,"
                         "completed INTEGER NOT NULL"
                         ")";
@@ -62,18 +63,21 @@ Rom DB::save(const std::string& file, int time, int completed)
     rom.time = time;
     rom.last = time ? utils::getCurrentDateTime() : "-";
     rom.completed = completed == -1 ? 0 : completed;
+    rom.lastsessiontime = 0;
 
     sqlite3_bind_text(stmt, 1, rom.file.c_str(), -1, SQLITE_STATIC);
     int result = sqlite3_step(stmt);
     if (result == SQLITE_ROW) { // Record exists
+        int previous_time = sqlite3_column_int(stmt, 3);
         rom.count += sqlite3_column_int(stmt, 2);
+        rom.lastsessiontime = rom.time; // duration of the last session
+        rom.time += previous_time;
         if (rom.time == 0)
-            rom.last = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 4)));
-        rom.time += sqlite3_column_int(stmt, 3);
-        rom.completed = completed == -1 ? sqlite3_column_int(stmt, 5) : completed;
+            rom.last = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 5)));
+        rom.completed = completed == -1 ? sqlite3_column_int(stmt, 6) : completed;
 
         std::string   update_query = "UPDATE games_datas SET name = ?, count = ?, time = ?, "
-                                     " last = ?, completed = ? WHERE file = ?";
+                                     " lastsessiontime = ?, last = ?, completed = ? WHERE file = ?";
         sqlite3_stmt* update_stmt;
         if (sqlite3_prepare_v2(db, update_query.c_str(), -1, &update_stmt, nullptr) != SQLITE_OK) {
             std::cerr << "Error preparing UPDATE query: " << sqlite3_errmsg(db) << std::endl;
@@ -84,10 +88,10 @@ Rom DB::save(const std::string& file, int time, int completed)
         sqlite3_bind_text(update_stmt, 1, rom.name.c_str(), -1, SQLITE_STATIC);
         sqlite3_bind_int(update_stmt, 2, rom.count);
         sqlite3_bind_int(update_stmt, 3, rom.time);
-        sqlite3_bind_text(update_stmt, 4, rom.last.c_str(), -1, SQLITE_STATIC);
-        sqlite3_bind_int(update_stmt, 5, rom.completed);
-
-        sqlite3_bind_text(update_stmt, 6, rom.file.c_str(), -1, SQLITE_STATIC);
+        sqlite3_bind_int(update_stmt, 4, rom.lastsessiontime);
+        sqlite3_bind_text(update_stmt, 5, rom.last.c_str(), -1, SQLITE_STATIC);
+        sqlite3_bind_int(update_stmt, 6, rom.completed);
+        sqlite3_bind_text(update_stmt, 7, rom.file.c_str(), -1, SQLITE_STATIC);
 
         if (sqlite3_step(update_stmt) != SQLITE_DONE) {
             std::cerr << "Error updating record: " << sqlite3_errmsg(db) << std::endl;
@@ -98,7 +102,7 @@ Rom DB::save(const std::string& file, int time, int completed)
         sqlite3_finalize(update_stmt);
     } else if (result == SQLITE_DONE) {
         std::string   insert_query = "INSERT INTO games_datas (file, name, count, time, "
-                                     "last, completed) VALUES (?, ?, ?, ?, ?, ?)";
+                                     "lastsessiontime, last, completed) VALUES (?, ?, ?, ?, ?, ?, ?)";
         sqlite3_stmt* insert_stmt;
         if (sqlite3_prepare_v2(db, insert_query.c_str(), -1, &insert_stmt, nullptr) != SQLITE_OK) {
             std::cerr << "Error preparing INSERT query: " << sqlite3_errmsg(db) << std::endl;
@@ -110,8 +114,9 @@ Rom DB::save(const std::string& file, int time, int completed)
         sqlite3_bind_text(insert_stmt, 2, rom.name.c_str(), -1, SQLITE_STATIC);
         sqlite3_bind_int(insert_stmt, 3, rom.count);
         sqlite3_bind_int(insert_stmt, 4, rom.time);
-        sqlite3_bind_text(insert_stmt, 5, rom.last.c_str(), -1, SQLITE_STATIC);
-        sqlite3_bind_int(insert_stmt, 6, rom.completed);
+        sqlite3_bind_int(insert_stmt, 5, rom.lastsessiontime);
+        sqlite3_bind_text(insert_stmt, 6, rom.last.c_str(), -1, SQLITE_STATIC);
+        sqlite3_bind_int(insert_stmt, 7, rom.completed);
 
         if (sqlite3_step(insert_stmt) != SQLITE_DONE) {
             std::cerr << "Error inserting record: " << sqlite3_errmsg(db) << std::endl;
@@ -175,9 +180,10 @@ Rom DB::load(const std::string& file)
         rom.name = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1)));
         rom.count = sqlite3_column_int(stmt, 2);
         rom.time = sqlite3_column_int(stmt, 3);
-        rom.last = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 4)));
+        rom.lastsessiontime = sqlite3_column_int(stmt, 4);
+        rom.last = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 5)));
         rom.last = utils::stringifyDate(rom.last);
-        rom.completed = sqlite3_column_int(stmt, 5);
+        rom.completed = sqlite3_column_int(stmt, 6);
         std::cout << "Entry loaded." << std::endl;
 
         rom.total_time = utils::stringifyTime(rom.time);
@@ -233,9 +239,10 @@ std::vector<Rom> DB::load()
         rom.name = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1)));
         rom.count = sqlite3_column_int(stmt, 2);
         rom.time = sqlite3_column_int(stmt, 3);
-        rom.last = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 4)));
+        rom.lastsessiontime = sqlite3_column_int(stmt, 4);
+        rom.last = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 5)));
         rom.last = utils::stringifyDate(rom.last);
-        rom.completed = sqlite3_column_int(stmt, 5);
+        rom.completed = sqlite3_column_int(stmt, 6);
 
         rom.total_time = utils::stringifyTime(rom.time);
 
