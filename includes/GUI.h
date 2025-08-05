@@ -1,3 +1,5 @@
+    // Dessine une pastille verte à l'écran
+    void draw_green_dot(int x, int y, int radius = 8);
 #pragma once
 
 #if __has_include(<filesystem>)
@@ -135,6 +137,7 @@ class GUI
     SDL_Texture* background_texture = nullptr;
 
   public:
+    void draw_green_dot(int x, int y, int radius = 8);
     GUI(const Config& cfg);
     ~GUI();
     void clean();

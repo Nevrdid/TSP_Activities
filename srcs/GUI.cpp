@@ -1,3 +1,17 @@
+
+#include "GUI.h"
+#include <SDL.h>
+
+void GUI::draw_green_dot(int x, int y, int radius)
+{
+    SDL_SetRenderDrawColor(renderer, 0, 200, 0, 255); // vert
+    for (int dx = -radius; dx <= radius; ++dx) {
+        for (int dy = -radius; dy <= radius; ++dy) {
+            if (dx*dx + dy*dy <= radius*radius)
+                SDL_RenderDrawPoint(renderer, x + dx, y + dy);
+        }
+    }
+}
 #include "GUI.h"
 
 GUI::GUI(const Config& cfg)

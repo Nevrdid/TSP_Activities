@@ -136,11 +136,25 @@ void Activities::game_list()
         if (static_cast<int>(j) == selected_index) {
             prevSize = gui.render_image(
                 cfg.theme_path + "skin/list-item-1line-sort-bg-f.png", x, y, 0, 0, IMG_NONE);
-            gui.render_scrollable_text(rom.name, x + 15, y + 2, prevSize.x - 5, FONT_MIDDLE_SIZE, color);
         } else {
             prevSize = gui.render_image(
                 cfg.theme_path + "skin/list-item-1line-sort-bg-n.png", x, y, 0, 0, IMG_NONE);
-            gui.render_text(rom.name, x + 15, y + 2, FONT_MIDDLE_SIZE, color, prevSize.x - 5);
+        }
+
+        // Pastille verte si le jeu est en cours (pid != -1)
+        if (rom.pid != -1) {
+            int dot_radius = 8;
+            int dot_x = x + 8;
+            int dot_y = y + 8 + FONT_MIDDLE_SIZE / 2;
+            gui.draw_green_dot(dot_x, dot_y, dot_radius);
+        }
+
+        // Affiche le nom du jeu (en tenant compte de la pastille)
+        int name_offset = rom.pid != -1 ? 2 * 8 + 6 : 15;
+        if (static_cast<int>(j) == selected_index) {
+            gui.render_scrollable_text(rom.name, x + name_offset, y + 2, prevSize.x - 5 - name_offset, FONT_MIDDLE_SIZE, color);
+        } else {
+            gui.render_text(rom.name, x + name_offset, y + 2, FONT_MIDDLE_SIZE, color, prevSize.x - 5 - name_offset);
         }
 
         gui.render_multicolor_text(
