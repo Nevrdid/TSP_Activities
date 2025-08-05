@@ -87,10 +87,10 @@ void GUI::clean()
 
     for (auto& font : fonts)
         TTF_CloseFont(font.second);
-    for (const std::pair<std::string, pid_t> child : childs){
-      utils::resume_process_group(child.second);
-      utils::kill_process_group(child.second);
-      waitpid(child.second,NULL,0);
+    for (const std::pair<std::string, pid_t> child : childs) {
+        utils::resume_process_group(child.second);
+        utils::kill_process_group(child.second);
+        waitpid(child.second, NULL, 0);
     }
 
     SDL_Quit();
@@ -169,8 +169,8 @@ void GUI::launch_external(const std::string& command)
 
 pid_t GUI::wait_game(const std::string& romName)
 {
-    int  combo = 0;
-    int  status;
+    int   combo = 0;
+    int   status;
     pid_t pid = childs[romName];
     std::cout << "ActivitiesApp: Waiting for " << romName << std::endl;
     while (true) {
@@ -196,8 +196,8 @@ pid_t GUI::wait_game(const std::string& romName)
             }
         }
         if (WIFEXITED(status)) {
-          std::cout << "ActivitiesApp: Game " << romName << " exited." << std::endl;
-          break;
+            std::cout << "ActivitiesApp: Game " << romName << " exited." << std::endl;
+            break;
         }
         SDL_Delay(16);
     }
@@ -205,7 +205,8 @@ pid_t GUI::wait_game(const std::string& romName)
     return -1;
 }
 
-void GUI::launch_game(const std::string& romName, const std::string& system, const std::string& romFile)
+void GUI::launch_game(
+    const std::string& romName, const std::string& system, const std::string& romFile)
 {
     std::cout << "ActivitiesApp: Launching " << romName << std::endl;
 
@@ -219,7 +220,7 @@ void GUI::launch_game(const std::string& romName, const std::string& system, con
         if (pid == 0) {
             setsid();
             std::string launcher = "/mnt/SDCARD/Emus/" + system + "/default.sh";
-            execl(launcher.c_str(), launcher.c_str(), romFile.c_str(), (char *)NULL);
+            execl(launcher.c_str(), launcher.c_str(), romFile.c_str(), (char*) NULL);
             std::cerr << "Failed to launch " << romName << std::endl;
             exit(1);
         } else {
@@ -406,7 +407,7 @@ void GUI::display_keybind(const std::string& btn, const std::string& text, int x
     int prevX =
         render_image(cfg.theme_path + "skin/" + buttons_icons[btn], x, Height - 20, 30, 30).x;
 
-    render_text(text, x + prevX / 2, Height - 35, FONT_MINI_SIZE, cfg.info_color);
+    render_text(text, x + prevX / 2 + 4, Height - 32, FONT_MINI_SIZE, cfg.info_color);
 };
 void GUI::display_keybind(const std::string& btn1, const std::string& btn2, const std::string& text,
 
@@ -416,9 +417,9 @@ void GUI::display_keybind(const std::string& btn1, const std::string& btn2, cons
         render_image(cfg.theme_path + "skin/" + buttons_icons[btn1], x, Height - 20, 30, 30).x;
 
     prevX =
-        render_image(cfg.theme_path + "skin/" + buttons_icons[btn2], x + prevX, Height - 20, 30, 30)
+        render_image(cfg.theme_path + "skin/" + buttons_icons[btn2], x + prevX + 6, Height - 20, 30, 30)
             .x;
-    render_text(text, x + 3 * prevX / 2, Height - 35, FONT_MINI_SIZE, cfg.info_color);
+    render_text(text, x + 4 * prevX / 2, Height - 32, FONT_MINI_SIZE, cfg.info_color);
 };
 
 void GUI::load_background_texture()

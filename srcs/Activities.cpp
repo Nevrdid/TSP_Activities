@@ -131,18 +131,18 @@ void Activities::game_list()
         if (j == selected_index) {
             prevSize = gui.render_image(
                 cfg.theme_path + "skin/list-item-1line-sort-bg-f.png", x, y, 0, 0, IMG_NONE);
-            gui.render_scrollable_text(rom.name, x + 5, y-10, prevSize.x - 5, FONT_MIDDLE_SIZE, color);
+            gui.render_scrollable_text(rom.name, x + 15, y + 2, prevSize.x - 5, FONT_MIDDLE_SIZE, color);
         } else {
             prevSize = gui.render_image(
                 cfg.theme_path + "skin/list-item-1line-sort-bg-n.png", x, y, 0, 0, IMG_NONE);
-            gui.render_text(rom.name, x + 5, y-10, FONT_MIDDLE_SIZE, color, prevSize.x - 5);
+            gui.render_text(rom.name, x + 15, y + 2, FONT_MIDDLE_SIZE, color, prevSize.x - 5);
         }
 
         gui.render_multicolor_text(
             {{"Time: ", cfg.unselect_color}, {rom.total_time, color},
                 {"  Count: ", cfg.unselect_color}, {std::to_string(rom.count), color},
                 {"  Last: ", cfg.unselect_color}, {rom.last, color}},
-            x + 10, y + prevSize.y / 2, FONT_TINY_SIZE);
+            x + 15, y + prevSize.y / 2 + 6, FONT_TINY_SIZE);
 
         y += prevSize.y + 8;
     }
@@ -255,6 +255,15 @@ void Activities::game_detail()
     gui.display_keybind("B", "Return", 140);
     gui.display_keybind("Menu", "Remove", gui.Width / 2 - 150);
     gui.display_keybind("Select", rom.completed ? "Uncomplete" : "Complete", gui.Width / 2);
+    
+    // Display navigation controls if there are multiple games
+    if (filtered_roms_list.size() > 1) {
+        int nav_x = gui.Width - 320;
+        gui.render_image(cfg.theme_path + "skin/ic-left-arrow-n.png", nav_x, gui.Height - 20, 30, 30);
+        gui.render_image(cfg.theme_path + "skin/ic-right-arrow-n.png", nav_x + 35, gui.Height - 20, 30, 30);
+        gui.render_text("Navigate", nav_x + 50, gui.Height - 32, FONT_MINI_SIZE, cfg.info_color);
+    }
+    
     if (!rom.video.empty())
         gui.display_keybind("Y", "Video", gui.Width - 240);
     if (!rom.manual.empty())
@@ -265,6 +274,18 @@ void Activities::game_detail()
         switch (gui.map_input(e)) {
         case InputAction::Quit: is_running = false; break;
         case InputAction::B: in_game_detail = false; break;
+        case InputAction::Left:
+            if (selected_index > 0) {
+                selected_index--;
+                gui.reset_scroll();
+            }
+            break;
+        case InputAction::Right:
+            if (selected_index < filtered_roms_list.size() - 1) {
+                selected_index++;
+                gui.reset_scroll();
+            }
+            break;
         case InputAction::A:
             gui.launch_game(rom.name, rom.system, rom.file);
             set_pid(gui.wait_game(rom.name));

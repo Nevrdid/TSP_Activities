@@ -32,7 +32,7 @@ namespace fs = std::experimental::filesystem;
 #define FONT APP_DIR "assets/Lato-Medium.ttf"
 
 #define FONT_BIG_SIZE 54
-#define FONT_MIDDLE_SIZE 32
+#define FONT_MIDDLE_SIZE 30
 #define FONT_TINY_SIZE 20
 #define FONT_MINI_SIZE 16
 
