@@ -23,28 +23,30 @@ static const std::string states_names[] = {"All", "Running", "Completed", "Not c
 
 class Activities
 {
+  public:
+    // Allow main to set these for special GUI modes
+    int selected_index = 0;
+    bool in_game_detail = false;
+    Sort sort_by = Sort::Last;
+    void filter_roms();
   private:
     Config cfg;
     GUI    gui;
 
     bool is_running = false;
-    bool in_game_detail = false;
     bool need_refresh = false;
 
     std::vector<Rom> roms_list;
     std::vector<Rom> filtered_roms_list;
     size_t           list_size = 0;
     size_t           total_time = 0;
-    size_t           selected_index = 0;
     bool             no_list = false;
     int              filter_state = 0;
-    Sort             sort_by = Sort::Last;
 
     std::vector<std::string> systems;
     size_t                   system_index = 0;
 
     void sort_roms();
-    void filter_roms();
 
     void switch_completed();
     void set_pid(pid_t pid);

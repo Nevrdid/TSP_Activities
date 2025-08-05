@@ -186,7 +186,19 @@ int main(int argc, char* argv[])
             std::cout << HELP_MESSAGE << std::endl;
         }
     } else if (std::strcmp(argv[1], "gui") == 0) {
-        Activities app(argc > 2 ? argv[2] : "");
+        bool show_last = false;
+        std::string rom_arg = "";
+        for (int i = 2; i < argc; ++i) {
+            if (std::strcmp(argv[i], "-last") == 0) show_last = true;
+            else rom_arg = argv[i];
+        }
+        Activities app(rom_arg);
+        if (show_last) {
+            app.sort_by = Sort::Last;
+            app.filter_roms();
+            app.selected_index = 0;
+            app.in_game_detail = true;
+        }
         app.run();
     } else {
         std::cout << HELP_MESSAGE << std::endl;
