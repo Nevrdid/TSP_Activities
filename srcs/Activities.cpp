@@ -256,12 +256,23 @@ void Activities::game_detail()
     gui.display_keybind("Menu", "Remove", gui.Width / 2 - 150);
     gui.display_keybind("Select", rom.completed ? "Uncomplete" : "Complete", gui.Width / 2);
     
-    // Display navigation controls if there are multiple games
+    // Display navigation arrows on the screen sides if navigation is possible
     if (filtered_roms_list.size() > 1) {
+        // Flèche gauche (éléments plus récents)
+        if (selected_index > 0) {
+            gui.render_image(cfg.theme_path + "skin/ic-right-arrow-n.png", gui.Width - 10, gui.Height / 2, 40, 40);
+        }
+        // Flèche droite (éléments plus anciens)
+        if (selected_index < filtered_roms_list.size() - 1) {
+            gui.render_image(cfg.theme_path + "skin/ic-left-arrow-n.png", 10, gui.Height / 2, 40, 40);
+        }
+
+        
         int nav_x = gui.Width - 320;
         gui.render_image(cfg.theme_path + "skin/ic-left-arrow-n.png", nav_x, gui.Height - 20, 30, 30);
         gui.render_image(cfg.theme_path + "skin/ic-right-arrow-n.png", nav_x + 35, gui.Height - 20, 30, 30);
         gui.render_text("Navigate", nav_x + 50, gui.Height - 32, FONT_MINI_SIZE, cfg.info_color);
+   
     }
     
     if (!rom.video.empty())
@@ -275,14 +286,14 @@ void Activities::game_detail()
         case InputAction::Quit: is_running = false; break;
         case InputAction::B: in_game_detail = false; break;
         case InputAction::Left:
-            if (selected_index > 0) {
-                selected_index--;
+            if (selected_index < filtered_roms_list.size() - 1) {
+                selected_index++;
                 gui.reset_scroll();
             }
             break;
         case InputAction::Right:
-            if (selected_index < filtered_roms_list.size() - 1) {
-                selected_index++;
+            if (selected_index > 0) {
+                selected_index--;
                 gui.reset_scroll();
             }
             break;
