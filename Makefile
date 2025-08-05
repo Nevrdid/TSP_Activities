@@ -27,6 +27,12 @@ else
 	# Libraries for cross-compilation
 	LDLIBS=-L$(TSP_LIB_PATH) -L$(SYSROOT)/usr/lib
 	LDLIBS+=-lSDL2 -lSDL2_image -lSDL2_ttf -lsqlite3 -lpthread -lm -lz -ldl -lstdc++fs
+
+	# smaller binary
+	CXXFLAGS+= -s
+	CXXFLAGS+= -ffunction-sections -fdata-sections
+	LDFLAGS+= -Wl,--gc-sections
+	LDFLAGS+= -flto
 	
 	# Set library path for runtime
 	export LD_LIBRARY_PATH=$(TSP_LIB_PATH)
