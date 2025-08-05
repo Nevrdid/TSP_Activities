@@ -175,7 +175,7 @@ void Activities::game_list()
     gui.display_keybind("A", "Select", 25);
     gui.display_keybind("B", "Quit", 140);
     gui.display_keybind("X", "Details", 230);
-    gui.display_keybind("Menu", "Global stats", 320);
+    gui.display_keybind("Menu", "Global stats", 340);
     gui.display_keybind("L1", "R1", "Change system", gui.Width - 620);
     //gui.display_keybind("L2", "Manual", gui.Width - 500);
     gui.display_keybind("Select", "State filter", gui.Width - 350);
@@ -292,15 +292,15 @@ void Activities::game_detail()
         gui.Height - FONT_MINI_SIZE * 3.5, gui.Width - 2 * 10, FONT_MINI_SIZE * 2,
         IMG_FIT | IMG_CENTER);
     gui.render_text(
-        "File:", 50, gui.Height - FONT_MINI_SIZE * 4.5, FONT_MINI_SIZE, cfg.selected_color);
+        "File:", 50, gui.Height - FONT_MINI_SIZE * 4.5 + 4, FONT_MINI_SIZE, cfg.selected_color);
     gui.render_text(
-        rom.file, 100, gui.Height - FONT_MINI_SIZE * 4.5, FONT_MINI_SIZE, cfg.info_color);
+        rom.file, 100, gui.Height - FONT_MINI_SIZE * 4.5 + 4, FONT_MINI_SIZE, cfg.info_color);
 
     gui.render_image(cfg.theme_path + "skin/tips-bar-bg.png", gui.Width / 2, gui.Height - 20,
         gui.Width, FONT_MINI_SIZE * 2);
     gui.display_keybind("A", "Start", 25);
     gui.display_keybind("B", "Return", 140);
-    gui.display_keybind("X", "Back to list", 230);
+    gui.display_keybind("X", "Back to list", 250);
     gui.display_keybind("Menu", "Remove", gui.Width / 2 - 150);
     //gui.display_keybind("L2", "Manual", gui.Width / 2 - 80);
     gui.display_keybind("Select", rom.completed ? "Uncomplete" : "Complete", gui.Width / 2);
