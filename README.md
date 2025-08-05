@@ -154,3 +154,72 @@ build/                  # Object files directory
 build_tsp.sh           # Cross-compilation script
 test_crosscompile.sh   # Environment test script
 ```
+
+# Timer
+
+## Usage
+- Time a process and add datas to database:
+  `activities add <rom_file> <process_pid>`
+
+You can so use it like that for example:
+`flycast "$mygame" &`
+`activities "$mygame" $!`
+
+- **NEW**: Watch for file presence and track time:
+  `activities -flag <file_path>`
+
+Example:
+```bash
+# Start watching a file - tracks time while file exists
+activities -flag /tmp/cmd_to_run.sh
+
+# The daemon will:
+# 1. Start counting time when the file exists
+# 2. Stop counting when the file is deleted/moved
+# 3. Use inotify for very low CPU usage
+# 4. Check every second with minimal overhead
+```
+
+**File Watcher Features:**
+- Uses `inotify` for efficient file system monitoring
+- Very low CPU usage (select() with 1-second timeout)
+- Tracks time only while file exists
+- Automatically stops when file is removed
+- Logs activity to `/mnt/SDCARD/Apps/Activities/log/file_watcher.log`
+
+## Activity Tracking
+
+The `activities` command can be used to track time for specific activities, either by monitoring a process or a file.
+
+### Process Monitoring
+
+To track the time of a running process, use the command:
+
+```bash
+activities time "<activity_name>" <process_pid>
+```
+
+Example:
+```bash
+activities time "My Awesome Game" 12345
+```
+
+This will start a timer for "My Awesome Game" and will stop when the process with PID 12345 terminates.
+
+### File Watcher Mode
+
+Alternatively, you can track an activity by monitoring a file. The timer will stop as soon as the specified file is deleted. This is useful for scripts or tasks that signal their completion by removing a temporary file.
+
+Example:
+```bash
+activities time "My Script Task" -flag /tmp/my_script.lock
+```
+
+This command starts a timer for "My Script Task" and watches for the deletion of `/tmp/my_script.lock`.
+
+## GUI
+
+To launch the graphical interface, simply run:
+```bash
+activities gui
+```

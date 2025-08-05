@@ -128,15 +128,11 @@ void file_watcher_daemonize(const std::string& activity_name, const std::string&
         exit(0);
     }
 
-    int logfile =
-        open("/mnt/SDCARD/Apps/Activities/log/file_watcher.log", O_WRONLY | O_CREAT | O_APPEND, 0644);
-    dup2(logfile, STDOUT_FILENO);
-    dup2(logfile, STDERR_FILENO);
-    close(logfile);
-
     int devnull = open("/dev/null", O_RDWR);
     if (devnull != -1) {
         dup2(devnull, STDIN_FILENO);
+        dup2(devnull, STDOUT_FILENO);
+        dup2(devnull, STDERR_FILENO);
         close(devnull);
     }
 

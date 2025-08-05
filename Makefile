@@ -58,6 +58,7 @@ test:
 
 clean:
 	rm -f $(NAME) activities.x86
+	rm -rf build/
 
 fclean: clean
 	rm -rf build/
