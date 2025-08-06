@@ -219,8 +219,8 @@ Rom DB::load(const std::string& file)
         rom.system = std::regex_replace(rom.file, sys_pattern, R"($1)");
         rom.pid = -1;
     } else if (result == SQLITE_DONE) {
-        return save(file);
         std::cerr << "No record found for rom: " << file << std::endl;
+        rom = save(file);
     }
 
     sqlite3_finalize(stmt);
