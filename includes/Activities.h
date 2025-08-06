@@ -5,6 +5,7 @@
 #include "utils.h"
 
 #include <algorithm>
+#include <chrono>
 #include <set>
 #include <string>
 #include <vector>
@@ -35,6 +36,8 @@ class Activities
 
     bool is_running = false;
     bool need_refresh = false;
+    std::chrono::steady_clock::time_point refresh_timer_start;
+    bool refresh_timer_active = false;
 
     std::vector<Rom> roms_list;
     std::vector<Rom> filtered_roms_list;

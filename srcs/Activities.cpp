@@ -24,21 +24,21 @@ Activities::Activities(const std::string& rom_name)
         no_list = true;
         in_game_detail = true;
         
-        // Charger toute la base de données pour permettre la navigation
+        // Load the entire database to allow navigation
         roms_list = db.load();
         
-        // Normaliser le chemin de la ROM recherchée
+        // Normalize the searched ROM path
         std::string canonical_rom_name = rom_name;
         fs::path rom_path(rom_name);
         if (fs::exists(rom_path)) {
             canonical_rom_name = fs::canonical(rom_path);
         }
         
-        // Chercher la ROM spécifique dans la liste complète
+        // Search for the specific ROM in the complete list
         int target_rom_index = -1;
         for (size_t i = 0; i < roms_list.size(); ++i) {
             const auto& rom = roms_list[i];
-            // Essayer plusieurs types de correspondance
+            // Try multiple types of matching
             if (rom.file == rom_name || rom.file == canonical_rom_name || 
                 fs::path(rom.file).filename() == fs::path(rom_name).filename()) {
                 target_rom_index = i;
@@ -47,16 +47,16 @@ Activities::Activities(const std::string& rom_name)
             }
         }
         
-        // Si la ROM n'est pas trouvée dans la base, la charger/créer et l'ajouter
+        // If ROM is not found in database, load/create it and add it
         if (target_rom_index == -1) {
             std::cout << "ROM not found in database, creating new entry for: " << rom_name << std::endl;
             Rom loaded_rom = db.load(rom_name);
             
-            // Vérifier que la ROM a été correctement chargée
+            // Check that the ROM was correctly loaded
             if (loaded_rom.file.empty()) {
                 std::cerr << "Failed to load ROM: " << rom_name << std::endl;
                 is_running = false;
-                // Initialiser systems avec une valeur par défaut pour éviter les crashes
+                // Initialize systems with a default value to avoid crashes
                 systems.push_back("");
                 return;
             }
@@ -65,7 +65,7 @@ Activities::Activities(const std::string& rom_name)
             target_rom_index = roms_list.size() - 1;
         }
         
-        // Construire la liste des systèmes uniques
+        // Build the list of unique systems
         std::set<std::string> unique_systems;
         for (const auto& rom : roms_list) {
             unique_systems.insert(rom.system);
@@ -73,10 +73,10 @@ Activities::Activities(const std::string& rom_name)
         systems.push_back("");
         systems.insert(systems.end(), unique_systems.begin(), unique_systems.end());
         
-        // Filtrer les ROMs
+        // Filter ROMs
         filter_roms();
         
-        // Trouver l'index de la ROM cible dans la liste filtrée
+        // Find the target ROM index in the filtered list
         for (size_t i = 0; i < filtered_roms_list.size(); ++i) {
             if (static_cast<int>(i) < roms_list.size() && 
                 roms_list[target_rom_index].file == filtered_roms_list[i].file) {
@@ -85,7 +85,7 @@ Activities::Activities(const std::string& rom_name)
             }
         }
         
-        // Debug: afficher les valeurs chargées
+        // Debug: display loaded values
         if (target_rom_index >= 0 && target_rom_index < static_cast<int>(roms_list.size())) {
             const Rom& loaded_rom = roms_list[target_rom_index];
             std::cout << "Final ROM data:" << std::endl;
@@ -112,7 +112,7 @@ Activities::~Activities()
 
 void Activities::switch_completed()
 {
-    // Vérification de sécurité
+    // Safety check
     if (filtered_roms_list.empty() || selected_index >= static_cast<int>(filtered_roms_list.size())) {
         std::cerr << "Error: Invalid ROM access in switch_completed()" << std::endl;
         return;
@@ -130,7 +130,7 @@ void Activities::switch_completed()
 
 void Activities::set_pid(pid_t pid)
 {
-    // Vérification de sécurité
+    // Safety check
     if (filtered_roms_list.empty() || selected_index >= static_cast<int>(filtered_roms_list.size())) {
         std::cerr << "Error: Invalid ROM access in set_pid()" << std::endl;
         return;
@@ -148,7 +148,7 @@ void Activities::set_pid(pid_t pid)
 
 void Activities::filter_roms()
 {
-    // Vérification de sécurité pour éviter les accès hors limites
+    // Safety check to avoid out-of-bounds access
     std::string current_system = "";
     if (!systems.empty() && system_index < systems.size()) {
         current_system = systems[system_index];
@@ -236,7 +236,7 @@ void Activities::game_list()
                 cfg.theme_path + "skin/list-item-1line-sort-bg-n.png", x, y, 0, 0, IMG_NONE);
         }
 
-        // Pastille verte si le jeu est en cours (pid != -1)
+        // Green dot if game is running (pid != -1)
         if (rom.pid != -1) {
             int dot_radius = 8;
             int dot_x = x + 8;
@@ -244,7 +244,7 @@ void Activities::game_list()
             gui.draw_green_dot(dot_x, dot_y, dot_radius);
         }
 
-        // Affiche le nom du jeu (en tenant compte de la pastille)
+        // Display game name (accounting for the dot)
         int name_offset = rom.pid != -1 ? 2 * 8 + 6 : 15;
         if (static_cast<int>(j) == selected_index) {
             gui.render_scrollable_text(rom.name, x + name_offset, y + 2, prevSize.x - 5 - name_offset, FONT_MIDDLE_SIZE, color);
@@ -352,7 +352,7 @@ void Activities::game_list()
 
 void Activities::game_detail()
 {
-    // Vérification de sécurité
+    // Safety check
     if (filtered_roms_list.empty() || selected_index >= static_cast<int>(filtered_roms_list.size())) {
         std::cerr << "Error: Invalid ROM access in game_detail()" << std::endl;
         in_game_detail = false;
@@ -409,11 +409,11 @@ void Activities::game_detail()
     
     // Display navigation arrows on the screen sides if navigation is possible
     if (filtered_roms_list.size() > 1) {
-        // Flèche gauche (éléments plus récents)
+        // Left arrow (newer elements)
         if (selected_index > 0) {
             gui.render_image(cfg.theme_path + "skin/ic-right-arrow-n.png", gui.Width - 10, gui.Height / 2, 40, 40);
         }
-        // Flèche droite (éléments plus anciens)
+        // Right arrow (older elements)
         if (selected_index < static_cast<int>(filtered_roms_list.size()) - 1) {
             gui.render_image(cfg.theme_path + "skin/ic-left-arrow-n.png", 10, gui.Height / 2, 40, 40);
         }
@@ -464,8 +464,8 @@ void Activities::game_detail()
                 gui.launch_external(std::string(VIDEO_PLAYER) + " \"" + rom.video + "\"");
             break;
         case InputAction::X:
-            // Permettre le passage en mode liste même en mode ROM spécifique
-            // puisque maintenant toutes les ROMs sont chargées
+            // Allow switching to list mode even in ROM-specific mode
+            // since now all ROMs are loaded
             in_game_detail = false;
             break;
         case InputAction::ZR:
@@ -481,7 +481,7 @@ void Activities::game_detail()
                                     [&rom](const Rom& r) { return r.file == rom.file; }),
                     roms_list.end());
                 filter_roms();
-                // Si on est en mode ROM spécifique et qu'on supprime la ROM, quitter l'application
+                // If we're in ROM-specific mode and delete the ROM, quit the application
                 if (no_list) {
                     is_running = false;
                 } else {
@@ -554,59 +554,73 @@ void Activities::run()
     while (is_running) {
         // Refreshes data after game return, with a one-second pause
         if (need_refresh) {
-            // Save the current selected rom file (if any)
-            std::string selected_file;
-            if (!filtered_roms_list.empty() && selected_index < static_cast<int>(filtered_roms_list.size()))
-                selected_file = filtered_roms_list[selected_index].file;
-
-            SDL_Delay(1000); // wait 1 second before reloading the DB
-            DB db;
-            
-            if (no_list) {
-                // En mode ROM spécifique, ne recharger que la ROM courante
-                if (!filtered_roms_list.empty()) {
-                    std::string current_rom_file = filtered_roms_list[0].file;
-                    Rom updated_rom = db.load(current_rom_file);
-                    if (!updated_rom.file.empty()) {
-                        roms_list[0] = updated_rom;
-                        filtered_roms_list[0] = updated_rom;
-                    }
-                }
+            if (!refresh_timer_active) {
+                // Start the non-blocking timer
+                refresh_timer_start = std::chrono::steady_clock::now();
+                refresh_timer_active = true;
             } else {
-                // En mode liste complète, recharger toute la base de données
-                roms_list = db.load();
+                // Check if 1 second has elapsed
+                auto now = std::chrono::steady_clock::now();
+                auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - refresh_timer_start);
                 
-                // Reinjects pids for games still running (present in gui.childs)
-                auto& childs = gui.get_childs();
-                for (auto& rom : roms_list) {
-                    auto it = childs.find(rom.name);
-                    if (it != childs.end()) {
-                        // Checks that the process still exists
-                        if (kill(it->second, 0) == 0) {
-                            rom.pid = it->second;
-                        } else {
-                            rom.pid = -1;
-                            childs.erase(it); // Cleans up dead pids
+                if (elapsed.count() >= 1000) {
+                    // 1 second has elapsed, proceed with refresh
+                    refresh_timer_active = false;
+                    
+                    // Save the current selected rom file (if any)
+                    std::string selected_file;
+                    if (!filtered_roms_list.empty() && selected_index < static_cast<int>(filtered_roms_list.size()))
+                        selected_file = filtered_roms_list[selected_index].file;
+
+                    DB db;
+                    
+                    if (no_list) {
+                        // In ROM-specific mode, only reload the current ROM
+                        if (!filtered_roms_list.empty()) {
+                            std::string current_rom_file = filtered_roms_list[0].file;
+                            Rom updated_rom = db.load(current_rom_file);
+                            if (!updated_rom.file.empty()) {
+                                roms_list[0] = updated_rom;
+                                filtered_roms_list[0] = updated_rom;
+                            }
                         }
                     } else {
-                        rom.pid = -1;
+                        // In full list mode, reload the entire database
+                        roms_list = db.load();
+                        
+                        // Reinjects pids for games still running (present in gui.childs)
+                        auto& childs = gui.get_childs();
+                        for (auto& rom : roms_list) {
+                            auto it = childs.find(rom.name);
+                            if (it != childs.end()) {
+                                // Checks that the process still exists
+                                if (kill(it->second, 0) == 0) {
+                                    rom.pid = it->second;
+                                } else {
+                                    rom.pid = -1;
+                                    childs.erase(it); // Cleans up dead pids
+                                }
+                            } else {
+                                rom.pid = -1;
+                            }
+                        }
+                        filter_roms();
                     }
-                }
-                filter_roms();
-            }
 
-            // Restore selection to the same rom if possible
-            if (!selected_file.empty()) {
-                for (size_t i = 0; i < filtered_roms_list.size(); ++i) {
-                    if (filtered_roms_list[i].file == selected_file) {
-                        selected_index = i;
-                        break;
+                    // Restore selection to the same rom if possible
+                    if (!selected_file.empty()) {
+                        for (size_t i = 0; i < filtered_roms_list.size(); ++i) {
+                            if (filtered_roms_list[i].file == selected_file) {
+                                selected_index = i;
+                                break;
+                            }
+                        }
                     }
+                    need_refresh = false;
                 }
             }
-            need_refresh = false;
         }
-        // Vérification de sécurité pour éviter les accès hors limites
+        // Safety check to avoid out-of-bounds access
         std::string current_system = "";
         if (!systems.empty() && system_index < systems.size()) {
             current_system = systems[system_index];
