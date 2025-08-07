@@ -205,8 +205,12 @@ void Activities::game_list()
         gui.Width, 2 * FONT_MIDDLE_SIZE);
 
     // Display the current/total index at the bottom right
-    if (list_size > 0)
-        gui.render_text(std::to_string(selected_index + 1) + "/" + std::to_string(list_size), gui.Width - 55, gui.Height - FONT_MINI_SIZE * 2.5 - 50, FONT_TINY_SIZE, cfg.unselect_color);
+    if (list_size > 0) {
+        std::string index_text = std::to_string(selected_index + 1) + "/" + std::to_string(list_size);
+        // Calculate text width to position it properly from the right edge
+        int text_width = index_text.length() * (FONT_TINY_SIZE * 0.7); // Approximate character width
+        gui.render_text(index_text, gui.Width - text_width - 10, gui.Height - FONT_MINI_SIZE * 2.5 - 50, FONT_TINY_SIZE, cfg.unselect_color);
+    }
     // Centered title
     std::string current_system_name = "";
     if (!systems.empty() && system_index < systems.size()) {
@@ -368,11 +372,11 @@ void Activities::game_detail()
         rom.name, 10, 0, gui.Width - 2 * 10, FONT_MIDDLE_SIZE, cfg.unselect_color);
 
     // Left side: Rom image
-    gui.render_image(cfg.theme_path + "skin/bg-menu-09.png", gui.Width / 4, gui.Height / 2,
+    gui.render_image(cfg.theme_path + "skin/bg-menu-09.png", gui.Width / 4, gui.Height / 2 -10,
         gui.Width / 2 - 60, gui.Width / 2 - 60);
     if (!rom.image.empty())
         gui.render_image(
-            rom.image, gui.Width / 4, gui.Height / 2, 0, gui.Width / 2 - 75, IMG_FIT | IMG_CENTER);
+            rom.image, gui.Width / 4, gui.Height / 2 - 10, 0, gui.Width / 2 - 85, IMG_FIT | IMG_CENTER);
     else
         gui.render_image(cfg.theme_path + "skin/ic-keymap-n.png", gui.Width / 4, gui.Height / 2);
 
@@ -390,7 +394,7 @@ void Activities::game_detail()
         3 * gui.Width / 4 - 10, gui.Height / 2, gui.Width / 2 - 50, gui.Height / 2);
 
     // Bottom: File path.
-    gui.render_image(cfg.theme_path + "skin/bg-menu-01.png", gui.Width / 2,
+    gui.render_image(cfg.theme_path + "skin/list-item-2line-long-bg-n.png", gui.Width / 2,
         gui.Height - FONT_MINI_SIZE * 3.5, gui.Width - 2 * 10, FONT_MINI_SIZE * 2,
         IMG_FIT | IMG_CENTER);
     gui.render_text(
