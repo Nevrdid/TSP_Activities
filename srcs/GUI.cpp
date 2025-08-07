@@ -396,12 +396,15 @@ void GUI::render_scrollable_text(
 {
     static int    offset = 0;
     static Uint32 last_update = 0;
+    static bool   end_pause = false;
+    static Uint32 end_pause_start = 0;
     CachedText&   cached = getCachedText({text, font_size, color});
 
     if (scroll_reset) {
         last_update = SDL_GetTicks();
         scroll_reset = false;
         offset = 0;
+        end_pause = false;
     }
 
     if (cached.width <= width) {
@@ -410,11 +413,18 @@ void GUI::render_scrollable_text(
     }
 
     Uint32 current_time = SDL_GetTicks();
-    if (current_time - last_update > (offset > 0 ? 16 : 2000)) { // Adjust delays
+    
+    if (end_pause) {
+        if (current_time - end_pause_start > 800) {
+            scroll_reset = true;
+        }
+    } else if (current_time - last_update > (offset > 0 ? 16 : 2000)) { // Adjust delays
         last_update = current_time;
         offset += 3; // Scrolling speed
-        if (offset > cached.width - width)
-            scroll_reset = true;
+        if (offset > cached.width - width) {
+            end_pause = true;
+            end_pause_start = current_time;
+        }
     }
 
     SDL_Rect clip_rect = {offset, 0, width, cached.height};
