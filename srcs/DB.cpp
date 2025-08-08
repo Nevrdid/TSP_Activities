@@ -107,6 +107,28 @@ Rom DB::save(const std::string& file, int time, int completed)
 
         sqlite3_finalize(update_stmt);
     } else if (result == SQLITE_DONE) {
+        // Initialize ROM metadata even if we don't save to database
+        rom.total_time = utils::stringifyTime(rom.time);
+        rom.average_time = utils::stringifyTime(rom.count ? rom.time / rom.count : 0);
+        rom.last = utils::stringifyDate(rom.last);
+        
+        rom.image = std::regex_replace(rom.file, img_pattern, R"(/Imgs/$1)") + "/" + rom.name + ".png";
+        if (!fs::exists(rom.image))
+            rom.image = "";
+
+        rom.video =
+            std::regex_replace(rom.file, img_pattern, R"(/Videos/$1)") + "/" + rom.name + ".mp4";
+        if (!fs::exists(rom.video))
+            rom.video = "";
+
+        rom.manual =
+            std::regex_replace(rom.file, img_pattern, R"(/Manuals/$1)") + "/" + rom.name + ".pdf";
+        if (!fs::exists(rom.manual))
+            rom.manual = "";
+
+        rom.system = std::regex_replace(rom.file, sys_pattern, R"($1)");
+        rom.pid = -1;
+        
         // Do not record if last session is too short
         if (rom.time < 5) {
             sqlite3_finalize(stmt);
@@ -139,29 +161,6 @@ Rom DB::save(const std::string& file, int time, int completed)
     }
 
     sqlite3_finalize(stmt);
-
-    rom.total_time = utils::stringifyTime(rom.time);
-
-    rom.average_time = utils::stringifyTime(rom.count ? rom.time / rom.count : 0);
-
-    rom.last = utils::stringifyDate(rom.last);
-
-    rom.image = std::regex_replace(rom.file, img_pattern, R"(/Imgs/$1)") + "/" + rom.name + ".png";
-    if (!fs::exists(rom.image))
-        rom.image = "";
-
-    rom.video =
-        std::regex_replace(rom.file, img_pattern, R"(/Videos/$1)") + "/" + rom.name + ".mp4";
-    if (!fs::exists(rom.video))
-        rom.video = "";
-
-    rom.manual =
-        std::regex_replace(rom.file, img_pattern, R"(/Manuals/$1)") + "/" + rom.name + ".pdf";
-    if (!fs::exists(rom.manual))
-        rom.manual = "";
-
-    rom.system = std::regex_replace(rom.file, sys_pattern, R"($1)");
-    rom.pid = -1;
     return rom;
 }
 

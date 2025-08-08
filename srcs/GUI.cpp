@@ -418,7 +418,7 @@ void GUI::render_scrollable_text(
         if (current_time - end_pause_start > 800) {
             scroll_reset = true;
         }
-    } else if (current_time - last_update > (offset > 0 ? 16 : 2000)) { // Adjust delays
+    } else if (current_time - last_update > (offset > 0 ? 16 : 1500)) { // Adjust delays
         last_update = current_time;
         offset += 3; // Scrolling speed
         if (offset > cached.width - width) {
