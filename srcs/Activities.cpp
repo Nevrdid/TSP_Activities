@@ -78,9 +78,9 @@ Activities::Activities(const std::string& rom_name)
         
         // Find the target ROM index in the filtered list
         for (size_t i = 0; i < filtered_roms_list.size(); ++i) {
-            if (static_cast<int>(i) < roms_list.size() && 
+            if (i < roms_list.size() && 
                 roms_list[target_rom_index].file == filtered_roms_list[i].file) {
-                selected_index = i;
+                selected_index = static_cast<int>(i);
                 break;
             }
         }
@@ -371,7 +371,7 @@ void Activities::game_list()
         auto heldFor = std::chrono::duration_cast<std::chrono::milliseconds>(now - holdStartTime).count();
         if (heldFor >= initialRepeatDelayMs) {
             auto sinceLast = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastRepeatTime).count();
-            if (sinceLast >= repeatIntervalMs) {
+            if (sinceLast >= listRepeatIntervalMs) {
                 if (upHolding && selected_index > 0) {
                     selected_index--;
                     lastRepeatTime = now;
@@ -404,14 +404,52 @@ void Activities::game_detail()
     gui.render_scrollable_text(
         rom.name, 10, 0, gui.Width - 2 * 10, FONT_MIDDLE_SIZE, cfg.unselect_color);
 
-    // Left side: Rom image
-    gui.render_image(cfg.theme_path + "skin/bg-menu-09.png", gui.Width / 4, gui.Height / 2 -10,
-        gui.Width / 2 - 60, gui.Width / 2 - 60);
-    if (!rom.image.empty())
-        gui.render_image(
-            rom.image, gui.Width / 4, gui.Height / 2 - 10, 0, gui.Width / 2 - 85, IMG_FIT | IMG_CENTER);
-    else
-        gui.render_image(cfg.theme_path + "skin/ic-keymap-n.png", gui.Width / 4, gui.Height / 2);
+    // Left side: Rom image (reduced size)
+    int frameWidth = gui.Width / 2 - 120; // reduced
+    int frameHeight = gui.Width / 2 - 120; // keep square
+    int frameX = gui.Width / 4;
+    int frameY = gui.Height / 2 - 30; // slightly adjusted upward
+    gui.render_image(cfg.theme_path + "skin/bg-menu-09.png", frameX, frameY,
+        frameWidth, frameHeight);
+    if (!rom.image.empty()) {
+        int innerW = frameWidth - 40;
+        gui.render_image(rom.image, frameX, frameY, 0, innerW, IMG_FIT | IMG_CENTER);
+    } else {
+        gui.render_image(cfg.theme_path + "skin/ic-keymap-n.png", frameX, frameY);
+    }
+
+    // Dots navigation bar (chronologie: plus récent à droite) avec limite 20
+    if (filtered_roms_list.size() > 1) {
+        size_t n = filtered_roms_list.size();
+        const int maxDots = 20;
+        int displayCount = static_cast<int>(std::min(n, static_cast<size_t>(maxDots)));
+        int dotsRadius = 6;
+        int spacing = 24;
+        int totalDotsWidth = (displayCount - 1) * spacing;
+        int rightX = frameX + totalDotsWidth / 2;
+        int dotsY = frameY + frameHeight / 2 + frameHeight / 2 - 10;
+        if (dotsY > gui.Height - 200) dotsY = frameY + frameHeight / 2 + 40;
+        for (int i = 0; i < displayCount; ++i) {
+            int xPos = rightX - i * spacing;
+            bool inRangeSelected = (selected_index == i);
+            bool filled = inRangeSelected;
+            SDL_Color color = filled ? cfg.selected_color : cfg.unselect_color;
+            gui.draw_circle(xPos, dotsY, dotsRadius, color, filled);
+        }
+        if (n > static_cast<size_t>(maxDots)) {
+            // Leftmost displayed dot center
+            int xLeftmost = rightX - (displayCount - 1) * spacing;
+            bool highlightInfinity = selected_index >= maxDots;
+            SDL_Color infColor = highlightInfinity ? cfg.selected_color : cfg.unselect_color;
+            int sep = dotsRadius * 2 ; // internal separation between the two infinity circles
+            // Place right circle exactly one normal spacing to the left of leftmost dot
+            int cxRight = xLeftmost - spacing;
+            int cxLeft = cxRight - sep;
+            // Draw (avoid going off-screen excessively)
+            gui.draw_circle(cxLeft, dotsY, dotsRadius, infColor, highlightInfinity);
+            gui.draw_circle(cxRight, dotsY, dotsRadius, infColor, highlightInfinity);
+        }
+    }
 
     // Right side: Game details
     std::vector<std::pair<std::string, std::string>> details = {
@@ -468,30 +506,42 @@ void Activities::game_detail()
     if (!rom.manual.empty())
         gui.display_keybind("X", "Manual", gui.Width - 125);
 
+    size_t prev_selected_index = selected_index;
     SDL_Event e;
     while (SDL_PollEvent(&e)) {
+        // Stop auto-repeat when hat returns to center
+        if (e.type == SDL_JOYHATMOTION && e.jhat.value == SDL_HAT_CENTERED) {
+            leftHolding = false;
+            rightHolding = false;
+        }
         switch (gui.map_input(e)) {
         case InputAction::Quit: is_running = false; break;
-        //case InputAction::B: in_game_detail = false; break;
         case InputAction::B: is_running = false; break;
         case InputAction::Left:
             if (selected_index < static_cast<int>(filtered_roms_list.size()) - 1) {
                 selected_index++;
                 gui.reset_scroll();
             }
+            // Start auto-scroll to newer items (Left)
+            leftHolding = true;
+            rightHolding = false;
+            holdStartTime = lastRepeatTime = std::chrono::steady_clock::now();
             break;
         case InputAction::Right:
             if (selected_index > 0) {
                 selected_index--;
                 gui.reset_scroll();
             }
+            // Start auto-scroll to older items (Right)
+            rightHolding = true;
+            leftHolding = false;
+            holdStartTime = lastRepeatTime = std::chrono::steady_clock::now();
             break;
         case InputAction::A:
             gui.launch_game(rom.name, rom.system, rom.file);
             {
                 pid_t ret = gui.wait_game(rom.name);
                 set_pid(ret);
-                // If the game is exited or paused, request a refresh from the GUI return.
                 if (ret == -1 || ret == 0)
                     need_refresh = true;
             }
@@ -501,15 +551,14 @@ void Activities::game_detail()
                 gui.launch_external(std::string(VIDEO_PLAYER) + " \"" + rom.video + "\"");
             break;
         case InputAction::X:
-            // Allow switching to list mode even in ROM-specific mode
-            // since now all ROMs are loaded
             in_game_detail = false;
+            leftHolding = rightHolding = false;
             break;
         case InputAction::ZR:
             if (!rom.manual.empty())
                 gui.launch_external(std::string(MANUAL_READER) + " \"" + rom.manual + "\"");
             break;
-        case InputAction::Select: switch_completed(); break;
+        case InputAction::Select: switch_completed(); leftHolding = rightHolding = false; break;
         case InputAction::Menu:
             if (gui.confirmation_popup("Remove game from DB?", FONT_MIDDLE_SIZE)) {
                 DB db;
@@ -518,17 +567,40 @@ void Activities::game_detail()
                                     [&rom](const Rom& r) { return r.file == rom.file; }),
                     roms_list.end());
                 filter_roms();
-                // If we're in ROM-specific mode and delete the ROM, quit the application
                 if (no_list) {
                     is_running = false;
                 } else {
                     in_game_detail = false;
                 }
             }
+            leftHolding = rightHolding = false;
             break;
         default: break;
         }
     }
+
+    // Auto-repeat handling for left/right navigation in detail view
+    if ((leftHolding || rightHolding) && filtered_roms_list.size() > 1) {
+        auto now = std::chrono::steady_clock::now();
+        auto heldFor = std::chrono::duration_cast<std::chrono::milliseconds>(now - holdStartTime).count();
+        if (heldFor >= initialRepeatDelayMs) {
+            auto sinceLast = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastRepeatTime).count();
+            if (sinceLast >= detailRepeatIntervalMs) {
+                if (leftHolding && selected_index < static_cast<int>(filtered_roms_list.size()) - 1) {
+                    selected_index++;
+                    lastRepeatTime = now;
+                } else if (rightHolding && selected_index > 0) {
+                    selected_index--;
+                    lastRepeatTime = now;
+                }
+            }
+        }
+    }
+
+    if (prev_selected_index != selected_index) {
+        gui.reset_scroll();
+    }
+
     gui.render();
 }
 

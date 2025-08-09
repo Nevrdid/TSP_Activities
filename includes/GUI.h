@@ -1,4 +1,4 @@
-    // Dessine une pastille verte à l'écran
+// Dessine une pastille verte à l'écran
     void draw_green_dot(int x, int y, int radius = 8);
 #pragma once
 
@@ -138,6 +138,7 @@ class GUI
 
   public:
     void draw_green_dot(int x, int y, int radius = 8);
+    void draw_circle(int x, int y, int radius, SDL_Color color, bool filled = true);
     std::map<std::string, pid_t>& get_childs();
     GUI(const Config& cfg);
     ~GUI();

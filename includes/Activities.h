@@ -52,10 +52,14 @@ class Activities
     // Auto-scroll (key repeat) management for Up/Down in the list
     bool upHolding = false;                      // true while UP is held
     bool downHolding = false;                    // true while DOWN is held
+    // Auto-scroll for Left/Right in detail view
+    bool leftHolding = false;                    // true while LEFT is held (next item)
+    bool rightHolding = false;                   // true while RIGHT is held (previous item)
     std::chrono::steady_clock::time_point holdStartTime;  // time when hold started
     std::chrono::steady_clock::time_point lastRepeatTime; // time of last auto-scroll step
-    const int initialRepeatDelayMs = 500;        // delay before auto-scroll starts (ms)
-    const int repeatIntervalMs = 80;             // interval between auto-scroll steps (ms)
+    const int initialRepeatDelayMs = 550;        // delay before auto-scroll starts (ms)
+    const int listRepeatIntervalMs = 80;         // interval for list scrolling (faster)
+    const int detailRepeatIntervalMs = 200;      // interval for detail navigation (slower)
 
     void sort_roms();
 

@@ -1,4 +1,3 @@
-
 #include "GUI.h"
 #include <map>
 #include <errno.h>
@@ -15,6 +14,70 @@ void GUI::draw_green_dot(int x, int y, int radius)
         for (int dy = -radius; dy <= radius; ++dy) {
             if (dx*dx + dy*dy <= radius*radius)
                 SDL_RenderDrawPoint(renderer, x + dx, y + dy);
+        }
+    }
+}
+
+void GUI::draw_circle(int x, int y, int radius, SDL_Color color, bool filled)
+{
+    SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
+    if (filled) {
+        // Filled interior
+        for (int dy = -radius; dy <= radius; ++dy) {
+            for (int dx = -radius; dx <= radius; ++dx) {
+                if (dx * dx + dy * dy <= radius * radius)
+                    SDL_RenderDrawPoint(renderer, x + dx, y + dy);
+            }
+        }
+        // Draw outline in unselected color (visual contour)
+        SDL_Color outline = cfg.unselect_color;
+        SDL_SetRenderDrawColor(renderer, outline.r, outline.g, outline.b, outline.a);
+        int d = 3 - 2 * radius;
+        int cx = 0;
+        int cy = radius;
+        auto draw8 = [&](int px, int py) {
+            SDL_RenderDrawPoint(renderer, x + px, y + py);
+            SDL_RenderDrawPoint(renderer, x - px, y + py);
+            SDL_RenderDrawPoint(renderer, x + px, y - py);
+            SDL_RenderDrawPoint(renderer, x - px, y - py);
+            SDL_RenderDrawPoint(renderer, x + py, y + px);
+            SDL_RenderDrawPoint(renderer, x - py, y + px);
+            SDL_RenderDrawPoint(renderer, x + py, y - px);
+            SDL_RenderDrawPoint(renderer, x - py, y - px);
+        };
+        while (cx <= cy) {
+            draw8(cx, cy);
+            if (d < 0) {
+                d += 4 * cx + 6;
+            } else {
+                d += 4 * (cx - cy) + 10;
+                cy--;
+            }
+            cx++;
+        }
+    } else { // outline only
+        int d = 3 - 2 * radius;
+        int cx = 0;
+        int cy = radius;
+        auto draw8 = [&](int px, int py) {
+            SDL_RenderDrawPoint(renderer, x + px, y + py);
+            SDL_RenderDrawPoint(renderer, x - px, y + py);
+            SDL_RenderDrawPoint(renderer, x + px, y - py);
+            SDL_RenderDrawPoint(renderer, x - px, y - py);
+            SDL_RenderDrawPoint(renderer, x + py, y + px);
+            SDL_RenderDrawPoint(renderer, x - py, y + px);
+            SDL_RenderDrawPoint(renderer, x + py, y - px);
+            SDL_RenderDrawPoint(renderer, x - py, y - px);
+        };
+        while (cx <= cy) {
+            draw8(cx, cy);
+            if (d < 0) {
+                d = d + 4 * cx + 6;
+            } else {
+                d = d + 4 * (cx - cy) + 10;
+                cy--;
+            }
+            cx++;
         }
     }
 }
@@ -208,7 +271,6 @@ pid_t GUI::wait_game(const std::string& romName)
     std::cout << "ActivitiesApp: Waiting for " << romName << " (PID: " << pid << ")" << std::endl;
     
     // Pause the GUI interface while the game is running
-    SDL_Event event_buffer;
     SDL_FlushEvents(SDL_FIRSTEVENT, SDL_LASTEVENT);
     
     while (true) {
