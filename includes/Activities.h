@@ -49,6 +49,14 @@ class Activities
     std::vector<std::string> systems;
     size_t                   system_index = 0;
 
+    // Auto-scroll (key repeat) management for Up/Down in the list
+    bool upHolding = false;                      // true while UP is held
+    bool downHolding = false;                    // true while DOWN is held
+    std::chrono::steady_clock::time_point holdStartTime;  // time when hold started
+    std::chrono::steady_clock::time_point lastRepeatTime; // time of last auto-scroll step
+    const int initialRepeatDelayMs = 500;        // delay before auto-scroll starts (ms)
+    const int repeatIntervalMs = 80;             // interval between auto-scroll steps (ms)
+
     void sort_roms();
 
     void switch_completed();

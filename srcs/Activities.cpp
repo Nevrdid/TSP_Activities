@@ -285,46 +285,58 @@ void Activities::game_list()
     size_t    prev_selected_index = selected_index;
     SDL_Event e;
     while (SDL_PollEvent(&e)) {
+        // Détection du relâchement du hat pour stopper l'auto-repeat
+        if (e.type == SDL_JOYHATMOTION && e.jhat.value == SDL_HAT_CENTERED) {
+            upHolding = false;
+            downHolding = false;
+        }
         InputAction action = gui.map_input(e);
         // Make sure filtered_roms_list is not empty before accessing selected_index
         const bool has_rom = !filtered_roms_list.empty() && selected_index < static_cast<int>(filtered_roms_list.size());
         const Rom& rom = has_rom ? filtered_roms_list[selected_index] : *(Rom*)nullptr;
         switch (action) {
         case InputAction::Quit: is_running = false; break;
-        case InputAction::Up:
+        case InputAction::Up: {
             if (selected_index > 0)
                 selected_index--;
-            break;
-        case InputAction::Down:
+            // Start auto-scroll upwards
+            upHolding = true;
+            downHolding = false;
+            holdStartTime = lastRepeatTime = std::chrono::steady_clock::now();
+            break; }
+        case InputAction::Down: {
             if (selected_index < static_cast<int>(list_size) - 1)
                 selected_index++;
-            break;
+            // Start auto-scroll downwards
+            downHolding = true;
+            upHolding = false;
+            holdStartTime = lastRepeatTime = std::chrono::steady_clock::now();
+            break; }
         case InputAction::Left:
             selected_index = selected_index > 10 ? selected_index - 10 : 0;
+            upHolding = downHolding = false; // stop repeat on jump navigation
             break;
         case InputAction::Right:
             selected_index = list_size > 10 && selected_index < static_cast<int>(list_size) - 10 ? selected_index + 10
                                                                                : static_cast<int>(list_size) - 1;
+            upHolding = downHolding = false;
             break;
         case InputAction::L1:
             system_index = (system_index == 0) ? systems.size() - 1 : system_index - 1;
             filter_roms();
+            upHolding = downHolding = false;
             break;
         case InputAction::R1:
             system_index = (system_index + 1) % systems.size();
             filter_roms();
+            upHolding = downHolding = false;
             break;
         case InputAction::B: is_running = false; break;
-        // case InputAction::A:
-        //     in_game_detail = true;
-        //     gui.reset_scroll();
-        //     break;
         case InputAction::A:
             if (has_rom) {
                 gui.launch_game(rom.name, rom.system, rom.file);
                 pid_t ret = gui.wait_game(rom.name);
                 set_pid(ret);
-                // If the game is exited or paused, request a refresh from the GUI return.
                 if (ret == -1 || ret == 0)
                     need_refresh = true;
             }
@@ -341,15 +353,36 @@ void Activities::game_list()
         case InputAction::Select:
             filter_state = (filter_state + 1) % 4;
             filter_roms();
+            upHolding = downHolding = false;
             break;
         case InputAction::Start:
             sort_by = sort_by == Sort::Last ? Sort::Name : static_cast<Sort>(sort_by + 1);
             sort_roms();
+            upHolding = downHolding = false;
             break;
-        case InputAction::Menu: overall_stats(); break;
+        case InputAction::Menu: overall_stats(); upHolding = downHolding = false; break;
         default: break;
         }
     }
+
+    // Auto-repeat handling (continuous scrolling)
+    if ((upHolding || downHolding) && list_size > 0) {
+        auto now = std::chrono::steady_clock::now();
+        auto heldFor = std::chrono::duration_cast<std::chrono::milliseconds>(now - holdStartTime).count();
+        if (heldFor >= initialRepeatDelayMs) {
+            auto sinceLast = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastRepeatTime).count();
+            if (sinceLast >= repeatIntervalMs) {
+                if (upHolding && selected_index > 0) {
+                    selected_index--;
+                    lastRepeatTime = now;
+                } else if (downHolding && selected_index < static_cast<int>(list_size) - 1) {
+                    selected_index++;
+                    lastRepeatTime = now;
+                }
+            }
+        }
+    }
+
     if (static_cast<int>(prev_selected_index) != selected_index)
         gui.reset_scroll();
 }
