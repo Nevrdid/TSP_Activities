@@ -559,9 +559,9 @@ void Activities::game_detail()
                 gui.launch_external(std::string(MANUAL_READER) + " \"" + rom.manual + "\"");
             break;
         case InputAction::Y: {
-            // Overlay menu with two options: Remove, Complete
+            // Overlay menu with two options: Complete/Uncomplete, Remove (in this order)
             bool menu_running = true;
-            int  menu_index = 0; // 0: Remove, 1: Complete
+            int  menu_index = 0; // 0: Complete/Uncomplete, 1: Remove
             while (menu_running) {
                 gui.load_background_texture();
                 gui.render_image(cfg.theme_path + "skin/float-win-mask.png", gui.Width / 2, gui.Height / 2,
@@ -573,14 +573,16 @@ void Activities::game_detail()
                 int itemY0 = gui.Height / 2 - 40;
                 int itemY1 = gui.Height / 2 + 40;
                 Vec2 btnSize;
+                // First item: Complete/Uncomplete (dynamic label)
                 btnSize = gui.render_image(cfg.theme_path + "skin/btn-bg-" + (menu_index == 0 ? std::string("f") : std::string("n")) + ".png",
                     gui.Width / 2, itemY0);
-                gui.render_text("Remove", gui.Width / 2, itemY0 - btnSize.y / 2, FONT_MIDDLE_SIZE,
+                gui.render_text(rom.completed ? "Uncomplete" : "Complete", gui.Width / 2, itemY0 - btnSize.y / 2, FONT_MIDDLE_SIZE,
                     menu_index == 0 ? cfg.selected_color : cfg.unselect_color, 0, true);
 
+                // Second item: Remove
                 btnSize = gui.render_image(cfg.theme_path + "skin/btn-bg-" + (menu_index == 1 ? std::string("f") : std::string("n")) + ".png",
                     gui.Width / 2, itemY1);
-                gui.render_text("Complete", gui.Width / 2, itemY1 - btnSize.y / 2, FONT_MIDDLE_SIZE,
+                gui.render_text("Remove", gui.Width / 2, itemY1 - btnSize.y / 2, FONT_MIDDLE_SIZE,
                     menu_index == 1 ? cfg.selected_color : cfg.unselect_color, 0, true);
 
                 gui.render();
@@ -594,6 +596,10 @@ void Activities::game_detail()
                     case InputAction::Quit: is_running = false; menu_running = false; break;
                     case InputAction::A: {
                         if (menu_index == 0) {
+                            // Same as Select action (toggle complete)
+                            switch_completed();
+                            leftHolding = rightHolding = false;
+                        } else {
                             // Same as Menu action (Remove)
                             if (gui.confirmation_popup("Remove game from DB?", FONT_MIDDLE_SIZE)) {
                                 DB db;
@@ -608,10 +614,6 @@ void Activities::game_detail()
                                     in_game_detail = false;
                                 }
                             }
-                            leftHolding = rightHolding = false;
-                        } else {
-                            // Same as Select action (toggle complete)
-                            switch_completed();
                             leftHolding = rightHolding = false;
                         }
                         menu_running = false;
