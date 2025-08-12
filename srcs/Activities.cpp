@@ -285,7 +285,8 @@ void Activities::game_list()
     gui.render_image(cfg.theme_path + "skin/tips-bar-bg.png", gui.Width / 2, gui.Height - 20,
         gui.Width, FONT_MINI_SIZE * 2);
     gui.display_keybind("A", "Run", 25);
-    gui.display_keybind("B", "Quit", 140);
+    gui.display_keybind("Y", "Run", 90);
+    gui.display_keybind("B", "Exit", 140);
     gui.display_keybind("X", "Details", 230);
     gui.display_keybind("Menu", "Menu", 340);
     gui.display_keybind("L1", "R1", "Change system", gui.Width - 620);
@@ -373,8 +374,17 @@ void Activities::game_list()
             sort_roms();
             upHolding = downHolding = false;
             break;
-        case InputAction::Menu: overall_stats(); upHolding = downHolding = false; break;
         case InputAction::Y: {
+            // Y runs the game (same as A)
+            if (has_rom) {
+                gui.launch_game(rom.name, rom.system, rom.file);
+                pid_t ret = gui.wait_game(rom.name);
+                set_pid(ret);
+                if (ret == -1 || ret == 0)
+                    need_refresh = true;
+            }
+            break; }
+        case InputAction::Menu: {
             // Overlay menu: Complete/Uncomplete, Remove, Global stats, Exit
             if (!has_rom) break;
             bool menu_running = true;
@@ -385,9 +395,7 @@ void Activities::game_list()
                     gui.Width, gui.Height);
                 gui.render_image(cfg.theme_path + "skin/pop-bg.png", gui.Width / 2, gui.Height / 2, 0, 0);
 
-                // Layout four items vertically
                 int centerY = gui.Height / 2;
-                int step = 60;
                 int ys[4] = {centerY - 90, centerY - 30, centerY + 30, centerY + 90};
                 const char* labels[4] = { rom.completed ? "Uncomplete" : "Complete", "Remove", "Global stats", "Exit" };
                 for (int i = 0; i < 4; ++i) {
@@ -403,17 +411,15 @@ void Activities::game_list()
                 SDL_Event me;
                 while (SDL_PollEvent(&me)) {
                     switch (gui.map_input(me)) {
-                    case InputAction::Up: menu_index = (menu_index + 3) % 4; break; // up
-                    case InputAction::Down: menu_index = (menu_index + 1) % 4; break; // down
+                    case InputAction::Up: menu_index = (menu_index + 3) % 4; break;
+                    case InputAction::Down: menu_index = (menu_index + 1) % 4; break;
                     case InputAction::B: menu_running = false; break;
                     case InputAction::Quit: is_running = false; menu_running = false; break;
                     case InputAction::A: {
                         if (menu_index == 0) {
-                            // Toggle complete for current selection
                             switch_completed();
                             upHolding = downHolding = false;
                         } else if (menu_index == 1) {
-                            // Remove current selection
                             if (gui.confirmation_popup("Remove game from DB?", FONT_MIDDLE_SIZE)) {
                                 DB db;
                                 db.remove(rom.file);
@@ -429,11 +435,9 @@ void Activities::game_list()
                             }
                             upHolding = downHolding = false;
                         } else if (menu_index == 2) {
-                            // Global stats
                             overall_stats();
                             upHolding = downHolding = false;
                         } else if (menu_index == 3) {
-                            // Exit
                             is_running = false;
                             upHolding = downHolding = false;
                         }
@@ -560,8 +564,9 @@ void Activities::game_detail()
     gui.render_image(cfg.theme_path + "skin/tips-bar-bg.png", gui.Width / 2, gui.Height - 20,
         gui.Width, FONT_MINI_SIZE * 2);
     gui.display_keybind("A", "Run", 25);
-    gui.display_keybind("B", "Game List", 140);
-    gui.display_keybind("X", "Menu", 250);
+    gui.display_keybind("Y", "Run", 90);
+    gui.display_keybind("B", "Exit", 140);
+    gui.display_keybind("X", "Details", 250);
     gui.display_keybind("Menu", "Menu", gui.Width / 2 - 150);
     //gui.display_keybind("L2", "Manual", gui.Width / 2 - 80);
     gui.display_keybind("Select", rom.completed ? "Uncomplete" : "Complete", gui.Width / 2);
@@ -585,8 +590,7 @@ void Activities::game_detail()
    
     }
     
-    if (!rom.video.empty())
-        gui.display_keybind("Y", "Video", gui.Width - 240);
+    // Y now runs the game; remove Y Video hint
     if (!rom.manual.empty())
         gui.display_keybind("X", "Manual", gui.Width - 125);
 
@@ -630,6 +634,16 @@ void Activities::game_detail()
                     need_refresh = true;
             }
             break;
+        case InputAction::Y:
+            // Y runs the game now (same as A)
+            gui.launch_game(rom.name, rom.system, rom.file);
+            {
+                pid_t ret = gui.wait_game(rom.name);
+                set_pid(ret);
+                if (ret == -1 || ret == 0)
+                    need_refresh = true;
+            }
+            break;
         case InputAction::ZL:
             if (!rom.video.empty())
                 gui.launch_external(std::string(VIDEO_PLAYER) + " \"" + rom.video + "\"");
@@ -642,7 +656,7 @@ void Activities::game_detail()
             if (!rom.manual.empty())
                 gui.launch_external(std::string(MANUAL_READER) + " \"" + rom.manual + "\"");
             break;
-        case InputAction::Y: {
+    case InputAction::Menu: {
             // Overlay menu: Complete/Uncomplete, Remove, Global stats, Exit
             bool menu_running = true;
             int  menu_index = 0; // 0: Complete/Uncomplete, 1: Remove, 2: Global stats, 3: Exit
@@ -713,22 +727,6 @@ void Activities::game_detail()
             gui.unload_background_texture();
             break; }
         case InputAction::Select: switch_completed(); leftHolding = rightHolding = false; break;
-        case InputAction::Menu:
-            if (gui.confirmation_popup("Remove game from DB?", FONT_MIDDLE_SIZE)) {
-                DB db;
-                db.remove(rom.file);
-                roms_list.erase(std::remove_if(roms_list.begin(), roms_list.end(),
-                                    [&rom](const Rom& r) { return r.file == rom.file; }),
-                    roms_list.end());
-                filter_roms();
-                if (no_list) {
-                    is_running = false;
-                } else {
-                    in_game_detail = false;
-                }
-            }
-            leftHolding = rightHolding = false;
-            break;
         default: break;
         }
     }
