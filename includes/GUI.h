@@ -181,4 +181,10 @@ class GUI
     void infos_window(std::string title, int title_size,
         std::vector<std::pair<std::string, std::string>> content, int content_size, int x, int y,
         int width, int height);
+
+    // Modal list-style menu window. Blocks until A (accept) or B (cancel).
+    // - items: labels to display vertically
+    // - selectedIndex: in/out current selection; on return it's the last highlighted index
+    // - accepted: out flag; true if validated with A, false if cancelled with B or window closed
+    void menu_window(const std::vector<std::string>& items, int& selectedIndex, bool& accepted);
 };
