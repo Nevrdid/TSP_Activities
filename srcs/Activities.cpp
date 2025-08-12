@@ -248,8 +248,21 @@ void Activities::game_list()
             gui.draw_green_dot(dot_x, dot_y, dot_radius);
         }
 
-        // Display game name (accounting for the dot)
-        int name_offset = rom.pid != -1 ? 2 * 8 + 6 : 15;
+        // Completion checkmark
+        int left_icons_width = 0;
+        if (rom.pid != -1) {
+            left_icons_width += 2 * 8 + 6; // green dot area
+        }
+        if (rom.completed) {
+            int check_size = 12;
+            int check_x = x + 8 + left_icons_width;
+            int check_y = y + 8 + FONT_MIDDLE_SIZE / 2;
+            gui.draw_checkmark(check_x, check_y, check_size, cfg.selected_color);
+            left_icons_width += check_size + 6; // spacing after checkmark
+        }
+
+        // Display game name (accounting for the icons)
+        int name_offset = left_icons_width > 0 ? left_icons_width : 15;
         if (static_cast<int>(j) == selected_index) {
             gui.render_scrollable_text(rom.name, x + name_offset, y + 2, prevSize.x - 5 - name_offset, FONT_MIDDLE_SIZE, color);
         } else {
@@ -361,6 +374,69 @@ void Activities::game_list()
             upHolding = downHolding = false;
             break;
         case InputAction::Menu: overall_stats(); upHolding = downHolding = false; break;
+        case InputAction::Y: {
+            // Overlay menu: Complete/Uncomplete, Remove
+            if (!has_rom) break;
+            bool menu_running = true;
+            int  menu_index = 0; // 0: Complete/Uncomplete, 1: Remove
+            while (menu_running) {
+                gui.load_background_texture();
+                gui.render_image(cfg.theme_path + "skin/float-win-mask.png", gui.Width / 2, gui.Height / 2,
+                    gui.Width, gui.Height);
+                gui.render_image(cfg.theme_path + "skin/pop-bg.png", gui.Width / 2, gui.Height / 2, 0, 0);
+
+                int itemY0 = gui.Height / 2 - 40;
+                int itemY1 = gui.Height / 2 + 40;
+                Vec2 btnSize;
+                btnSize = gui.render_image(cfg.theme_path + "skin/btn-bg-" + (menu_index == 0 ? std::string("f") : std::string("n")) + ".png",
+                    gui.Width / 2, itemY0);
+                gui.render_text(rom.completed ? "Uncomplete" : "Complete", gui.Width / 2, itemY0 - btnSize.y / 2, FONT_MIDDLE_SIZE,
+                    menu_index == 0 ? cfg.selected_color : cfg.unselect_color, 0, true);
+
+                btnSize = gui.render_image(cfg.theme_path + "skin/btn-bg-" + (menu_index == 1 ? std::string("f") : std::string("n")) + ".png",
+                    gui.Width / 2, itemY1);
+                gui.render_text("Remove", gui.Width / 2, itemY1 - btnSize.y / 2, FONT_MIDDLE_SIZE,
+                    menu_index == 1 ? cfg.selected_color : cfg.unselect_color, 0, true);
+
+                gui.render();
+
+                SDL_Event me;
+                while (SDL_PollEvent(&me)) {
+                    switch (gui.map_input(me)) {
+                    case InputAction::Up: menu_index = (menu_index + 1) % 2; break;
+                    case InputAction::Down: menu_index = (menu_index + 1) % 2; break;
+                    case InputAction::B: menu_running = false; break;
+                    case InputAction::Quit: is_running = false; menu_running = false; break;
+                    case InputAction::A: {
+                        if (menu_index == 0) {
+                            // Toggle complete for current selection
+                            switch_completed();
+                            upHolding = downHolding = false;
+                        } else {
+                            // Remove current selection
+                            if (gui.confirmation_popup("Remove game from DB?", FONT_MIDDLE_SIZE)) {
+                                DB db;
+                                db.remove(rom.file);
+                                roms_list.erase(std::remove_if(roms_list.begin(), roms_list.end(),
+                                                    [&rom](const Rom& r) { return r.file == rom.file; }),
+                                    roms_list.end());
+                                filter_roms();
+                                if (filtered_roms_list.empty()) {
+                                    is_running = false;
+                                } else if (selected_index >= static_cast<int>(filtered_roms_list.size())) {
+                                    selected_index = static_cast<int>(filtered_roms_list.size()) - 1;
+                                }
+                            }
+                            upHolding = downHolding = false;
+                        }
+                        menu_running = false;
+                        break; }
+                    default: break;
+                    }
+                }
+            }
+            gui.unload_background_texture();
+            break; }
         default: break;
         }
     }

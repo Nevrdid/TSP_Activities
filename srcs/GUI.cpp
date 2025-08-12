@@ -81,6 +81,35 @@ void GUI::draw_circle(int x, int y, int radius, SDL_Color color, bool filled)
         }
     }
 }
+
+void GUI::draw_checkmark(int x, int y, int size, SDL_Color color)
+{
+    // Simple two-segment checkmark using Bresenham lines
+    auto draw_line = [&](int x0, int y0, int x1, int y1) {
+        SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
+        int dx = abs(x1 - x0), sx = x0 < x1 ? 1 : -1;
+        int dy = -abs(y1 - y0), sy = y0 < y1 ? 1 : -1;
+        int err = dx + dy, e2;
+        while (true) {
+            SDL_RenderDrawPoint(renderer, x0, y0);
+            if (x0 == x1 && y0 == y1) break;
+            e2 = 2 * err;
+            if (e2 >= dy) { err += dy; x0 += sx; }
+            if (e2 <= dx) { err += dx; y0 += sy; }
+        }
+    };
+    int w = size;
+    int h = size;
+    // Anchor points for a nice checkmark
+    int xA = x - w / 3;
+    int yA = y;
+    int xB = x - w / 10;
+    int yB = y + h / 3;
+    int xC = x + w / 2;
+    int yC = y - h / 2;
+    draw_line(xA, yA, xB, yB);
+    draw_line(xB, yB, xC, yC);
+}
 #include "GUI.h"
 
 GUI::GUI(const Config& cfg)
@@ -619,72 +648,6 @@ bool GUI::confirmation_popup(const std::string& message, int font_size)
     }
     unload_background_texture();
     return confirmed;
-}
-
-void GUI::menu_window(const std::vector<std::string>& items, int& selectedIndex, bool& accepted)
-{
-    accepted = false;
-    bool running = true;
-
-    // Ensure selection is valid
-    if (items.empty()) {
-        selectedIndex = -1;
-        return;
-    }
-    if (selectedIndex < 0 || selectedIndex >= static_cast<int>(items.size()))
-        selectedIndex = 0;
-
-    while (running) {
-        load_background_texture();
-        render_image(cfg.theme_path + std::string("skin/float-win-mask.png"), Width / 2, Height / 2, Width, Height);
-        // Popup background auto-sized: use skin/pop-bg.png at natural size
-        render_image(cfg.theme_path + std::string("skin/pop-bg.png"), Width / 2, Height / 2, 0, 0);
-
-        // Layout
-        const int itemSpacing = 84; // distance between button centers
-        const int firstY = Height / 2 - (static_cast<int>(items.size()) - 1) * itemSpacing / 2;
-
-        for (int i = 0; i < static_cast<int>(items.size()); ++i) {
-            int cy = firstY + i * itemSpacing;
-            bool focused = (i == selectedIndex);
-            Vec2 btnSize = render_image(
-                cfg.theme_path + std::string("skin/btn-bg-") + (focused ? "f" : "n") + ".png",
-                Width / 2, cy);
-            render_text(items[i], Width / 2, cy - btnSize.y / 2, FONT_MIDDLE_SIZE,
-                focused ? cfg.selected_color : cfg.unselect_color, 0, true);
-        }
-
-        render();
-
-        SDL_Event e;
-        while (SDL_PollEvent(&e)) {
-            switch (map_input(e)) {
-            case InputAction::Up:
-                selectedIndex = (selectedIndex - 1 + static_cast<int>(items.size())) % static_cast<int>(items.size());
-                break;
-            case InputAction::Down:
-                selectedIndex = (selectedIndex + 1) % static_cast<int>(items.size());
-                break;
-            case InputAction::A:
-                accepted = true;
-                running = false;
-                break;
-            case InputAction::B:
-            case InputAction::Menu:
-                accepted = false;
-                running = false;
-                break;
-            case InputAction::Quit:
-                accepted = false;
-                running = false;
-                break;
-            default:
-                break;
-            }
-        }
-    }
-
-    unload_background_texture();
 }
 
 void GUI::infos_window(std::string title, int title_size,
