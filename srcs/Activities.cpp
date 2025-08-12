@@ -284,10 +284,10 @@ void Activities::game_list()
 
     gui.render_image(cfg.theme_path + "skin/tips-bar-bg.png", gui.Width / 2, gui.Height - 20,
         gui.Width, FONT_MINI_SIZE * 2);
-    gui.display_keybind("A", "Select", 25);
+    gui.display_keybind("A", "Run", 25);
     gui.display_keybind("B", "Quit", 140);
     gui.display_keybind("X", "Details", 230);
-    gui.display_keybind("Menu", "Global stats", 340);
+    gui.display_keybind("Menu", "Menu", 340);
     gui.display_keybind("L1", "R1", "Change system", gui.Width - 620);
     //gui.display_keybind("L2", "Manual", gui.Width - 500);
     gui.display_keybind("Select", "State filter", gui.Width - 350);
@@ -375,36 +375,36 @@ void Activities::game_list()
             break;
         case InputAction::Menu: overall_stats(); upHolding = downHolding = false; break;
         case InputAction::Y: {
-            // Overlay menu: Complete/Uncomplete, Remove
+            // Overlay menu: Complete/Uncomplete, Remove, Global stats, Exit
             if (!has_rom) break;
             bool menu_running = true;
-            int  menu_index = 0; // 0: Complete/Uncomplete, 1: Remove
+            int  menu_index = 0; // 0: Complete/Uncomplete, 1: Remove, 2: Global stats, 3: Exit
             while (menu_running) {
                 gui.load_background_texture();
                 gui.render_image(cfg.theme_path + "skin/float-win-mask.png", gui.Width / 2, gui.Height / 2,
                     gui.Width, gui.Height);
                 gui.render_image(cfg.theme_path + "skin/pop-bg.png", gui.Width / 2, gui.Height / 2, 0, 0);
 
-                int itemY0 = gui.Height / 2 - 40;
-                int itemY1 = gui.Height / 2 + 40;
-                Vec2 btnSize;
-                btnSize = gui.render_image(cfg.theme_path + "skin/btn-bg-" + (menu_index == 0 ? std::string("f") : std::string("n")) + ".png",
-                    gui.Width / 2, itemY0);
-                gui.render_text(rom.completed ? "Uncomplete" : "Complete", gui.Width / 2, itemY0 - btnSize.y / 2, FONT_MIDDLE_SIZE,
-                    menu_index == 0 ? cfg.selected_color : cfg.unselect_color, 0, true);
-
-                btnSize = gui.render_image(cfg.theme_path + "skin/btn-bg-" + (menu_index == 1 ? std::string("f") : std::string("n")) + ".png",
-                    gui.Width / 2, itemY1);
-                gui.render_text("Remove", gui.Width / 2, itemY1 - btnSize.y / 2, FONT_MIDDLE_SIZE,
-                    menu_index == 1 ? cfg.selected_color : cfg.unselect_color, 0, true);
+                // Layout four items vertically
+                int centerY = gui.Height / 2;
+                int step = 60;
+                int ys[4] = {centerY - 90, centerY - 30, centerY + 30, centerY + 90};
+                const char* labels[4] = { rom.completed ? "Uncomplete" : "Complete", "Remove", "Global stats", "Exit" };
+                for (int i = 0; i < 4; ++i) {
+                    Vec2 btnSize = gui.render_image(
+                        cfg.theme_path + "skin/btn-bg-" + (menu_index == i ? std::string("f") : std::string("n")) + ".png",
+                        gui.Width / 2, ys[i]);
+                    gui.render_text(labels[i], gui.Width / 2, ys[i] - btnSize.y / 2, FONT_MIDDLE_SIZE,
+                        menu_index == i ? cfg.selected_color : cfg.unselect_color, 0, true);
+                }
 
                 gui.render();
 
                 SDL_Event me;
                 while (SDL_PollEvent(&me)) {
                     switch (gui.map_input(me)) {
-                    case InputAction::Up: menu_index = (menu_index + 1) % 2; break;
-                    case InputAction::Down: menu_index = (menu_index + 1) % 2; break;
+                    case InputAction::Up: menu_index = (menu_index + 3) % 4; break; // up
+                    case InputAction::Down: menu_index = (menu_index + 1) % 4; break; // down
                     case InputAction::B: menu_running = false; break;
                     case InputAction::Quit: is_running = false; menu_running = false; break;
                     case InputAction::A: {
@@ -412,7 +412,7 @@ void Activities::game_list()
                             // Toggle complete for current selection
                             switch_completed();
                             upHolding = downHolding = false;
-                        } else {
+                        } else if (menu_index == 1) {
                             // Remove current selection
                             if (gui.confirmation_popup("Remove game from DB?", FONT_MIDDLE_SIZE)) {
                                 DB db;
@@ -427,6 +427,14 @@ void Activities::game_list()
                                     selected_index = static_cast<int>(filtered_roms_list.size()) - 1;
                                 }
                             }
+                            upHolding = downHolding = false;
+                        } else if (menu_index == 2) {
+                            // Global stats
+                            overall_stats();
+                            upHolding = downHolding = false;
+                        } else if (menu_index == 3) {
+                            // Exit
+                            is_running = false;
                             upHolding = downHolding = false;
                         }
                         menu_running = false;
@@ -551,10 +559,10 @@ void Activities::game_detail()
 
     gui.render_image(cfg.theme_path + "skin/tips-bar-bg.png", gui.Width / 2, gui.Height - 20,
         gui.Width, FONT_MINI_SIZE * 2);
-    gui.display_keybind("A", "Start", 25);
+    gui.display_keybind("A", "Run", 25);
     gui.display_keybind("B", "Game List", 140);
     gui.display_keybind("X", "Menu", 250);
-    gui.display_keybind("Menu", "Remove", gui.Width / 2 - 150);
+    gui.display_keybind("Menu", "Menu", gui.Width / 2 - 150);
     //gui.display_keybind("L2", "Manual", gui.Width / 2 - 80);
     gui.display_keybind("Select", rom.completed ? "Uncomplete" : "Complete", gui.Width / 2);
     
@@ -635,9 +643,9 @@ void Activities::game_detail()
                 gui.launch_external(std::string(MANUAL_READER) + " \"" + rom.manual + "\"");
             break;
         case InputAction::Y: {
-            // Overlay menu with two options: Complete/Uncomplete, Remove (in this order)
+            // Overlay menu: Complete/Uncomplete, Remove, Global stats, Exit
             bool menu_running = true;
-            int  menu_index = 0; // 0: Complete/Uncomplete, 1: Remove
+            int  menu_index = 0; // 0: Complete/Uncomplete, 1: Remove, 2: Global stats, 3: Exit
             while (menu_running) {
                 gui.load_background_texture();
                 gui.render_image(cfg.theme_path + "skin/float-win-mask.png", gui.Width / 2, gui.Height / 2,
@@ -645,29 +653,25 @@ void Activities::game_detail()
                 // Popup background
                 gui.render_image(cfg.theme_path + "skin/pop-bg.png", gui.Width / 2, gui.Height / 2, 0, 0);
 
-                // Draw options as buttons
-                int itemY0 = gui.Height / 2 - 40;
-                int itemY1 = gui.Height / 2 + 40;
-                Vec2 btnSize;
-                // First item: Complete/Uncomplete (dynamic label)
-                btnSize = gui.render_image(cfg.theme_path + "skin/btn-bg-" + (menu_index == 0 ? std::string("f") : std::string("n")) + ".png",
-                    gui.Width / 2, itemY0);
-                gui.render_text(rom.completed ? "Uncomplete" : "Complete", gui.Width / 2, itemY0 - btnSize.y / 2, FONT_MIDDLE_SIZE,
-                    menu_index == 0 ? cfg.selected_color : cfg.unselect_color, 0, true);
-
-                // Second item: Remove
-                btnSize = gui.render_image(cfg.theme_path + "skin/btn-bg-" + (menu_index == 1 ? std::string("f") : std::string("n")) + ".png",
-                    gui.Width / 2, itemY1);
-                gui.render_text("Remove", gui.Width / 2, itemY1 - btnSize.y / 2, FONT_MIDDLE_SIZE,
-                    menu_index == 1 ? cfg.selected_color : cfg.unselect_color, 0, true);
+                // Draw options as buttons (4 items)
+                int centerY = gui.Height / 2;
+                int ys[4] = {centerY - 90, centerY - 30, centerY + 30, centerY + 90};
+                const char* labels[4] = { rom.completed ? "Uncomplete" : "Complete", "Remove", "Global stats", "Exit" };
+                for (int i = 0; i < 4; ++i) {
+                    Vec2 btnSize = gui.render_image(
+                        cfg.theme_path + "skin/btn-bg-" + (menu_index == i ? std::string("f") : std::string("n")) + ".png",
+                        gui.Width / 2, ys[i]);
+                    gui.render_text(labels[i], gui.Width / 2, ys[i] - btnSize.y / 2, FONT_MIDDLE_SIZE,
+                        menu_index == i ? cfg.selected_color : cfg.unselect_color, 0, true);
+                }
 
                 gui.render();
 
                 SDL_Event me;
                 while (SDL_PollEvent(&me)) {
                     switch (gui.map_input(me)) {
-                    case InputAction::Up: menu_index = (menu_index + 1) % 2; break;
-                    case InputAction::Down: menu_index = (menu_index + 1) % 2; break; // two items, toggle
+                    case InputAction::Up: menu_index = (menu_index + 3) % 4; break; // up
+                    case InputAction::Down: menu_index = (menu_index + 1) % 4; break; // down
                     case InputAction::B: menu_running = false; break;
                     case InputAction::Quit: is_running = false; menu_running = false; break;
                     case InputAction::A: {
@@ -675,7 +679,7 @@ void Activities::game_detail()
                             // Same as Select action (toggle complete)
                             switch_completed();
                             leftHolding = rightHolding = false;
-                        } else {
+                        } else if (menu_index == 1) {
                             // Same as Menu action (Remove)
                             if (gui.confirmation_popup("Remove game from DB?", FONT_MIDDLE_SIZE)) {
                                 DB db;
@@ -690,6 +694,14 @@ void Activities::game_detail()
                                     in_game_detail = false;
                                 }
                             }
+                            leftHolding = rightHolding = false;
+                        } else if (menu_index == 2) {
+                            // Global stats
+                            overall_stats();
+                            leftHolding = rightHolding = false;
+                        } else if (menu_index == 3) {
+                            // Exit
+                            is_running = false;
                             leftHolding = rightHolding = false;
                         }
                         menu_running = false;
