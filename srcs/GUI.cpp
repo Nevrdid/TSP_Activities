@@ -564,10 +564,10 @@ void GUI::display_keybind(const std::string& btn1, const std::string& btn2, cons
     int x)
 {
     int prevX =
-        render_image(cfg.theme_path + "skin/" + buttons_icons[btn1], x, Height - 20, 30, 20).x;
+        render_image(cfg.theme_path + "skin/" + buttons_icons[btn1], x, Height - 20, 30, 30).x;
 
     prevX =
-        render_image(cfg.theme_path + "skin/" + buttons_icons[btn2], x + prevX + 6, Height - 20, 30, 20)
+        render_image(cfg.theme_path + "skin/" + buttons_icons[btn2], x + prevX + 6, Height - 20, 30, 30)
             .x;
     render_text(text, x + 4 * prevX / 2, Height - 32, FONT_MINI_SIZE, cfg.info_color);
 };

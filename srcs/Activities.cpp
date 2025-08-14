@@ -284,11 +284,10 @@ void Activities::game_list()
 
     gui.render_image(cfg.theme_path + "skin/tips-bar-bg.png", gui.Width / 2, gui.Height - 20,
         gui.Width, FONT_MINI_SIZE * 2);
-    gui.display_keybind("A", "Run", 25);
-    gui.display_keybind("Y", "Run", 90);
-    gui.display_keybind("B", "Exit", 140);
+    gui.display_keybind("A", "Y", "Run", 25);
+    gui.display_keybind("B", "Exit", 145);
     gui.display_keybind("X", "Details", 230);
-    gui.display_keybind("Menu", "Menu", 340);
+    gui.display_keybind("Menu", "Menu", 330);
     gui.display_keybind("L1", "R1", "Change system", gui.Width - 620);
     //gui.display_keybind("L2", "Manual", gui.Width - 500);
     gui.display_keybind("Select", "State filter", gui.Width - 350);
@@ -563,13 +562,12 @@ void Activities::game_detail()
 
     gui.render_image(cfg.theme_path + "skin/tips-bar-bg.png", gui.Width / 2, gui.Height - 20,
         gui.Width, FONT_MINI_SIZE * 2);
-    gui.display_keybind("A", "Run", 25);
-    gui.display_keybind("Y", "Run", 90);
-    gui.display_keybind("B", "Exit", 140);
-    gui.display_keybind("X", "Details", 250);
-    gui.display_keybind("Menu", "Menu", gui.Width / 2 - 150);
+    gui.display_keybind("A", "Y", "Run", 25);
+    gui.display_keybind("B", "Exit", 145);
+    gui.display_keybind("X", "List", 230);
+    gui.display_keybind("Menu", "Menu", 300);
     //gui.display_keybind("L2", "Manual", gui.Width / 2 - 80);
-    gui.display_keybind("Select", rom.completed ? "Uncomplete" : "Complete", gui.Width / 2);
+    //gui.display_keybind("Select", rom.completed ? "Uncomplete" : "Complete", gui.Width / 2);
     
     // Display navigation arrows on the screen sides if navigation is possible
     if (filtered_roms_list.size() > 1) {
