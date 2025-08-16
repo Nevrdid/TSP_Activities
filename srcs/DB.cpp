@@ -7,6 +7,8 @@
 static std::regex img_pattern = std::regex(R"(\/Roms\/([^\/]+).*)"); // Matches "/Roms/<subfolder>"
 static std::regex sys_pattern =
     std::regex(R"(.*\/Roms\/([^\/]+).*)"); // Matches "/Roms/<subfolder>"
+// Matches "/Best/<subfolder>" (for alternate library root)
+static std::regex best_pattern = std::regex(R"(\/Best\/([^\/]+).*)");
 
 DB::DB()
     : db(nullptr)
@@ -96,7 +98,14 @@ Rom DB::save(const std::string& file, int time, int completed)
             // Populate derived/display fields before returning to avoid blank UI data
             rom.total_time = utils::stringifyTime(rom.time);
             rom.average_time = utils::stringifyTime(rom.count ? rom.time / rom.count : 0);
-            rom.image = std::regex_replace(rom.file, img_pattern, R"(/Imgs/$1)") + "/" + rom.name + ".png";
+            {
+                std::string imgBase;
+                if (std::regex_search(rom.file, best_pattern))
+                    imgBase = std::regex_replace(rom.file, best_pattern, R"(/Best/$1/Imgs)");
+                else
+                    imgBase = std::regex_replace(rom.file, img_pattern, R"(/Imgs/$1)");
+                rom.image = imgBase + "/" + rom.name + ".png";
+            }
             if (!fs::exists(rom.image)) rom.image = "";
             rom.video = std::regex_replace(rom.file, img_pattern, R"(/Videos/$1)") + "/" + rom.name + ".mp4";
             if (!fs::exists(rom.video)) rom.video = "";
@@ -137,7 +146,14 @@ Rom DB::save(const std::string& file, int time, int completed)
         // Populate derived/display fields for return
         rom.total_time = utils::stringifyTime(rom.time);
         rom.average_time = utils::stringifyTime(rom.count ? rom.time / rom.count : 0);
-        rom.image = std::regex_replace(rom.file, img_pattern, R"(/Imgs/$1)") + "/" + rom.name + ".png";
+        {
+            std::string imgBase;
+            if (std::regex_search(rom.file, best_pattern))
+                imgBase = std::regex_replace(rom.file, best_pattern, R"(/Best/$1/Imgs)");
+            else
+                imgBase = std::regex_replace(rom.file, img_pattern, R"(/Imgs/$1)");
+            rom.image = imgBase + "/" + rom.name + ".png";
+        }
         if (!fs::exists(rom.image)) rom.image = "";
         rom.video = std::regex_replace(rom.file, img_pattern, R"(/Videos/$1)") + "/" + rom.name + ".mp4";
         if (!fs::exists(rom.video)) rom.video = "";
@@ -153,7 +169,14 @@ Rom DB::save(const std::string& file, int time, int completed)
         rom.average_time = utils::stringifyTime(rom.count ? rom.time / rom.count : 0);
         rom.last = utils::stringifyDate(rom.last);
         
-        rom.image = std::regex_replace(rom.file, img_pattern, R"(/Imgs/$1)") + "/" + rom.name + ".png";
+        {
+            std::string imgBase;
+            if (std::regex_search(rom.file, best_pattern))
+                imgBase = std::regex_replace(rom.file, best_pattern, R"(/Best/$1/Imgs)");
+            else
+                imgBase = std::regex_replace(rom.file, img_pattern, R"(/Imgs/$1)");
+            rom.image = imgBase + "/" + rom.name + ".png";
+        }
         if (!fs::exists(rom.image))
             rom.image = "";
 
@@ -245,8 +268,14 @@ Rom DB::load(const std::string& file)
 
         rom.average_time = utils::stringifyTime(rom.count ? rom.time / rom.count : 0);
 
-        rom.image =
-            std::regex_replace(rom.file, img_pattern, R"(/Imgs/$1)") + "/" + rom.name + ".png";
+        {
+            std::string imgBase;
+            if (std::regex_search(rom.file, best_pattern))
+                imgBase = std::regex_replace(rom.file, best_pattern, R"(/Best/$1/Imgs)");
+            else
+                imgBase = std::regex_replace(rom.file, img_pattern, R"(/Imgs/$1)");
+            rom.image = imgBase + "/" + rom.name + ".png";
+        }
         if (!fs::exists(rom.image))
             rom.image = "";
 
@@ -303,8 +332,14 @@ std::vector<Rom> DB::load()
 
         rom.average_time = utils::stringifyTime(rom.count ? rom.time / rom.count : 0);
 
-        rom.image =
-            std::regex_replace(rom.file, img_pattern, R"(/Imgs/$1)") + "/" + rom.name + ".png";
+        {
+            std::string imgBase;
+            if (std::regex_search(rom.file, best_pattern))
+                imgBase = std::regex_replace(rom.file, best_pattern, R"(/Best/$1/Imgs)");
+            else
+                imgBase = std::regex_replace(rom.file, img_pattern, R"(/Imgs/$1)");
+            rom.image = imgBase + "/" + rom.name + ".png";
+        }
         if (!fs::exists(rom.image))
             rom.image = "";
 
