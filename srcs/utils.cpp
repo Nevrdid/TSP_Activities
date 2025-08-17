@@ -1,4 +1,6 @@
 #include "utils.h"
+#include <sys/stat.h>
+#include <fcntl.h>
 
 namespace utils
 {
@@ -96,6 +98,31 @@ void kill_process_group(pid_t pgid)
 {
     if (pgid > 0)
         kill(-pgid, SIGTERM);
+}
+
+// Returns true if /tmp/trimui_inputd/ra_hotkey exists
+bool ra_hotkey_exists()
+{
+    struct stat st;
+    return stat("/tmp/trimui_inputd/ra_hotkey", &st) == 0;
+}
+
+// Remove the ra_hotkey file if present
+void remove_ra_hotkey()
+{
+    unlink("/tmp/trimui_inputd/ra_hotkey");
+}
+
+// Restore the ra_hotkey file (empty file) if parent dir exists
+void restore_ra_hotkey()
+{
+    // Ensure directory exists; if not, do nothing
+    struct stat st;
+    if (stat("/tmp/trimui_inputd", &st) != 0 || !S_ISDIR(st.st_mode))
+        return;
+    int fd = open("/tmp/trimui_inputd/ra_hotkey", O_CREAT | O_WRONLY, 0644);
+    if (fd >= 0)
+        close(fd);
 }
 
 } // namespace utils

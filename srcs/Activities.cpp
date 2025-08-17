@@ -798,7 +798,7 @@ void Activities::overall_stats()
 void Activities::empty_db()
 {
     gui.render_background();
-    gui.render_text("No datas available.", gui.Width / 2, gui.Height / 2, FONT_BIG_SIZE,
+    gui.render_text("No data available.", gui.Width / 2, gui.Height / 2, FONT_BIG_SIZE,
         cfg.title_color, 0, true);
     gui.render();
 }

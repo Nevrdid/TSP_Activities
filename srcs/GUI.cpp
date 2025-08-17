@@ -271,6 +271,9 @@ InputAction GUI::map_input(const SDL_Event& e)
 
 void GUI::render()
 {
+    if (keep_ra_hotkey_off) {
+        utils::remove_ra_hotkey();
+    }
     SDL_RenderPresent(renderer);
 }
 
@@ -333,14 +336,23 @@ pid_t GUI::wait_game(const std::string& romName)
                 }
             }
             if (combo == 3) {
+                // Before suspending, remember if ra_hotkey existed to restore later
+                ra_hotkey_was_present[romName] = utils::ra_hotkey_exists();
                 utils::suspend_process_group(utils::get_pgid_of_process(pid));
                 std::cout << "ActivitiesApp: Game " << romName << " suspended" << std::endl;
+                // Returning to GUI (suspended): mark and remove ra_hotkey now
+                keep_ra_hotkey_off = true;
+                utils::remove_ra_hotkey();
                 return pid;
             }
         }
         
         SDL_Delay(100); // Increased delay to reduce CPU load
     }
+    // Game fully exited: we're back to GUI; ensure ra_hotkey is removed and keep it off
+    keep_ra_hotkey_off = true;
+    utils::remove_ra_hotkey();
+    ra_hotkey_was_present.erase(romName);
     childs.erase(romName);
     return -1;
 }
@@ -355,6 +367,15 @@ void GUI::launch_game(
         pid_t gpid = utils::get_pgid_of_process(pid);
         utils::resume_process_group(gpid);
         std::cout << "Resuming process group: " << romName << std::endl;
+        // Restore ra_hotkey only if it existed when we suspended this game
+        auto it = ra_hotkey_was_present.find(romName);
+        if (it != ra_hotkey_was_present.end() && it->second) {
+            utils::restore_ra_hotkey();
+            ra_hotkey_was_present.erase(it);
+        }
+        // While the game is active again, stop forcing deletion in GUI
+        keep_ra_hotkey_off = false;
+        // When resuming the GUI later, it will remove the file again
     } else {
         pid_t pid = fork();
         if (pid == 0) {
@@ -363,7 +384,7 @@ void GUI::launch_game(
             execl(launcher.c_str(), launcher.c_str(), romFile.c_str(), (char*) NULL);
             std::cerr << "Failed to launch " << romName << std::endl;
             exit(1);
-        } else {
+    } else {
             childs[romName] = pid;
         }
     }

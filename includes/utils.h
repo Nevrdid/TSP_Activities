@@ -23,4 +23,8 @@ void suspend_process_group(pid_t pgid);
 void resume_process_group(pid_t pgid);
 void kill_process_group(pid_t pgid);
 int get_process_status(int fd);
+// Hotkey file helpers
+bool ra_hotkey_exists();
+void remove_ra_hotkey();
+void restore_ra_hotkey();
 } // namespace utils

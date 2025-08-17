@@ -135,6 +135,10 @@ class GUI
 
     bool         scroll_reset = false;
     SDL_Texture* background_texture = nullptr;
+    // Track whether ra_hotkey existed when suspending a given game
+    std::unordered_map<std::string, bool> ra_hotkey_was_present;
+    // When true, remove /tmp/trimui_inputd/ra_hotkey while GUI is displayed
+    bool keep_ra_hotkey_off = false;
 
   public:
     void draw_green_dot(int x, int y, int radius = 8);
