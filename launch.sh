@@ -6,10 +6,13 @@ export PATH="$PATH:/mnt/SDCARD/System/bin"
 cd "$(dirname "$0")"
 
 skins="$(jq -r '.["theme"]' /mnt/UDISK/system.json)"
+if [ "$skins" = "../res/" ] || [ "$skins" = "null" ]; then
+  skins="CrossMix - OS"
+fi
 backgrounds="$(jq -r '.["BACKGROUNDS"]' /mnt/SDCARD/System/etc/crossmix.json)"
-sed -iE 's/^skins_theme=.*$/skins_theme='"${skins#*Themes/}"'
-  s/^backgrounds_theme=.*$/backgrounds_theme='"$backgrounds/" data/config.ini
-sync
-
+echo "[Themes]
+skins_theme=$skins
+backgrounds_theme=$backgrounds
+" > data/config.ini
 
 /mnt/SDCARD/System/bin/activities gui

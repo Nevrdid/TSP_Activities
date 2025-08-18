@@ -2,11 +2,11 @@
 
 ## Usage
 - Time a process and add datas to database:
-  `activities add <rom_file> <process_pid>`
+  `activities time <rom_file> <process_pid>`
 
 You can so use it like that for example:
 `flycast "$mygame" &`
-`activities "$mygame" $!`
+`activities time "$mygame" $!`
 
 - **NEW**: Watch for file presence and track time:
   `activities -flag <file_path>`
