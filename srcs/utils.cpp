@@ -14,7 +14,7 @@ std::string getCurrentDateTime()
         return "";
     }
     std::ostringstream oss;
-    oss << std::put_time(tm_info, "%Y%m%d.%H%M%S");
+    oss << std::put_time(tm_info, "%Y-%m-%d %H:%M:%S");
     return oss.str();
 }
 
@@ -48,20 +48,6 @@ std::string stringifyTime(int total_seconds)
     }
 
     return oss.str();
-}
-
-std::string stringifyDate(const std::string& date)
-{
-    if (date == "-")
-        return date;
-    std::string year = date.substr(0, 4);
-    std::string month = date.substr(4, 2);
-    std::string day = date.substr(6, 2);
-    std::string hour = date.substr(9, 2);
-    std::string minute = date.substr(11, 2);
-    std::string second = date.substr(13, 2);
-
-    return year + "-" + month + "-" + day + " " + hour + ":" + minute + ":" + second;
 }
 
 pid_t get_pid_of_process(const std::string& command)

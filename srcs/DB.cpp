@@ -87,34 +87,33 @@ Rom DB::save(const std::string& file, int time, int completed)
             rom.count += db_count;
             rom.lastsessiontime = rom.time; // duration of the last session
             rom.time += db_time;
-            if (rom.time == 0)
-                rom.last = db_last;
         }
         rom.completed = (completed == -1 ? db_completed : completed);
 
         // Only skip update for too-short sessions when we actually recorded a session.
-        if (time > 0 && rom.lastsessiontime < 5) {
+        if (time > 0 && time < 5) {
             sqlite3_finalize(stmt);
             // Populate derived/display fields before returning to avoid blank UI data
             rom.total_time = utils::stringifyTime(rom.time);
             rom.average_time = utils::stringifyTime(rom.count ? rom.time / rom.count : 0);
-            {
-                std::string imgBase;
-                if (std::regex_search(rom.file, best_pattern))
-                    imgBase = std::regex_replace(rom.file, best_pattern, R"(/Best/$1/Imgs)");
-                else
-                    imgBase = std::regex_replace(rom.file, img_pattern, R"(/Imgs/$1)");
-                rom.image = imgBase + "/" + rom.name + ".png";
-            }
+
+            std::string imgBase;
+            if (std::regex_search(rom.file, best_pattern))
+                imgBase = std::regex_replace(rom.file, best_pattern, R"(/Best/$1/Imgs)");
+            else
+                imgBase = std::regex_replace(rom.file, img_pattern, R"(/Imgs/$1)");
+
+            rom.image = imgBase + "/" + rom.name + ".png";
             if (!fs::exists(rom.image)) rom.image = "";
+
             rom.video = std::regex_replace(rom.file, img_pattern, R"(/Videos/$1)") + "/" + rom.name + ".mp4";
             if (!fs::exists(rom.video)) rom.video = "";
+
             rom.manual = std::regex_replace(rom.file, img_pattern, R"(/Manuals/$1)") + "/" + rom.name + ".pdf";
             if (!fs::exists(rom.manual)) rom.manual = "";
+
             rom.system = std::regex_replace(rom.file, sys_pattern, R"($1)");
             rom.pid = -1;
-            // Make last readable for UI
-            rom.last = utils::stringifyDate(rom.last);
             return rom;
         }
 
@@ -124,6 +123,8 @@ Rom DB::save(const std::string& file, int time, int completed)
         if (sqlite3_prepare_v2(db, update_query.c_str(), -1, &update_stmt, nullptr) != SQLITE_OK) {
             std::cerr << "Error preparing UPDATE query: " << sqlite3_errmsg(db) << std::endl;
             sqlite3_finalize(stmt);
+            rom.total_time = utils::stringifyTime(rom.time);
+            rom.average_time = utils::stringifyTime(rom.count ? rom.time / rom.count : 0);
             return rom;
         }
 
@@ -143,52 +144,42 @@ Rom DB::save(const std::string& file, int time, int completed)
 
         sqlite3_finalize(update_stmt);
 
-        // Populate derived/display fields for return
-        rom.total_time = utils::stringifyTime(rom.time);
-        rom.average_time = utils::stringifyTime(rom.count ? rom.time / rom.count : 0);
-        {
-            std::string imgBase;
-            if (std::regex_search(rom.file, best_pattern))
-                imgBase = std::regex_replace(rom.file, best_pattern, R"(/Best/$1/Imgs)");
-            else
-                imgBase = std::regex_replace(rom.file, img_pattern, R"(/Imgs/$1)");
-            rom.image = imgBase + "/" + rom.name + ".png";
-        }
+        std::string imgBase;
+        if (std::regex_search(rom.file, best_pattern))
+            imgBase = std::regex_replace(rom.file, best_pattern, R"(/Best/$1/Imgs)");
+        else
+            imgBase = std::regex_replace(rom.file, img_pattern, R"(/Imgs/$1)");
+
+        rom.image = imgBase + "/" + rom.name + ".png";
         if (!fs::exists(rom.image)) rom.image = "";
+
         rom.video = std::regex_replace(rom.file, img_pattern, R"(/Videos/$1)") + "/" + rom.name + ".mp4";
         if (!fs::exists(rom.video)) rom.video = "";
+
         rom.manual = std::regex_replace(rom.file, img_pattern, R"(/Manuals/$1)") + "/" + rom.name + ".pdf";
         if (!fs::exists(rom.manual)) rom.manual = "";
+
         rom.system = std::regex_replace(rom.file, sys_pattern, R"($1)");
         rom.pid = -1;
-        // Make last readable for UI
-        rom.last = utils::stringifyDate(rom.last);
     } else if (result == SQLITE_DONE) {
         // Initialize ROM metadata even if we don't save to database
-        rom.total_time = utils::stringifyTime(rom.time);
-        rom.average_time = utils::stringifyTime(rom.count ? rom.time / rom.count : 0);
-        rom.last = utils::stringifyDate(rom.last);
         
-        {
-            std::string imgBase;
-            if (std::regex_search(rom.file, best_pattern))
-                imgBase = std::regex_replace(rom.file, best_pattern, R"(/Best/$1/Imgs)");
-            else
-                imgBase = std::regex_replace(rom.file, img_pattern, R"(/Imgs/$1)");
-            rom.image = imgBase + "/" + rom.name + ".png";
-        }
-        if (!fs::exists(rom.image))
-            rom.image = "";
+        std::string imgBase;
+        if (std::regex_search(rom.file, best_pattern))
+            imgBase = std::regex_replace(rom.file, best_pattern, R"(/Best/$1/Imgs)");
+        else
+            imgBase = std::regex_replace(rom.file, img_pattern, R"(/Imgs/$1)");
+
+        rom.image = imgBase + "/" + rom.name + ".png";
+        if (!fs::exists(rom.image)) rom.image = "";
 
         rom.video =
             std::regex_replace(rom.file, img_pattern, R"(/Videos/$1)") + "/" + rom.name + ".mp4";
-        if (!fs::exists(rom.video))
-            rom.video = "";
+        if (!fs::exists(rom.video)) rom.video = "";
 
         rom.manual =
             std::regex_replace(rom.file, img_pattern, R"(/Manuals/$1)") + "/" + rom.name + ".pdf";
-        if (!fs::exists(rom.manual))
-            rom.manual = "";
+        if (!fs::exists(rom.manual)) rom.manual = "";
 
         rom.system = std::regex_replace(rom.file, sys_pattern, R"($1)");
         rom.pid = -1;
@@ -197,17 +188,23 @@ Rom DB::save(const std::string& file, int time, int completed)
         // we still want to create an entry; otherwise keep the original guard.
         if (!(time == 0 && completed != -1)) {
             // Do not record if last session is too short
-            if (rom.time < 5) {
+            if (time < 5) {
                 sqlite3_finalize(stmt);
+
+                rom.total_time = utils::stringifyTime(rom.time);
+                rom.average_time = utils::stringifyTime(rom.count ? rom.time / rom.count : 0);
                 return rom;
             }
         }
         std::string   insert_query = "INSERT INTO games_datas (file, name, count, time, "
                                      "lastsessiontime, last, completed) VALUES (?, ?, ?, ?, ?, ?, ?)";
         sqlite3_stmt* insert_stmt;
+        
         if (sqlite3_prepare_v2(db, insert_query.c_str(), -1, &insert_stmt, nullptr) != SQLITE_OK) {
             std::cerr << "Error preparing INSERT query: " << sqlite3_errmsg(db) << std::endl;
             sqlite3_finalize(stmt);
+            rom.total_time = utils::stringifyTime(rom.time);
+            rom.average_time = utils::stringifyTime(rom.count ? rom.time / rom.count : 0);
             return rom;
         }
 
@@ -224,11 +221,13 @@ Rom DB::save(const std::string& file, int time, int completed)
         } else {
             std::cout << "New record added for rom: " << rom.name << std::endl;
         }
-
         sqlite3_finalize(insert_stmt);
     }
 
     sqlite3_finalize(stmt);
+
+    rom.total_time = utils::stringifyTime(rom.time);
+    rom.average_time = utils::stringifyTime(rom.count ? rom.time / rom.count : 0);
     return rom;
 }
 
@@ -260,22 +259,18 @@ Rom DB::load(const std::string& file)
         rom.time = sqlite3_column_int(stmt, 3);
         rom.lastsessiontime = sqlite3_column_int(stmt, 4);
         rom.last = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 5)));
-        rom.last = utils::stringifyDate(rom.last);
         rom.completed = sqlite3_column_int(stmt, 6);
         std::cout << "Entry loaded." << std::endl;
 
         rom.total_time = utils::stringifyTime(rom.time);
-
         rom.average_time = utils::stringifyTime(rom.count ? rom.time / rom.count : 0);
 
-        {
-            std::string imgBase;
-            if (std::regex_search(rom.file, best_pattern))
-                imgBase = std::regex_replace(rom.file, best_pattern, R"(/Best/$1/Imgs)");
-            else
-                imgBase = std::regex_replace(rom.file, img_pattern, R"(/Imgs/$1)");
-            rom.image = imgBase + "/" + rom.name + ".png";
-        }
+        std::string imgBase;
+        if (std::regex_search(rom.file, best_pattern))
+            imgBase = std::regex_replace(rom.file, best_pattern, R"(/Best/$1/Imgs)");
+        else
+            imgBase = std::regex_replace(rom.file, img_pattern, R"(/Imgs/$1)");
+        rom.image = imgBase + "/" + rom.name + ".png";
         if (!fs::exists(rom.image))
             rom.image = "";
 
@@ -325,11 +320,9 @@ std::vector<Rom> DB::load()
         rom.time = sqlite3_column_int(stmt, 3);
         rom.lastsessiontime = sqlite3_column_int(stmt, 4);
         rom.last = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 5)));
-        rom.last = utils::stringifyDate(rom.last);
         rom.completed = sqlite3_column_int(stmt, 6);
 
         rom.total_time = utils::stringifyTime(rom.time);
-
         rom.average_time = utils::stringifyTime(rom.count ? rom.time / rom.count : 0);
 
         {
