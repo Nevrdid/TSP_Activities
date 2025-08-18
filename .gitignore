@@ -1,5 +1,6 @@
-build/
 .cache/
-activities
+build/trimui-smart-pro-toolchain/
+build/bin/*
+build/objs/*
 
 data/games.db
