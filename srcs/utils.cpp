@@ -1,6 +1,7 @@
 #include "utils.h"
-#include <sys/stat.h>
+
 #include <fcntl.h>
+#include <sys/stat.h>
 
 namespace utils
 {
@@ -109,6 +110,22 @@ void restore_ra_hotkey()
     int fd = open("/tmp/trimui_inputd/ra_hotkey", O_CREAT | O_WRONLY, 0644);
     if (fd >= 0)
         close(fd);
+}
+
+std::string shorten_file_path(fs::path filepath, std::string unknown_part)
+{
+    fs::path selected_rom_path(filepath);
+
+    if (fs::exists(filepath)) {
+        if (!unknown_part.empty())
+            return fs::canonical(selected_rom_path).string() + "/" + unknown_part;
+        return fs::canonical(selected_rom_path).string();
+    } else if (filepath.string() == "/") {
+        return unknown_part;
+    } else {
+        unknown_part = filepath.filename().string();
+        return shorten_file_path(filepath.parent_path(), unknown_part);
+    }
 }
 
 } // namespace utils

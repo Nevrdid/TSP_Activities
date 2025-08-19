@@ -54,12 +54,9 @@ Rom DB::save(const std::string& file, int time, int completed)
         std::cerr << "Error preparing SELECT query: " << sqlite3_errmsg(db) << std::endl;
         return rom;
     }
-    fs::path filepath(file);
+    rom.file = utils::shorten_file_path(file);
 
-    if (fs::exists(filepath))
-        rom.file = fs::canonical(filepath);
-    else
-        rom.file = filepath;
+    fs::path filepath(file);
     rom.name = filepath.stem();
     rom.count = time ? 1 : 0;
     rom.time = time;
@@ -71,9 +68,10 @@ Rom DB::save(const std::string& file, int time, int completed)
     int result = sqlite3_step(stmt);
     if (result == SQLITE_ROW) { // Record exists
         // Existing values from DB
-        int db_count = sqlite3_column_int(stmt, 2);
-        int db_time = sqlite3_column_int(stmt, 3);
-        std::string db_last = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 5)));
+        int         db_count = sqlite3_column_int(stmt, 2);
+        int         db_time = sqlite3_column_int(stmt, 3);
+        std::string db_last =
+            std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 5)));
         int db_completed = sqlite3_column_int(stmt, 6);
 
         // If time == 0, we're likely toggling "completed" without adding a session.
@@ -104,13 +102,18 @@ Rom DB::save(const std::string& file, int time, int completed)
                 imgBase = std::regex_replace(rom.file, img_pattern, R"(/Imgs/$1)");
 
             rom.image = imgBase + "/" + rom.name + ".png";
-            if (!fs::exists(rom.image)) rom.image = "";
+            if (!fs::exists(rom.image))
+                rom.image = "";
 
-            rom.video = std::regex_replace(rom.file, img_pattern, R"(/Videos/$1)") + "/" + rom.name + ".mp4";
-            if (!fs::exists(rom.video)) rom.video = "";
+            rom.video = std::regex_replace(rom.file, img_pattern, R"(/Videos/$1)") + "/" +
+                        rom.name + ".mp4";
+            if (!fs::exists(rom.video))
+                rom.video = "";
 
-            rom.manual = std::regex_replace(rom.file, img_pattern, R"(/Manuals/$1)") + "/" + rom.name + ".pdf";
-            if (!fs::exists(rom.manual)) rom.manual = "";
+            rom.manual = std::regex_replace(rom.file, img_pattern, R"(/Manuals/$1)") + "/" +
+                         rom.name + ".pdf";
+            if (!fs::exists(rom.manual))
+                rom.manual = "";
 
             rom.system = std::regex_replace(rom.file, sys_pattern, R"($1)");
             rom.pid = -1;
@@ -151,19 +154,24 @@ Rom DB::save(const std::string& file, int time, int completed)
             imgBase = std::regex_replace(rom.file, img_pattern, R"(/Imgs/$1)");
 
         rom.image = imgBase + "/" + rom.name + ".png";
-        if (!fs::exists(rom.image)) rom.image = "";
+        if (!fs::exists(rom.image))
+            rom.image = "";
 
-        rom.video = std::regex_replace(rom.file, img_pattern, R"(/Videos/$1)") + "/" + rom.name + ".mp4";
-        if (!fs::exists(rom.video)) rom.video = "";
+        rom.video =
+            std::regex_replace(rom.file, img_pattern, R"(/Videos/$1)") + "/" + rom.name + ".mp4";
+        if (!fs::exists(rom.video))
+            rom.video = "";
 
-        rom.manual = std::regex_replace(rom.file, img_pattern, R"(/Manuals/$1)") + "/" + rom.name + ".pdf";
-        if (!fs::exists(rom.manual)) rom.manual = "";
+        rom.manual =
+            std::regex_replace(rom.file, img_pattern, R"(/Manuals/$1)") + "/" + rom.name + ".pdf";
+        if (!fs::exists(rom.manual))
+            rom.manual = "";
 
         rom.system = std::regex_replace(rom.file, sys_pattern, R"($1)");
         rom.pid = -1;
     } else if (result == SQLITE_DONE) {
         // Initialize ROM metadata even if we don't save to database
-        
+
         std::string imgBase;
         if (std::regex_search(rom.file, best_pattern))
             imgBase = std::regex_replace(rom.file, best_pattern, R"(/Best/$1/Imgs)");
@@ -171,19 +179,22 @@ Rom DB::save(const std::string& file, int time, int completed)
             imgBase = std::regex_replace(rom.file, img_pattern, R"(/Imgs/$1)");
 
         rom.image = imgBase + "/" + rom.name + ".png";
-        if (!fs::exists(rom.image)) rom.image = "";
+        if (!fs::exists(rom.image))
+            rom.image = "";
 
         rom.video =
             std::regex_replace(rom.file, img_pattern, R"(/Videos/$1)") + "/" + rom.name + ".mp4";
-        if (!fs::exists(rom.video)) rom.video = "";
+        if (!fs::exists(rom.video))
+            rom.video = "";
 
         rom.manual =
             std::regex_replace(rom.file, img_pattern, R"(/Manuals/$1)") + "/" + rom.name + ".pdf";
-        if (!fs::exists(rom.manual)) rom.manual = "";
+        if (!fs::exists(rom.manual))
+            rom.manual = "";
 
         rom.system = std::regex_replace(rom.file, sys_pattern, R"($1)");
         rom.pid = -1;
-        
+
         // When no existing record: if this call only toggles "completed" (time==0),
         // we still want to create an entry; otherwise keep the original guard.
         if (!(time == 0 && completed != -1)) {
@@ -199,7 +210,7 @@ Rom DB::save(const std::string& file, int time, int completed)
         std::string   insert_query = "INSERT INTO games_datas (file, name, count, time, "
                                      "lastsessiontime, last, completed) VALUES (?, ?, ?, ?, ?, ?, ?)";
         sqlite3_stmt* insert_stmt;
-        
+
         if (sqlite3_prepare_v2(db, insert_query.c_str(), -1, &insert_stmt, nullptr) != SQLITE_OK) {
             std::cerr << "Error preparing INSERT query: " << sqlite3_errmsg(db) << std::endl;
             sqlite3_finalize(stmt);
@@ -213,7 +224,8 @@ Rom DB::save(const std::string& file, int time, int completed)
         sqlite3_bind_int(insert_stmt, 3, rom.count);
         sqlite3_bind_int(insert_stmt, 4, rom.time);
         sqlite3_bind_int(insert_stmt, 5, rom.lastsessiontime);
-        sqlite3_bind_text(insert_stmt, 6, (time == 0 ? std::string("-") : rom.last).c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(insert_stmt, 6, (time == 0 ? std::string("-") : rom.last).c_str(), -1,
+            SQLITE_TRANSIENT);
         sqlite3_bind_int(insert_stmt, 7, (completed == -1 ? 0 : completed));
 
         if (sqlite3_step(insert_stmt) != SQLITE_DONE) {

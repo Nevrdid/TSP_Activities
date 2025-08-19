@@ -15,12 +15,19 @@ namespace fs = std::experimental::filesystem;
 #else
 #error "No filesystem support"
 #endif
+static const char timer_help[] = {
+  "activities Timer usage:\n"
+  "\t activities time [option...]* <romFile> <processPID>\n"
+};
 
-#define HELP_MESSAGE                                                                               \
-    "Usage:\n\
-  activities time <activity_name> <pid>\n\
-  activities time <activity_name> -flag <file_path>\n\
-  activities gui [rom_file]"
+static const char global_help[] = {
+  "activities usage:\n"
+  "\t activities [command] [options] ...\n"
+  "Commands:\n"
+  "\t- gui: Display the gui\n"
+  "\t- time: Time a game and add it to the DB.\n"
+  "\n*use `activities [command] -h for details\n"
+};
 
 Timer* Timer::instance = nullptr;
 
@@ -161,7 +168,7 @@ void file_watcher_daemonize(const std::string& activity_name, const std::string&
 int main(int argc, char* argv[])
 {
     if (argc < 2) {
-        std::cout << HELP_MESSAGE << std::endl;
+        std::cout << global_help << std::endl;
         return 1;
     }
 
@@ -183,25 +190,14 @@ int main(int argc, char* argv[])
 
             file_watcher_daemonize(argv[2], argv[4]);
         } else {
-            std::cout << HELP_MESSAGE << std::endl;
+            std::cout << timer_help << std::endl;
         }
     } else if (std::strcmp(argv[1], "gui") == 0) {
-        bool show_last = false;
-        std::string rom_arg = "";
-        for (int i = 2; i < argc; ++i) {
-            if (std::strcmp(argv[i], "-last") == 0) show_last = true;
-            else rom_arg = argv[i];
-        }
-        Activities app(rom_arg);
-        if (show_last) {
-            app.sort_by = Sort::Last;
-            app.filter_roms();
-            app.selected_index = 0;
-            app.in_game_detail = true;
-        }
-        app.run();
+        Activities app;
+        // app runner will handle himself if argv[2] is a romfile or a flag.
+        app.run(argc,argv);
     } else {
-        std::cout << HELP_MESSAGE << std::endl;
+        std::cout << global_help << std::endl;
     }
 
     return 0;

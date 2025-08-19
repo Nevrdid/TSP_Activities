@@ -8,6 +8,16 @@
 #include <string>
 #include <unistd.h>
 
+#if __has_include(<filesystem>)
+#include <filesystem>
+namespace fs = std::filesystem;
+#elif __has_include(<experimental/filesystem>)
+#include <experimental/filesystem>
+namespace fs = std::experimental::filesystem;
+#else
+#error "No filesystem support"
+#endif
+
 #define __STDC_WANT_LIB_EXT1__ 1
 #include <time.h>
 
@@ -27,4 +37,6 @@ int get_process_status(int fd);
 bool ra_hotkey_exists();
 void remove_ra_hotkey();
 void restore_ra_hotkey();
+
+std::string shorten_file_path(fs::path filepath, std::string unknown_part = "");
 } // namespace utils

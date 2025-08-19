@@ -299,7 +299,12 @@ pid_t GUI::wait_game(const std::string& romName)
 {
     int   combo = 0;
     int   status = 0;
+    if ( childs.find(romName) == childs.end())
+        return -1;
+        
     pid_t pid = childs[romName];
+
+
     std::cout << "ActivitiesApp: Waiting for " << romName << " (PID: " << pid << ")" << std::endl;
     
     // Pause the GUI interface while the game is running
@@ -337,7 +342,8 @@ pid_t GUI::wait_game(const std::string& romName)
             }
             if (combo == 3) {
                 // Before suspending, remember if ra_hotkey existed to restore later
-                ra_hotkey_was_present[romName] = utils::ra_hotkey_exists();
+                if (utils::ra_hotkey_exists()) 
+                  ra_hotkey_roms.insert(romName);
                 utils::suspend_process_group(utils::get_pgid_of_process(pid));
                 std::cout << "ActivitiesApp: Game " << romName << " suspended" << std::endl;
                 // Returning to GUI (suspended): mark and remove ra_hotkey now
@@ -352,7 +358,7 @@ pid_t GUI::wait_game(const std::string& romName)
     // Game fully exited: we're back to GUI; ensure ra_hotkey is removed and keep it off
     keep_ra_hotkey_off = true;
     utils::remove_ra_hotkey();
-    ra_hotkey_was_present.erase(romName);
+    ra_hotkey_roms.erase(romName);
     childs.erase(romName);
     return -1;
 }
@@ -368,15 +374,21 @@ void GUI::launch_game(
         utils::resume_process_group(gpid);
         std::cout << "Resuming process group: " << romName << std::endl;
         // Restore ra_hotkey only if it existed when we suspended this game
-        auto it = ra_hotkey_was_present.find(romName);
-        if (it != ra_hotkey_was_present.end() && it->second) {
+        auto it = ra_hotkey_roms.find(romName);
+        if (it != ra_hotkey_roms.end()) {
             utils::restore_ra_hotkey();
-            ra_hotkey_was_present.erase(it);
+            ra_hotkey_roms.erase(it);
         }
         // While the game is active again, stop forcing deletion in GUI
         keep_ra_hotkey_off = false;
         // When resuming the GUI later, it will remove the file again
     } else {
+        fs::path romPath = fs::path(romFile);
+        if ( !fs::exists(romPath)) {
+          message_popup("Error", 28,"The rom file not exist", 18, 5);
+          return;
+        }
+        keep_ra_hotkey_off = false;
         pid_t pid = fork();
         if (pid == 0) {
             setsid();
@@ -384,7 +396,7 @@ void GUI::launch_game(
             execl(launcher.c_str(), launcher.c_str(), romFile.c_str(), (char*) NULL);
             std::cerr << "Failed to launch " << romName << std::endl;
             exit(1);
-    } else {
+        } else {
             childs[romName] = pid;
         }
     }
@@ -669,6 +681,14 @@ bool GUI::confirmation_popup(const std::string& message, int font_size)
     }
     unload_background_texture();
     return confirmed;
+}
+
+void GUI::message_popup(std::string title, int title_size, std::string message, int message_size, int duration) {
+    render_image(cfg.theme_path + "skin/pop-bg.png", Width / 2, Height / 2, Width / 3, Height / 3);
+    render_text(title, Width / 2, Height / 3 + 2 * title_size, title_size, cfg.title_color, 0, true);
+    render_text(message, Width / 2, Height / 2, message_size, cfg.selected_color, 0, true);
+    render();
+    sleep(duration);
 }
 
 void GUI::infos_window(std::string title, int title_size,

@@ -24,6 +24,7 @@ namespace fs = std::experimental::filesystem;
 #include <sys/wait.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <unordered_set>
 #include <unordered_map>
 #include <vector>
 #include <fstream>
@@ -136,7 +137,7 @@ class GUI
     bool         scroll_reset = false;
     SDL_Texture* background_texture = nullptr;
     // Track whether ra_hotkey existed when suspending a given game
-    std::unordered_map<std::string, bool> ra_hotkey_was_present;
+    std::unordered_set<std::string> ra_hotkey_roms;
     // When true, remove /tmp/trimui_inputd/ra_hotkey while GUI is displayed
     bool keep_ra_hotkey_off = false;
 
@@ -184,6 +185,7 @@ class GUI
     void unload_background_texture();
     bool confirmation_popup(const std::string& message, int font_size);
 
+    void message_popup(std::string title, int title_size, std::string message, int message_size, int duration);
     void infos_window(std::string title, int title_size,
         std::vector<std::pair<std::string, std::string>> content, int content_size, int x, int y,
         int width, int height);

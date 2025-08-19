@@ -8,6 +8,7 @@
 #include <chrono>
 #include <set>
 #include <string>
+#include <unistd.h>
 #include <vector>
 
 enum Sort
@@ -26,42 +27,46 @@ class Activities
 {
   public:
     // Allow main to set these for special GUI modes
-    int selected_index = 0;
-    bool in_game_detail = false;
-    Sort sort_by = Sort::Last;
-    void filter_roms();
   private:
     Config cfg;
     GUI    gui;
 
     bool is_running = false;
-    bool need_refresh = false;
+    bool in_game_detail = false;
+    int  selected_index = 0;
+
+    bool                                  need_refresh = false;
     std::chrono::steady_clock::time_point refresh_timer_start;
-    bool refresh_timer_active = false;
+    bool                                  refresh_timer_active = false;
 
     std::vector<Rom> roms_list;
     std::vector<Rom> filtered_roms_list;
     size_t           list_size = 0;
-    size_t           total_time = 0;
-    bool             no_list = false;
-    int              filter_state = 0;
+
+    size_t total_time = 0;
+    bool   no_list = false;
+    int    filter_state = 0;
+
+    Sort sort_by = Sort::Last;
 
     std::vector<std::string> systems;
     size_t                   system_index = 0;
 
     // Auto-scroll (key repeat) management for Up/Down in the list
-    bool upHolding = false;                      // true while UP is held
-    bool downHolding = false;                    // true while DOWN is held
+    bool upHolding = false;   // true while UP is held
+    bool downHolding = false; // true while DOWN is held
     // Auto-scroll for Left/Right in detail view
-    bool leftHolding = false;                    // true while LEFT is held (next item)
-    bool rightHolding = false;                   // true while RIGHT is held (previous item)
-    std::chrono::steady_clock::time_point holdStartTime;  // time when hold started
+    bool leftHolding = false;                            // true while LEFT is held (next item)
+    bool rightHolding = false;                           // true while RIGHT is held (previous item)
+    std::chrono::steady_clock::time_point holdStartTime; // time when hold started
     std::chrono::steady_clock::time_point lastRepeatTime; // time of last auto-scroll step
-    const int initialRepeatDelayMs = 550;        // delay before auto-scroll starts (ms)
-    const int listRepeatIntervalMs = 80;         // interval for list scrolling (faster)
-    const int detailRepeatIntervalMs = 200;      // interval for detail navigation (slower)
+    const int initialRepeatDelayMs = 550;                 // delay before auto-scroll starts (ms)
+    const int listRepeatIntervalMs = 80;                  // interval for list scrolling (faster)
+    const int detailRepeatIntervalMs = 200;               // interval for detail navigation (slower)
 
+    int  parseArgs(int argc, char** argv);
     void sort_roms();
+    void filter_roms();
 
     void switch_completed();
     void set_pid(pid_t pid);
@@ -72,8 +77,9 @@ class Activities
     void empty_db();
 
   public:
-    Activities(const std::string& rom_file = "");
+    Activities();
     ~Activities();
 
-    void run();
+    void refresh_db(std::string selected_rom_file = "");
+    void run(int argc, char** argv);
 };
