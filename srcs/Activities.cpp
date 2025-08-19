@@ -24,10 +24,13 @@ void Activities::switch_completed()
     }
 
     Rom& rom = filtered_roms_list[selected_index];
+    int pid = rom.pid;
     DB   db;
     for (auto& r : roms_list) {
         if (r.file == rom.file) {
             r = rom = db.save(rom.file, 0, rom.completed ? 0 : 1);
+            r.pid = pid;
+            rom.pid = pid;
             break;
         }
     }
@@ -152,28 +155,14 @@ void Activities::game_list()
         }
 
         // Green dot if game is running (pid != -1)
-        if (rom.pid != -1) {
-            int dot_radius = 8;
-            int dot_x = x + 8;
-            int dot_y = y + 8 + FONT_MIDDLE_SIZE / 2;
-            gui.draw_green_dot(dot_x, dot_y, dot_radius);
-        }
+        size_t name_offset = 15;
 
-        // Completion checkmark
-        int left_icons_width = 0;
-        if (rom.pid != -1) {
-            left_icons_width += 2 * 8 + 6; // green dot area
-        }
-        if (rom.completed) {
-            int check_size = 12;
-            int check_x = x + 8 + left_icons_width;
-            int check_y = y + 8 + FONT_MIDDLE_SIZE / 2;
-            gui.draw_checkmark(check_x, check_y, check_size, cfg.selected_color);
-            left_icons_width += check_size + 6; // spacing after checkmark
-        }
+        if (rom.completed)
+            gui.render_image(std::string(APP_DIR) + "/.assets/green_check.svg", x, y, 16, 16, IMG_NONE);
+        if (rom.pid != -1)
+            name_offset += gui.render_image(std::string(APP_DIR) + "/.assets/green_dot.svg", x + 16, y, 16, 16, IMG_NONE).x;
 
         // Display game name (accounting for the icons)
-        int name_offset = left_icons_width > 0 ? left_icons_width : 15;
         if (static_cast<int>(j) == selected_index) {
             gui.render_scrollable_text(rom.name, x + name_offset, y + 2,
                 prevSize.x - 5 - name_offset, FONT_MIDDLE_SIZE, color);

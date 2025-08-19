@@ -223,3 +223,11 @@ To launch the graphical interface, simply run:
 ```bash
 activities gui
 ```
+
+# Issue tracker:
+    - Setting a running game to complete overwrite the green dot but running a completed work as expected.
+
+# Improvements possibilities:
+    - Allow to merge multiple games datas ( e.g: file renamed/moved)
+    - Stay on same game if possible when filtering
+    - 
