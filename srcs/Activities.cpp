@@ -18,7 +18,7 @@ void Activities::switch_completed()
 {
     // Safety check
     if (filtered_roms_list.empty() ||
-        selected_index >= static_cast<int>(filtered_roms_list.size())) {
+        selected_index >= filtered_roms_list.size()) {
         std::cerr << "Error: Invalid ROM access in switch_completed()" << std::endl;
         return;
     }
@@ -54,7 +54,7 @@ void Activities::filter_roms()
 
     sort_roms();
 
-    if (selected_index >= static_cast<int>(list_size))
+    if (selected_index >= list_size)
         selected_index = list_size == 0 ? 0 : static_cast<int>(list_size - 1);
 }
 
@@ -127,9 +127,9 @@ void Activities::game_list()
     for (size_t j = first; j < last; ++j) {
         std::vector<Rom>::iterator rom = filtered_roms_list[j];
         SDL_Color                  color =
-            (static_cast<int>(j) == selected_index) ? cfg.selected_color : cfg.unselect_color;
+            (j == selected_index) ? cfg.selected_color : cfg.unselect_color;
 
-        if (static_cast<int>(j) == selected_index) {
+        if (j == selected_index) {
             prevSize = gui.render_image(
                 cfg.theme_path + "skin/list-item-1line-sort-bg-f.png", x, y, 0, 0, IMG_NONE);
         } else {
@@ -149,7 +149,7 @@ void Activities::game_list()
                                .x;
 
         // Display game name (accounting for the icons)
-        if (static_cast<int>(j) == selected_index) {
+        if (j == selected_index) {
             gui.render_scrollable_text(rom->name, x + name_offset, y + 2,
                 prevSize.x - 5 - name_offset, FONT_MIDDLE_SIZE, color);
         } else {
@@ -166,7 +166,7 @@ void Activities::game_list()
         y += prevSize.y + 8;
     }
     if (list_size && gui.Width == 1280 &&
-        selected_index < static_cast<int>(filtered_roms_list.size())) {
+        selected_index < filtered_roms_list.size()) {
         gui.render_image(cfg.theme_path + "skin/ic-game-580.png", 1070, 370, 400, 580);
         gui.render_image(filtered_roms_list[selected_index]->image, 1070, 370, 400, 0);
     }
@@ -195,7 +195,7 @@ void Activities::game_list()
         InputAction action = gui.map_input(e);
         // Make sure filtered_roms_list is not empty before accessing selected_index
         const bool has_rom = !filtered_roms_list.empty() &&
-                             selected_index < static_cast<int>(filtered_roms_list.size());
+                             selected_index < filtered_roms_list.size();
         const Rom& rom = has_rom ? *filtered_roms_list[selected_index] : *(Rom*) nullptr;
         switch (action) {
         case InputAction::Quit: is_running = false; break;
@@ -209,7 +209,7 @@ void Activities::game_list()
             break;
         }
         case InputAction::Down: {
-            if (selected_index < static_cast<int>(list_size) - 1)
+            if (selected_index <list_size - 1)
                 selected_index++;
             // Start auto-scroll downwards
             downHolding = true;
@@ -222,7 +222,7 @@ void Activities::game_list()
             upHolding = downHolding = false; // stop repeat on jump navigation
             break;
         case InputAction::Right:
-            selected_index = list_size > 10 && selected_index < static_cast<int>(list_size) - 10
+            selected_index = list_size > 10 && selected_index < list_size - 10
                                  ? selected_index + 10
                                  : static_cast<int>(list_size) - 1;
             upHolding = downHolding = false;
@@ -332,7 +332,7 @@ void Activities::game_list()
                                 if (filtered_roms_list.empty()) {
                                     is_running = false;
                                 } else if (selected_index >=
-                                           static_cast<int>(filtered_roms_list.size())) {
+                                           filtered_roms_list.size()) {
                                     selected_index =
                                         static_cast<int>(filtered_roms_list.size()) - 1;
                                 }
@@ -371,7 +371,7 @@ void Activities::game_list()
                 if (upHolding && selected_index > 0) {
                     selected_index--;
                     lastRepeatTime = now;
-                } else if (downHolding && selected_index < static_cast<int>(list_size) - 1) {
+                } else if (downHolding && selected_index < list_size - 1) {
                     selected_index++;
                     lastRepeatTime = now;
                 }
@@ -379,7 +379,7 @@ void Activities::game_list()
         }
     }
 
-    if (static_cast<int>(prev_selected_index) != selected_index)
+    if (prev_selected_index != selected_index)
         gui.reset_scroll();
 }
 
@@ -388,7 +388,7 @@ void Activities::game_detail()
 
     // Safety check
     if (filtered_roms_list.empty() ||
-        selected_index >= static_cast<int>(filtered_roms_list.size())) {
+        selected_index >= filtered_roms_list.size()) {
         std::cerr << "Error: Invalid ROM access in game_detail()" << std::endl;
         in_game_detail = false;
         return;
@@ -420,7 +420,7 @@ void Activities::game_detail()
     if (filtered_roms_list.size() > 1) {
         size_t    n = filtered_roms_list.size();
         const int maxDots = 20;
-        int       displayCount = static_cast<int>(std::min(n, static_cast<size_t>(maxDots)));
+        size_t       displayCount = std::min(n, static_cast<size_t>(maxDots));
         int       dotsRadius = 6;
         int       spacing = 24;
         int       totalDotsWidth = (displayCount - 1) * spacing;
@@ -428,7 +428,7 @@ void Activities::game_detail()
         int       dotsY = frameY + frameHeight / 2 + frameHeight / 2 - 10;
         if (dotsY > gui.Height - 200)
             dotsY = frameY + frameHeight / 2 + 40;
-        for (int i = 0; i < displayCount; ++i) {
+        for (size_t i = 0; i < displayCount; ++i) {
             int       xPos = rightX - i * spacing;
             bool      inRangeSelected = (selected_index == i);
             bool      filled = inRangeSelected;
@@ -488,7 +488,7 @@ void Activities::game_detail()
                 gui.Height / 2, 40, 40);
         }
         // Right arrow (older elements)
-        if (selected_index < static_cast<int>(filtered_roms_list.size()) - 1) {
+        if (selected_index < filtered_roms_list.size() - 1) {
             gui.render_image(
                 cfg.theme_path + "skin/ic-left-arrow-n.png", 10, gui.Height / 2, 40, 40);
         }
@@ -517,7 +517,7 @@ void Activities::game_detail()
         case InputAction::Quit: is_running = false; break;
         case InputAction::B: is_running = false; break;
         case InputAction::Left:
-            if (selected_index < static_cast<int>(filtered_roms_list.size()) - 1) {
+            if (selected_index < filtered_roms_list.size() - 1) {
                 selected_index++;
                 gui.reset_scroll();
             }
@@ -661,7 +661,7 @@ void Activities::game_detail()
                 std::chrono::duration_cast<std::chrono::milliseconds>(now - lastRepeatTime).count();
             if (sinceLast >= detailRepeatIntervalMs) {
                 if (leftHolding &&
-                    selected_index < static_cast<int>(filtered_roms_list.size()) - 1) {
+                    selected_index < filtered_roms_list.size() - 1) {
                     selected_index++;
                     lastRepeatTime = now;
                 } else if (rightHolding && selected_index > 0) {
@@ -748,7 +748,7 @@ void Activities::refresh_db(std::string selected_rom_file)
     // Save the current selected rom file (if any)
     if (selected_rom_file.empty()) {
         if (!filtered_roms_list.empty() &&
-            selected_index < static_cast<int>(filtered_roms_list.size()))
+            selected_index < filtered_roms_list.size())
             selected_rom_file = filtered_roms_list[selected_index]->file;
     } else {
         selected_rom_file = utils::shorten_file_path(selected_rom_file);

@@ -33,7 +33,7 @@ class Activities
 
     bool is_running = false;
     bool in_game_detail = false;
-    int  selected_index = 0;
+    size_t  selected_index = 0;
 
     bool                                  need_refresh = false;
     std::chrono::steady_clock::time_point refresh_timer_start;
