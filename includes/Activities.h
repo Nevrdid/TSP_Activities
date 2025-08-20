@@ -2,6 +2,7 @@
 
 #include "DB.h"
 #include "GUI.h"
+#include "GameRunner.h"
 #include "utils.h"
 
 #include <algorithm>
@@ -30,6 +31,7 @@ class Activities
   private:
     Config cfg;
     GUI    gui;
+    GameRunner game_runner;
 
     bool   is_running = false;
     bool   in_game_detail = false;

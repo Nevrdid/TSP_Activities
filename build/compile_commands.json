@@ -160,6 +160,30 @@
       "-I../includes/",
       "-c",
       "-o",
+      "objs/GameRunner.o",
+      "../srcs/GameRunner.cpp"
+    ],
+    "directory": "/media/Datas/github/TSP_Activities/build",
+    "file": "/media/Datas/github/TSP_Activities/srcs/GameRunner.cpp",
+    "output": "/media/Datas/github/TSP_Activities/build/objs/GameRunner.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/g++",
+      "-Wall",
+      "-Wextra",
+      "-std=c++17",
+      "-g",
+      "-I/usr/include/SDL2",
+      "-D_GNU_SOURCE=1",
+      "-D_REENTRANT",
+      "-DAPP_DIR=\"./\"",
+      "-DUSE_KEYBOARD",
+      "-DVIDEO_PLAYER=\"/usr/bin/ffplay \"",
+      "-DMANUAL_READER=\"/usr/bin/okular \"",
+      "-I../includes/",
+      "-c",
+      "-o",
       "objs/utils.o",
       "../srcs/utils.cpp"
     ],

@@ -1,15 +1,15 @@
-// Dessine une pastille verte à l'écran
-    void draw_green_dot(int x, int y, int radius = 8);
 #pragma once
+// Dessine une pastille verte à l'écran
+void draw_green_dot(int x, int y, int radius = 8);
 
 #if __has_include(<filesystem>)
-#include <filesystem>
+#    include <filesystem>
 namespace fs = std::filesystem;
 #elif __has_include(<experimental/filesystem>)
-#include <experimental/filesystem>
+#    include <experimental/filesystem>
 namespace fs = std::experimental::filesystem;
 #else
-#error "No filesystem support"
+#    error "No filesystem support"
 #endif
 
 #include "Config.h"
@@ -19,15 +19,15 @@ namespace fs = std::experimental::filesystem;
 #include <SDL.h>
 #include <SDL_image.h>
 #include <SDL_ttf.h>
+#include <fstream>
 #include <iostream>
 #include <string>
-#include <sys/wait.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <unistd.h>
-#include <unordered_set>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
-#include <fstream>
 
 #define LIST_OVERLAY APP_DIR "assets/list_overlay.png"
 #define DETAILS_OVERLAY APP_DIR "assets/details_overlay.png"
@@ -127,7 +127,6 @@ class GUI
     SDL_Joystick* joystick;
 
     std::map<int, TTF_Font*>     fonts;
-    std::map<std::string, pid_t> childs;
 
     std::vector<CachedText>                    cached_text;
     std::unordered_map<std::string, CachedImg> image_cache;
@@ -145,12 +144,10 @@ class GUI
     void draw_green_dot(int x, int y, int radius = 8);
     void draw_circle(int x, int y, int radius, SDL_Color color, bool filled = true);
     // Draw a check mark centered at (x, y) with given size and color
-    void draw_checkmark(int x, int y, int size, SDL_Color color);
-    std::map<std::string, pid_t>& get_childs();
+    void                          draw_checkmark(int x, int y, int size, SDL_Color color);
     GUI(const Config& cfg);
     ~GUI();
 
-    void exit_childs();
     void clean();
 
     int init();
@@ -162,11 +159,8 @@ class GUI
     void        clear_screen();
     void        render();
 
-    void launch_game(const std::string& romName, const std::string& system, const std::string& rom);
-    pid_t wait_game(const std::string& romName);
-    void launch_external(const std::string& command);
-    Vec2 render_image(
-        const std::string& image_path, int x, int y, int w = 0, int h = 0, int flags = IMG_CENTER);
+    Vec2  render_image(
+         const std::string& image_path, int x, int y, int w = 0, int h = 0, int flags = IMG_CENTER);
 
     void render_text(const std::string& text, int x, int y, int font_size,
         SDL_Color color = {255, 255, 255, 255}, int width = 0, bool center = false);
@@ -187,7 +181,8 @@ class GUI
     void unload_background_texture();
     bool confirmation_popup(const std::string& message, int font_size);
 
-    void message_popup(std::string title, int title_size, std::string message, int message_size, int duration);
+    void message_popup(
+        std::string title, int title_size, std::string message, int message_size, int duration);
     void infos_window(std::string title, int title_size,
         std::vector<std::pair<std::string, std::string>> content, int content_size, int x, int y,
         int width, int height);

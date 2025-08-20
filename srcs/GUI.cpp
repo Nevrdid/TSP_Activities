@@ -3,10 +3,6 @@
 #include <errno.h>
 #include <map>
 #include <signal.h>
-std::map<std::string, pid_t>& GUI::get_childs()
-{
-    return childs;
-}
 
 #include "GUI.h"
 
@@ -189,33 +185,10 @@ TTF_Font* GUI::get_font(int size)
     return fonts[size];
 }
 
-void GUI::exit_childs()
-{
-    if (childs.empty()) {
-        message_popup("Leaving...", 32, "Good bye", 32, 1000);
-        return;
-    }
-    int status;
-    message_popup("Please wait...", 32, "We save suspended games.", 18, 15);
-    for (const std::pair<std::string, pid_t> child : childs) {
-        utils::resume_process_group(child.second);
-        utils::kill_process_group(child.second);
-        message_popup("Please wait...", 32, "We save suspended games.", 18, 15);
-    }
-    while (waitpid(-1, &status, WNOHANG) > -1) {
-        message_popup("Please wait...", 32, "We save suspended games.", 18, 15);
-    }
-
-    // Fix some child keep erasing fb.
-    for (int i = 0; i < 30; i++)
-        message_popup("Good bye", 32, "Your games are saved.", 18, 15);
-}
-
 void GUI::clean()
 {
     SDL_JoystickClose(joystick);
 
-    exit_childs();
     for (auto& texture : image_cache)
         if (texture.second.texture)
             SDL_DestroyTexture(texture.second.texture);
@@ -298,135 +271,7 @@ InputAction GUI::map_input(const SDL_Event& e)
 
 void GUI::render()
 {
-    if (keep_ra_hotkey_off)
-        utils::remove_ra_hotkey();
     SDL_RenderPresent(renderer);
-}
-
-void GUI::launch_external(const std::string& command)
-{
-    SDL_EventState(SDL_JOYBUTTONDOWN, SDL_DISABLE);
-    SDL_EventState(SDL_JOYBUTTONUP, SDL_DISABLE);
-
-    std::cout << "ActivitiesApp: Launching " << command << std::endl;
-
-    system(command.c_str());
-
-    SDL_EventState(SDL_JOYBUTTONDOWN, SDL_ENABLE);
-    SDL_EventState(SDL_JOYBUTTONUP, SDL_ENABLE);
-
-    while (SDL_WaitEvent(NULL) < 0) {
-    }
-
-    SDL_FlushEvents(SDL_JOYBUTTONDOWN, SDL_JOYBUTTONUP);
-}
-
-pid_t GUI::wait_game(const std::string& romName)
-{
-    int combo = 0;
-    int status = 0;
-    if (childs.find(romName) == childs.end())
-        return -1;
-
-    pid_t pid = childs[romName];
-
-    std::cout << "ActivitiesApp: Waiting for " << romName << " (PID: " << pid << ")" << std::endl;
-
-    // Pause the GUI interface while the game is running
-    SDL_FlushEvents(SDL_FIRSTEVENT, SDL_LASTEVENT);
-
-    while (true) {
-        // Check if the process still exists
-        if (kill(pid, 0) != 0 && errno == ESRCH) {
-            std::cout << "ActivitiesApp: Game " << romName << " exited (process no longer exists)"
-                      << std::endl;
-            break;
-        }
-
-        // Check if the process has terminated
-        pid_t result = waitpid(pid, &status, WNOHANG);
-        if (result == pid) {
-            std::cout << "ActivitiesApp: Game " << romName << " exited with status " << status
-                      << std::endl;
-            break;
-        }
-
-        // Process SDL events
-        SDL_Event e;
-        while (SDL_PollEvent(&e)) {
-            if (e.type == SDL_JOYBUTTONDOWN) {
-                switch (e.jbutton.button) {
-                case 6: combo |= 1; break;
-                case 7: combo |= 2; break;
-                default: break;
-                }
-            } else if (e.type == SDL_JOYBUTTONUP) {
-                switch (e.jbutton.button) {
-                case 6: combo &= ~1; break;
-                case 7: combo &= ~2; break;
-                default: break;
-                }
-            }
-            if (combo == 3) {
-                // Before suspending, remember if ra_hotkey existed to restore later
-                if (utils::ra_hotkey_exists())
-                    ra_hotkey_roms.insert(romName);
-                utils::suspend_process_group(utils::get_pgid_of_process(pid));
-                std::cout << "ActivitiesApp: Game " << romName << " suspended" << std::endl;
-                // Returning to GUI (suspended): mark and remove ra_hotkey now
-                keep_ra_hotkey_off = true;
-                utils::remove_ra_hotkey();
-                return pid;
-            }
-        }
-
-        SDL_Delay(100); // Increased delay to reduce CPU load
-    }
-    // Game fully exited: we're back to GUI; ensure ra_hotkey is removed and keep it off
-    keep_ra_hotkey_off = true;
-    utils::remove_ra_hotkey();
-    ra_hotkey_roms.erase(romName);
-    childs.erase(romName);
-    return -1;
-}
-
-void GUI::launch_game(
-    const std::string& romName, const std::string& system, const std::string& romFile)
-{
-    std::cout << "ActivitiesApp: Launching " << romName << std::endl;
-
-    if (childs.find(romName) != childs.end()) {
-        pid_t pid = childs[romName];
-        pid_t gpid = utils::get_pgid_of_process(pid);
-        utils::resume_process_group(gpid);
-        std::cout << "Resuming process group: " << romName << std::endl;
-        // Restore ra_hotkey only if it existed when we suspended this game
-        auto it = ra_hotkey_roms.find(romName);
-        if (it != ra_hotkey_roms.end()) {
-            utils::restore_ra_hotkey();
-            ra_hotkey_roms.erase(it);
-        }
-        // While the game is active again, stop forcing deletion in GUI
-        keep_ra_hotkey_off = false;
-        // When resuming the GUI later, it will remove the file again
-    } else {
-        fs::path romPath = fs::path(romFile);
-        if (!fs::exists(romPath)) {
-            message_popup("Error", 28, "The rom file not exist", 18, 3000);
-            return;
-        }
-        keep_ra_hotkey_off = false;
-        pid_t pid = fork();
-        if (pid == 0) {
-            setsid();
-            std::string launcher = "/mnt/SDCARD/Emus/" + system + "/default.sh";
-            execl(launcher.c_str(), launcher.c_str(), romFile.c_str(), (char*) NULL);
-            std::cerr << "Failed to launch " << romName << std::endl;
-            exit(1);
-        } else {
-            childs[romName] = pid;
-        }
-    }
 }
 
 Vec2 GUI::render_image(const std::string& image_path, int x, int y, int w, int h, int flags)

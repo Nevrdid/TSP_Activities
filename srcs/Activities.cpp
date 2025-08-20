@@ -3,6 +3,7 @@
 Activities::Activities()
     : cfg()
     , gui(cfg)
+    , game_runner(gui)
 {
     gui.init();
     is_running = true;
@@ -11,6 +12,7 @@ Activities::Activities()
 
 Activities::~Activities()
 {
+    game_runner.stop_all();
     gui.clean();
 }
 
@@ -325,8 +327,8 @@ void Activities::game_list()
         case InputAction::B: is_running = false; break;
         case InputAction::A:
             if (has_rom) {
-                gui.launch_game(rom->name, rom->system, rom->file);
-                pid_t ret = gui.wait_game(rom->name);
+                game_runner.start(rom->name, rom->system, rom->file);
+                pid_t ret = game_runner.wait(rom->name);
                 filtered_roms_list[selected_index]->pid = ret;
                 if (ret == -1 || ret == 0)
                     need_refresh = true;
@@ -338,7 +340,7 @@ void Activities::game_list()
             break;
         case InputAction::ZR:
             if (has_rom && !rom->manual.empty())
-                gui.launch_external(std::string(MANUAL_READER) + " \"" + rom->manual + "\"");
+                game_runner.start_external(std::string(MANUAL_READER) + " \"" + rom->manual + "\"");
             break;
 
         case InputAction::Select:
@@ -354,8 +356,8 @@ void Activities::game_list()
         case InputAction::Y: {
             // Y runs the game (same as A)
             if (has_rom) {
-                gui.launch_game(rom->name, rom->system, rom->file);
-                pid_t ret = gui.wait_game(rom->name);
+                game_runner.start(rom->name, rom->system, rom->file);
+                pid_t ret = game_runner.wait(rom->name);
                 filtered_roms_list[selected_index]->pid = ret;
                 if (ret == -1 || ret == 0)
                     need_refresh = true;
@@ -544,9 +546,9 @@ void Activities::game_detail()
             holdStartTime = lastRepeatTime = std::chrono::steady_clock::now();
             break;
         case InputAction::A:
-            gui.launch_game(rom->name, rom->system, rom->file);
+            game_runner.start(rom->name, rom->system, rom->file);
             {
-                pid_t ret = gui.wait_game(rom->name);
+                pid_t ret = game_runner.wait(rom->name);
                 filtered_roms_list[selected_index]->pid = ret;
                 if (ret == -1 || ret == 0)
                     need_refresh = true;
@@ -554,9 +556,9 @@ void Activities::game_detail()
             break;
         case InputAction::Y:
             // Y runs the game now (same as A)
-            gui.launch_game(rom->name, rom->system, rom->file);
+            game_runner.start(rom->name, rom->system, rom->file);
             {
-                pid_t ret = gui.wait_game(rom->name);
+                pid_t ret = game_runner.wait(rom->name);
                 filtered_roms_list[selected_index]->pid = ret;
                 if (ret == -1 || ret == 0)
                     need_refresh = true;
@@ -564,7 +566,7 @@ void Activities::game_detail()
             break;
         case InputAction::ZL:
             if (!rom->video.empty())
-                gui.launch_external(std::string(VIDEO_PLAYER) + " \"" + rom->video + "\"");
+                game_runner.start_external(std::string(VIDEO_PLAYER) + " \"" + rom->video + "\"");
             break;
         case InputAction::X:
             in_game_detail = false;
@@ -572,7 +574,7 @@ void Activities::game_detail()
             break;
         case InputAction::ZR:
             if (!rom->manual.empty())
-                gui.launch_external(std::string(MANUAL_READER) + " \"" + rom->manual + "\"");
+                game_runner.start_external(std::string(MANUAL_READER) + " \"" + rom->manual + "\"");
             break;
         case InputAction::Menu: menu(rom); break;
         case InputAction::Select:
@@ -696,7 +698,7 @@ void Activities::refresh_db(std::string selected_rom_file)
     roms_list = db.load();
 
     // Reinjects pids for games still running (present in gui.childs)
-    auto& childs = gui.get_childs();
+    auto& childs = game_runner.get_childs();
     for (auto& rom : roms_list) {
         auto it = childs.find(rom.name);
         if (it != childs.end()) {
