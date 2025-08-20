@@ -1,10 +1,5 @@
 #include <GameRunner.h>
 
-std::map<std::string, pid_t>& GameRunner::get_childs()
-{
-    return childs;
-}
-
 GameRunner::GameRunner(GUI& gui)
     : gui(gui)
 {
@@ -51,16 +46,12 @@ void GameRunner::start(
             utils::restore_ra_hotkey();
             ra_hotkey_roms.erase(it);
         }
-        // While the game is active again, stop forcing deletion in GUI
-        keep_ra_hotkey_off = false;
-        // When resuming the GUI later, it will remove the file again
     } else {
         fs::path romPath = fs::path(romFile);
         if (!fs::exists(romPath)) {
             gui.message_popup("Error", 28, "The rom file not exist", 18, 3000);
             return;
         }
-        keep_ra_hotkey_off = false;
         pid_t pid = fork();
         if (pid == 0) {
             setsid();
@@ -136,7 +127,6 @@ pid_t GameRunner::wait(const std::string& romName)
                 utils::suspend_process_group(utils::get_pgid_of_process(pid));
                 std::cout << "ActivitiesApp: Game " << romName << " suspended" << std::endl;
                 // Returning to GUI (suspended): mark and remove ra_hotkey now
-                keep_ra_hotkey_off = true;
                 utils::remove_ra_hotkey();
                 return pid;
             }
@@ -144,8 +134,6 @@ pid_t GameRunner::wait(const std::string& romName)
 
         SDL_Delay(100); // Increased delay to reduce CPU load
     }
-    // Game fully exited: we're back to GUI; ensure ra_hotkey is removed and keep it off
-    keep_ra_hotkey_off = true;
     utils::remove_ra_hotkey();
     ra_hotkey_roms.erase(romName);
     childs.erase(romName);
@@ -168,10 +156,4 @@ void GameRunner::start_external(const std::string& command)
     }
 
     SDL_FlushEvents(SDL_JOYBUTTONDOWN, SDL_JOYBUTTONUP);
-}
-
-void GameRunner::try_rm_ra_hotkey()
-{
-    if (keep_ra_hotkey_off)
-        utils::remove_ra_hotkey();
 }

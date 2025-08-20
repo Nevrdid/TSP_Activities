@@ -311,9 +311,8 @@ Rom DB::load(const std::string& file)
     return rom;
 }
 
-std::vector<Rom> DB::load()
+std::vector<Rom> DB::load(std::vector<Rom> roms)
 {
-    std::vector<Rom> roms;
     std::cout << "DB: Loading all roms." << std::endl;
 
     if (!db) {
@@ -321,13 +320,18 @@ std::vector<Rom> DB::load()
         return roms;
     }
 
-    std::string   query = "SELECT * FROM games_datas";
+    std::string   query = "SELECT * FROM games_datas ORDER_BY last DESC";
     sqlite3_stmt* stmt;
     if (sqlite3_prepare_v2(db, query.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
         std::cerr << "Error preparing SELECT query: " << sqlite3_errmsg(db) << std::endl;
         return roms;
     }
 
+    bool is_reload = !roms.empty();
+    auto it = roms.begin();
+    size_t i = 0;
+    // input roms when reloading and db should have exact same
+    // roms as when can't add roms out of a activity app start ( no reload)
     while (sqlite3_step(stmt) == SQLITE_ROW) {
         Rom rom;
         rom.file = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0)));
@@ -340,38 +344,46 @@ std::vector<Rom> DB::load()
 
         rom.total_time = utils::stringifyTime(rom.time);
         rom.average_time = utils::stringifyTime(rom.count ? rom.time / rom.count : 0);
-
-        {
+        if (!is_reload) {
             std::string imgBase;
             if (std::regex_search(rom.file, best_pattern))
                 imgBase = std::regex_replace(rom.file, best_pattern, R"(/Best/$1/Imgs)");
             else
                 imgBase = std::regex_replace(rom.file, img_pattern, R"(/Imgs/$1)");
             rom.image = imgBase + "/" + rom.name + ".png";
+
+            if (!fs::exists(rom.image))
+                rom.image = "";
+
+            rom.video = std::regex_replace(rom.file, img_pattern, R"(/Videos/$1)") + "/" +
+                        rom.name + ".mp4";
+            if (!fs::exists(rom.video))
+                rom.video = "";
+
+            rom.manual = std::regex_replace(rom.file, img_pattern, R"(/Manuals/$1)") + "/" +
+                         rom.name + ".pdf";
+            if (!fs::exists(rom.manual))
+                rom.manual = "";
+
+            rom.system = std::regex_replace(rom.file, sys_pattern, R"($1)");
+            rom.pid = -1;
+            roms.push_back(rom);
+        } else {
+            rom.image = it->image;
+            rom.video = it->video;
+            rom.manual = it->manual;
+            rom.system = it->system;
+            rom.pid = it->pid;
+            roms[i++] = rom;        
+            it++;
         }
-        if (!fs::exists(rom.image))
-            rom.image = "";
 
-        rom.video =
-            std::regex_replace(rom.file, img_pattern, R"(/Videos/$1)") + "/" + rom.name + ".mp4";
-        if (!fs::exists(rom.video))
-            rom.video = "";
-
-        rom.manual =
-            std::regex_replace(rom.file, img_pattern, R"(/Manuals/$1)") + "/" + rom.name + ".pdf";
-        if (!fs::exists(rom.manual))
-            rom.manual = "";
-
-        rom.system = std::regex_replace(rom.file, sys_pattern, R"($1)");
-        rom.pid = -1;
-
-        roms.push_back(rom);
     }
 
     sqlite3_finalize(stmt);
-    
+
     std::cout << "Loaded " << roms.size() << " roms." << std::endl;
-    for ( const auto& rom : roms) {
+    for (const auto& rom : roms) {
         std::cout << "  - " << rom.name << " (" << rom.file << ")" << std::endl;
     }
     return roms;
