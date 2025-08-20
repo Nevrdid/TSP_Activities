@@ -149,6 +149,8 @@ class GUI
     std::map<std::string, pid_t>& get_childs();
     GUI(const Config& cfg);
     ~GUI();
+
+    void exit_childs();
     void clean();
 
     int init();

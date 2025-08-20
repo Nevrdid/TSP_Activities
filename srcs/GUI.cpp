@@ -1,10 +1,15 @@
 #include "GUI.h"
-#include <map>
+
 #include <errno.h>
+#include <map>
 #include <signal.h>
-std::map<std::string, pid_t>& GUI::get_childs() { return childs; }
+std::map<std::string, pid_t>& GUI::get_childs()
+{
+    return childs;
+}
 
 #include "GUI.h"
+
 #include <SDL.h>
 
 void GUI::draw_green_dot(int x, int y, int radius)
@@ -12,7 +17,7 @@ void GUI::draw_green_dot(int x, int y, int radius)
     SDL_SetRenderDrawColor(renderer, 0, 200, 0, 255); // vert
     for (int dx = -radius; dx <= radius; ++dx) {
         for (int dy = -radius; dy <= radius; ++dy) {
-            if (dx*dx + dy*dy <= radius*radius)
+            if (dx * dx + dy * dy <= radius * radius)
                 SDL_RenderDrawPoint(renderer, x + dx, y + dy);
         }
     }
@@ -32,9 +37,9 @@ void GUI::draw_circle(int x, int y, int radius, SDL_Color color, bool filled)
         // Draw outline in unselected color (visual contour)
         SDL_Color outline = cfg.unselect_color;
         SDL_SetRenderDrawColor(renderer, outline.r, outline.g, outline.b, outline.a);
-        int d = 3 - 2 * radius;
-        int cx = 0;
-        int cy = radius;
+        int  d = 3 - 2 * radius;
+        int  cx = 0;
+        int  cy = radius;
         auto draw8 = [&](int px, int py) {
             SDL_RenderDrawPoint(renderer, x + px, y + py);
             SDL_RenderDrawPoint(renderer, x - px, y + py);
@@ -56,9 +61,9 @@ void GUI::draw_circle(int x, int y, int radius, SDL_Color color, bool filled)
             cx++;
         }
     } else { // outline only
-        int d = 3 - 2 * radius;
-        int cx = 0;
-        int cy = radius;
+        int  d = 3 - 2 * radius;
+        int  cx = 0;
+        int  cy = radius;
         auto draw8 = [&](int px, int py) {
             SDL_RenderDrawPoint(renderer, x + px, y + py);
             SDL_RenderDrawPoint(renderer, x - px, y + py);
@@ -92,10 +97,17 @@ void GUI::draw_checkmark(int x, int y, int size, SDL_Color color)
         int err = dx + dy, e2;
         while (true) {
             SDL_RenderDrawPoint(renderer, x0, y0);
-            if (x0 == x1 && y0 == y1) break;
+            if (x0 == x1 && y0 == y1)
+                break;
             e2 = 2 * err;
-            if (e2 >= dy) { err += dy; x0 += sx; }
-            if (e2 <= dx) { err += dx; y0 += sy; }
+            if (e2 >= dy) {
+                err += dy;
+                x0 += sx;
+            }
+            if (e2 <= dx) {
+                err += dx;
+                y0 += sy;
+            }
         }
     };
     int w = size;
@@ -177,12 +189,33 @@ TTF_Font* GUI::get_font(int size)
     return fonts[size];
 }
 
+void GUI::exit_childs()
+{
+    if (childs.empty()) {
+        message_popup("Leaving...", 32, "Good bye", 32, 1000);
+        return;
+    }
+    int status;
+    message_popup("Please wait...", 32, "We save suspended games.", 18, 15);
+    for (const std::pair<std::string, pid_t> child : childs) {
+        utils::resume_process_group(child.second);
+        utils::kill_process_group(child.second);
+        message_popup("Please wait...", 32, "We save suspended games.", 18, 15);
+    }
+    while (waitpid(-1, &status, WNOHANG) > -1) {
+        message_popup("Please wait...", 32, "We save suspended games.", 18, 15);
+    }
+
+    // Fix some child keep erasing fb.
+    for (int i = 0; i < 30; i++)
+        message_popup("Good bye", 32, "Your games are saved.", 18, 15);
+}
+
 void GUI::clean()
 {
-    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-    SDL_RenderClear(renderer);
-    SDL_RenderPresent(renderer);
+    SDL_JoystickClose(joystick);
 
+    exit_childs();
     for (auto& texture : image_cache)
         if (texture.second.texture)
             SDL_DestroyTexture(texture.second.texture);
@@ -193,17 +226,11 @@ void GUI::clean()
             SDL_DestroyTexture(entry.texture);
 
     cached_text.clear();
-    SDL_JoystickClose(joystick);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
 
     for (auto& font : fonts)
         TTF_CloseFont(font.second);
-    for (const std::pair<std::string, pid_t> child : childs) {
-        utils::resume_process_group(child.second);
-        utils::kill_process_group(child.second);
-        waitpid(child.second, NULL, 0);
-    }
 
     SDL_Quit();
 }
@@ -271,9 +298,8 @@ InputAction GUI::map_input(const SDL_Event& e)
 
 void GUI::render()
 {
-    if (keep_ra_hotkey_off) {
+    if (keep_ra_hotkey_off)
         utils::remove_ra_hotkey();
-    }
     SDL_RenderPresent(renderer);
 }
 
@@ -297,33 +323,34 @@ void GUI::launch_external(const std::string& command)
 
 pid_t GUI::wait_game(const std::string& romName)
 {
-    int   combo = 0;
-    int   status = 0;
-    if ( childs.find(romName) == childs.end())
+    int combo = 0;
+    int status = 0;
+    if (childs.find(romName) == childs.end())
         return -1;
-        
+
     pid_t pid = childs[romName];
 
-
     std::cout << "ActivitiesApp: Waiting for " << romName << " (PID: " << pid << ")" << std::endl;
-    
+
     // Pause the GUI interface while the game is running
     SDL_FlushEvents(SDL_FIRSTEVENT, SDL_LASTEVENT);
-    
+
     while (true) {
         // Check if the process still exists
         if (kill(pid, 0) != 0 && errno == ESRCH) {
-            std::cout << "ActivitiesApp: Game " << romName << " exited (process no longer exists)" << std::endl;
+            std::cout << "ActivitiesApp: Game " << romName << " exited (process no longer exists)"
+                      << std::endl;
             break;
         }
-        
+
         // Check if the process has terminated
         pid_t result = waitpid(pid, &status, WNOHANG);
         if (result == pid) {
-            std::cout << "ActivitiesApp: Game " << romName << " exited with status " << status << std::endl;
+            std::cout << "ActivitiesApp: Game " << romName << " exited with status " << status
+                      << std::endl;
             break;
         }
-        
+
         // Process SDL events
         SDL_Event e;
         while (SDL_PollEvent(&e)) {
@@ -342,8 +369,8 @@ pid_t GUI::wait_game(const std::string& romName)
             }
             if (combo == 3) {
                 // Before suspending, remember if ra_hotkey existed to restore later
-                if (utils::ra_hotkey_exists()) 
-                  ra_hotkey_roms.insert(romName);
+                if (utils::ra_hotkey_exists())
+                    ra_hotkey_roms.insert(romName);
                 utils::suspend_process_group(utils::get_pgid_of_process(pid));
                 std::cout << "ActivitiesApp: Game " << romName << " suspended" << std::endl;
                 // Returning to GUI (suspended): mark and remove ra_hotkey now
@@ -352,7 +379,7 @@ pid_t GUI::wait_game(const std::string& romName)
                 return pid;
             }
         }
-        
+
         SDL_Delay(100); // Increased delay to reduce CPU load
     }
     // Game fully exited: we're back to GUI; ensure ra_hotkey is removed and keep it off
@@ -384,9 +411,9 @@ void GUI::launch_game(
         // When resuming the GUI later, it will remove the file again
     } else {
         fs::path romPath = fs::path(romFile);
-        if ( !fs::exists(romPath)) {
-          message_popup("Error", 28,"The rom file not exist", 18, 5);
-          return;
+        if (!fs::exists(romPath)) {
+            message_popup("Error", 28, "The rom file not exist", 18, 3000);
+            return;
         }
         keep_ra_hotkey_off = false;
         pid_t pid = fork();
@@ -537,7 +564,7 @@ void GUI::render_scrollable_text(
     }
 
     Uint32 current_time = SDL_GetTicks();
-    
+
     if (end_pause) {
         if (current_time - end_pause_start > 800) {
             scroll_reset = true;
@@ -599,9 +626,9 @@ void GUI::display_keybind(const std::string& btn1, const std::string& btn2, cons
     int prevX =
         render_image(cfg.theme_path + "skin/" + buttons_icons[btn1], x, Height - 20, 30, 30).x;
 
-    prevX =
-        render_image(cfg.theme_path + "skin/" + buttons_icons[btn2], x + prevX + 6, Height - 20, 30, 30)
-            .x;
+    prevX = render_image(
+        cfg.theme_path + "skin/" + buttons_icons[btn2], x + prevX + 6, Height - 20, 30, 30)
+                .x;
     render_text(text, x + 4 * prevX / 2, Height - 32, FONT_MINI_SIZE, cfg.info_color);
 };
 
@@ -683,12 +710,15 @@ bool GUI::confirmation_popup(const std::string& message, int font_size)
     return confirmed;
 }
 
-void GUI::message_popup(std::string title, int title_size, std::string message, int message_size, int duration) {
+void GUI::message_popup(
+    std::string title, int title_size, std::string message, int message_size, int duration)
+{
     render_image(cfg.theme_path + "skin/pop-bg.png", Width / 2, Height / 2, Width / 3, Height / 3);
-    render_text(title, Width / 2, Height / 3 + 2 * title_size, title_size, cfg.title_color, 0, true);
+    render_text(
+        title, Width / 2, Height / 3 + 2 * title_size, title_size, cfg.title_color, 0, true);
     render_text(message, Width / 2, Height / 2, message_size, cfg.selected_color, 0, true);
     render();
-    sleep(duration);
+    SDL_Delay(duration);
 }
 
 void GUI::infos_window(std::string title, int title_size,
