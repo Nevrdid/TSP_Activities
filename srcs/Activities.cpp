@@ -223,23 +223,23 @@ void Activities::game_list()
         }
 
         // Green dot if game is running (pid != -1)
-        size_t name_offset = 15;
+        int offset = 5;
 
         if (rom->completed)
-            gui.render_image(
-                std::string(APP_DIR) + "/.assets/green_check.svg", x, y, 16, 16, IMG_NONE);
+            offset += gui.render_image(
+                std::string(APP_DIR) + "/.assets/green_check.svg", x + offset, y + FONT_MIDDLE_SIZE / 2, 16, 16, IMG_NONE).x;
         if (rom->pid != -1)
-            name_offset += gui.render_image(std::string(APP_DIR) + "/.assets/green_dot.svg", x + 16,
-                                  y, 16, 16, IMG_NONE)
+            offset += gui.render_image(std::string(APP_DIR) + "/.assets/green_dot.svg", x + offset,
+                                  y + FONT_MIDDLE_SIZE / 2, 16, 16, IMG_NONE)
                                .x;
-
+        offset = std::max(15, offset);
         // Display game name (accounting for the icons)
         if (j == selected_index) {
-            gui.render_scrollable_text(rom->name, x + name_offset, y + 2,
-                prevSize.x - 5 - name_offset, FONT_MIDDLE_SIZE, color);
+            gui.render_scrollable_text(rom->name, x + offset, y + 2,
+                prevSize.x - 5 - offset, FONT_MIDDLE_SIZE, color);
         } else {
-            gui.render_text(rom->name, x + name_offset, y + 2, FONT_MIDDLE_SIZE, color,
-                prevSize.x - 5 - name_offset);
+            gui.render_text(rom->name, x + offset, y + 2, FONT_MIDDLE_SIZE, color,
+                prevSize.x - 5 - offset);
         }
 
         gui.render_multicolor_text(
