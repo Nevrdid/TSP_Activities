@@ -2,33 +2,37 @@
 
 Config::Config()
 {
-    std::ifstream file(std::string(APP_DIR) + "data/config.ini");
-
+    std::ifstream  file;
+    std::string    skins;
+    std::string    backgrounds;
+    nlohmann::json j;
+    file = std::ifstream("/mnt/UDISK/system.json");
     if (file.is_open()) {
-        std::string line;
-        while (std::getline(file, line)) {
-            std::istringstream is_line(line);
-            std::string        key;
-            if (std::getline(is_line, key, '=')) {
-                std::string value;
-                if (std::getline(is_line, value)) {
-                    if (key == "backgrounds_theme") {
-                        backgrounds_theme = value;
-                    } else if (key == "skins_theme") {
-                        skins_theme = value;
-                    }
-                }
-            }
-        }
+        file >> j;
+        theme_path = j.value("theme", "");
+        if (theme_path == "../res/")
+            theme_path = "/mnt/SDCARD/Themes/CrossMix - OS/";
+
+        file.close();
+        std::string theme_config = theme_path + "/config.json";
+        if (fs::exists(theme_config))
+            load_theme(theme_config);
+        selected_color = theme.fontColor["content_color4"];
+        unselect_color = theme.fontColor["content_color1"];
+        title_color = theme.fontColor["nav_color1"];
+        info_color = theme.fontColor["stat_color1"];
+    } else {
+        exit(1);
     }
-    theme_path = "/mnt/SDCARD/Themes/" + skins_theme + "/";
-    std::string theme_config = theme_path + "/config.json";
-    if (fs::exists(theme_config))
-        load_theme(theme_config);
-    selected_color = theme.fontColor["content_color4"];
-    unselect_color = theme.fontColor["content_color1"];
-    title_color = theme.fontColor["nav_color1"];
-    info_color = theme.fontColor["stat_color1"];
+
+    file = std::ifstream("/mnt/SDCARD/System/etc/crossmix.json");
+    if (file.is_open()) {
+        file >> j;
+        backgrounds_theme = j.value("BACKGROUNDS", "");
+        file.close();
+    } else {
+        exit(1);
+    }
 }
 
 bool Config::load_theme(const std::string& filePath)
