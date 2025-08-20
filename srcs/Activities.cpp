@@ -23,36 +23,11 @@ void Activities::switch_completed()
         return;
     }
 
-    Rom& rom = filtered_roms_list[selected_index];
-    int pid = rom.pid;
-    DB   db;
-    for (auto& r : roms_list) {
-        if (r.file == rom.file) {
-            r = rom = db.save(rom.file, 0, rom.completed ? 0 : 1);
-            r.pid = pid;
-            rom.pid = pid;
-            break;
-        }
-    }
-}
+    Rom& rom = *filtered_roms_list[selected_index];
 
-void Activities::set_pid(pid_t pid)
-{
-    // Safety check
-    if (filtered_roms_list.empty() ||
-        selected_index >= static_cast<int>(filtered_roms_list.size())) {
-        std::cerr << "Error: Invalid ROM access in set_pid()" << std::endl;
-        return;
-    }
-
-    Rom& rom = filtered_roms_list[selected_index];
-    DB   db;
-    for (auto& r : roms_list) {
-        if (r.file == rom.file) {
-            r.pid = rom.pid = pid;
-            break;
-        }
-    }
+    rom.completed = rom.completed ? 0 : 1;
+    DB db;
+    rom = db.save(rom);
 }
 
 void Activities::filter_roms()
@@ -65,13 +40,13 @@ void Activities::filter_roms()
 
     filtered_roms_list.clear();
     total_time = 0;
-    for (const auto& rom : roms_list) {
-        if (rom.system == current_system || system_index == 0) {
-            if (filter_state == 0 || (filter_state == 1 && rom.pid != -1) ||
-                (filter_state == 2 && rom.completed == 1) ||
-                (filter_state == 3 && rom.completed == 0)) {
-                filtered_roms_list.push_back(rom);
-                total_time += rom.time;
+    for (auto it = roms_list.begin(); it != roms_list.end(); it++) {
+        if (it->system == current_system || system_index == 0) {
+            if (filter_state == 0 || (filter_state == 1 && it->pid != -1) ||
+                (filter_state == 2 && it->completed == 1) ||
+                (filter_state == 3 && it->completed == 0)) {
+                filtered_roms_list.push_back(it);
+                total_time += it->time;
             }
         }
     }
@@ -88,19 +63,27 @@ void Activities::sort_roms()
     switch (sort_by) {
     case Sort::Name:
         std::sort(filtered_roms_list.begin(), filtered_roms_list.end(),
-            [](const Rom& a, const Rom& b) { return a.name < b.name; });
+            [](std::vector<Rom>::iterator a, std::vector<Rom>::iterator b) {
+                return a->name < b->name;
+            });
         break;
     case Sort::Time:
         std::sort(filtered_roms_list.begin(), filtered_roms_list.end(),
-            [](const Rom& a, const Rom& b) { return a.total_time > b.total_time; });
+            [](std::vector<Rom>::iterator a, std::vector<Rom>::iterator b) {
+                return a->total_time > b->total_time;
+            });
         break;
     case Sort::Count:
         std::sort(filtered_roms_list.begin(), filtered_roms_list.end(),
-            [](const Rom& a, const Rom& b) { return a.count > b.count; });
+            [](std::vector<Rom>::iterator a, std::vector<Rom>::iterator b) {
+                return a->count > b->count;
+            });
         break;
     case Sort::Last:
         std::sort(filtered_roms_list.begin(), filtered_roms_list.end(),
-            [](const Rom& a, const Rom& b) { return a.last > b.last; });
+            [](std::vector<Rom>::iterator a, std::vector<Rom>::iterator b) {
+                return a->last > b->last;
+            });
         break;
     }
     gui.reset_scroll();
@@ -142,8 +125,8 @@ void Activities::game_list()
     int y = 80;
     int x = 10;
     for (size_t j = first; j < last; ++j) {
-        const Rom& rom = filtered_roms_list[j];
-        SDL_Color  color =
+        std::vector<Rom>::iterator rom = filtered_roms_list[j];
+        SDL_Color                  color =
             (static_cast<int>(j) == selected_index) ? cfg.selected_color : cfg.unselect_color;
 
         if (static_cast<int>(j) == selected_index) {
@@ -157,24 +140,27 @@ void Activities::game_list()
         // Green dot if game is running (pid != -1)
         size_t name_offset = 15;
 
-        if (rom.completed)
-            gui.render_image(std::string(APP_DIR) + "/.assets/green_check.svg", x, y, 16, 16, IMG_NONE);
-        if (rom.pid != -1)
-            name_offset += gui.render_image(std::string(APP_DIR) + "/.assets/green_dot.svg", x + 16, y, 16, 16, IMG_NONE).x;
+        if (rom->completed)
+            gui.render_image(
+                std::string(APP_DIR) + "/.assets/green_check.svg", x, y, 16, 16, IMG_NONE);
+        if (rom->pid != -1)
+            name_offset += gui.render_image(std::string(APP_DIR) + "/.assets/green_dot.svg", x + 16,
+                                  y, 16, 16, IMG_NONE)
+                               .x;
 
         // Display game name (accounting for the icons)
         if (static_cast<int>(j) == selected_index) {
-            gui.render_scrollable_text(rom.name, x + name_offset, y + 2,
+            gui.render_scrollable_text(rom->name, x + name_offset, y + 2,
                 prevSize.x - 5 - name_offset, FONT_MIDDLE_SIZE, color);
         } else {
-            gui.render_text(rom.name, x + name_offset, y + 2, FONT_MIDDLE_SIZE, color,
+            gui.render_text(rom->name, x + name_offset, y + 2, FONT_MIDDLE_SIZE, color,
                 prevSize.x - 5 - name_offset);
         }
 
         gui.render_multicolor_text(
-            {{"Time: ", cfg.unselect_color}, {rom.total_time, color},
-                {"  Count: ", cfg.unselect_color}, {std::to_string(rom.count), color},
-                {"  Last: ", cfg.unselect_color}, {rom.last, color}},
+            {{"Time: ", cfg.unselect_color}, {rom->total_time, color},
+                {"  Count: ", cfg.unselect_color}, {std::to_string(rom->count), color},
+                {"  Last: ", cfg.unselect_color}, {rom->last, color}},
             x + 15, y + prevSize.y / 2 + 6, FONT_TINY_SIZE);
 
         y += prevSize.y + 8;
@@ -182,7 +168,7 @@ void Activities::game_list()
     if (list_size && gui.Width == 1280 &&
         selected_index < static_cast<int>(filtered_roms_list.size())) {
         gui.render_image(cfg.theme_path + "skin/ic-game-580.png", 1070, 370, 400, 580);
-        gui.render_image(filtered_roms_list[selected_index].image, 1070, 370, 400, 0);
+        gui.render_image(filtered_roms_list[selected_index]->image, 1070, 370, 400, 0);
     }
 
     gui.render_image(cfg.theme_path + "skin/tips-bar-bg.png", gui.Width / 2, gui.Height - 20,
@@ -210,7 +196,7 @@ void Activities::game_list()
         // Make sure filtered_roms_list is not empty before accessing selected_index
         const bool has_rom = !filtered_roms_list.empty() &&
                              selected_index < static_cast<int>(filtered_roms_list.size());
-        const Rom& rom = has_rom ? filtered_roms_list[selected_index] : *(Rom*) nullptr;
+        const Rom& rom = has_rom ? *filtered_roms_list[selected_index] : *(Rom*) nullptr;
         switch (action) {
         case InputAction::Quit: is_running = false; break;
         case InputAction::Up: {
@@ -256,7 +242,7 @@ void Activities::game_list()
             if (has_rom) {
                 gui.launch_game(rom.name, rom.system, rom.file);
                 pid_t ret = gui.wait_game(rom.name);
-                set_pid(ret);
+                filtered_roms_list[selected_index]->pid = ret;
                 if (ret == -1 || ret == 0)
                     need_refresh = true;
             }
@@ -285,7 +271,7 @@ void Activities::game_list()
             if (has_rom) {
                 gui.launch_game(rom.name, rom.system, rom.file);
                 pid_t ret = gui.wait_game(rom.name);
-                set_pid(ret);
+                filtered_roms_list[selected_index]->pid = ret;
                 if (ret == -1 || ret == 0)
                     need_refresh = true;
             }
@@ -399,6 +385,7 @@ void Activities::game_list()
 
 void Activities::game_detail()
 {
+
     // Safety check
     if (filtered_roms_list.empty() ||
         selected_index >= static_cast<int>(filtered_roms_list.size())) {
@@ -407,13 +394,13 @@ void Activities::game_detail()
         return;
     }
 
-    Rom& rom = filtered_roms_list[selected_index];
+    std::vector<Rom>::iterator rom = filtered_roms_list[selected_index];
 
     // Header: Game name
     gui.render_image(cfg.theme_path + "skin/title-bg.png", gui.Width / 2, FONT_MIDDLE_SIZE,
         gui.Width, 2 * FONT_MIDDLE_SIZE);
     gui.render_scrollable_text(
-        rom.name, 10, 0, gui.Width - 2 * 10, FONT_MIDDLE_SIZE, cfg.unselect_color);
+        rom->name, 10, 0, gui.Width - 2 * 10, FONT_MIDDLE_SIZE, cfg.unselect_color);
 
     // Left side: Rom image (reduced size)
     int frameWidth = gui.Width / 2 - 120;  // reduced
@@ -422,9 +409,9 @@ void Activities::game_detail()
     int frameY = gui.Height / 2 - 30; // slightly adjusted upward
     gui.render_image(
         cfg.theme_path + "skin/bg-menu-09.png", frameX, frameY, frameWidth, frameHeight);
-    if (!rom.image.empty()) {
+    if (!rom->image.empty()) {
         int innerW = frameWidth - 40;
-        gui.render_image(rom.image, frameX, frameY, 0, innerW, IMG_FIT | IMG_CENTER);
+        gui.render_image(rom->image, frameX, frameY, 0, innerW, IMG_FIT | IMG_CENTER);
     } else {
         gui.render_image(cfg.theme_path + "skin/ic-keymap-n.png", frameX, frameY);
     }
@@ -465,13 +452,13 @@ void Activities::game_detail()
 
     // Right side: Game details
     std::vector<std::pair<std::string, std::string>> details = {
-        {"Total Time: ", rom.total_time.empty() ? "N/A" : rom.total_time},
-        {"Average Time: ", rom.average_time.empty() ? "N/A" : rom.average_time},
-        {"Last played: ", rom.last.empty() ? "N/A" : rom.last},
-        {"Last session: ", utils::stringifyTime(rom.lastsessiontime)},
-        {"Play count: ", std::to_string(rom.count)},
-        {"System: ", rom.system.empty() ? "N/A" : rom.system},
-        {"Completed: ", rom.completed ? "Yes" : "No"}};
+        {"Total Time: ", rom->total_time.empty() ? "N/A" : rom->total_time},
+        {"Average Time: ", rom->average_time.empty() ? "N/A" : rom->average_time},
+        {"Last played: ", rom->last.empty() ? "N/A" : rom->last},
+        {"Last session: ", utils::stringifyTime(rom->lastsessiontime)},
+        {"Play count: ", std::to_string(rom->count)},
+        {"System: ", rom->system.empty() ? "N/A" : rom->system},
+        {"Completed: ", rom->completed ? "Yes" : "No"}};
     gui.infos_window("Informations", FONT_TINY_SIZE, details, FONT_MINI_SIZE,
         3 * gui.Width / 4 - 10, gui.Height / 2, gui.Width / 2 - 50, gui.Height / 2);
 
@@ -482,7 +469,7 @@ void Activities::game_detail()
     gui.render_text(
         "File:", 50, gui.Height - FONT_MINI_SIZE * 4.5 + 4, FONT_MINI_SIZE, cfg.selected_color);
     gui.render_text(
-        rom.file, 100, gui.Height - FONT_MINI_SIZE * 4.5 + 4, FONT_MINI_SIZE, cfg.info_color);
+        rom->file, 100, gui.Height - FONT_MINI_SIZE * 4.5 + 4, FONT_MINI_SIZE, cfg.info_color);
 
     gui.render_image(cfg.theme_path + "skin/tips-bar-bg.png", gui.Width / 2, gui.Height - 20,
         gui.Width, FONT_MINI_SIZE * 2);
@@ -515,7 +502,7 @@ void Activities::game_detail()
     }
 
     // Y now runs the game; remove Y Video hint
-    if (!rom.manual.empty())
+    if (!rom->manual.empty())
         gui.display_keybind("X", "Manual", gui.Width - 125);
 
     size_t    prev_selected_index = selected_index;
@@ -550,35 +537,35 @@ void Activities::game_detail()
             holdStartTime = lastRepeatTime = std::chrono::steady_clock::now();
             break;
         case InputAction::A:
-            gui.launch_game(rom.name, rom.system, rom.file);
+            gui.launch_game(rom->name, rom->system, rom->file);
             {
-                pid_t ret = gui.wait_game(rom.name);
-                set_pid(ret);
+                pid_t ret = gui.wait_game(rom->name);
+                filtered_roms_list[selected_index]->pid = ret;
                 if (ret == -1 || ret == 0)
                     need_refresh = true;
             }
             break;
         case InputAction::Y:
             // Y runs the game now (same as A)
-            gui.launch_game(rom.name, rom.system, rom.file);
+            gui.launch_game(rom->name, rom->system, rom->file);
             {
-                pid_t ret = gui.wait_game(rom.name);
-                set_pid(ret);
+                pid_t ret = gui.wait_game(rom->name);
+                filtered_roms_list[selected_index]->pid = ret;
                 if (ret == -1 || ret == 0)
                     need_refresh = true;
             }
             break;
         case InputAction::ZL:
-            if (!rom.video.empty())
-                gui.launch_external(std::string(VIDEO_PLAYER) + " \"" + rom.video + "\"");
+            if (!rom->video.empty())
+                gui.launch_external(std::string(VIDEO_PLAYER) + " \"" + rom->video + "\"");
             break;
         case InputAction::X:
             in_game_detail = false;
             leftHolding = rightHolding = false;
             break;
         case InputAction::ZR:
-            if (!rom.manual.empty())
-                gui.launch_external(std::string(MANUAL_READER) + " \"" + rom.manual + "\"");
+            if (!rom->manual.empty())
+                gui.launch_external(std::string(MANUAL_READER) + " \"" + rom->manual + "\"");
             break;
         case InputAction::Menu: {
             // Overlay menu: Complete/Uncomplete, Remove, Global stats, Exit
@@ -596,7 +583,7 @@ void Activities::game_detail()
                 int         centerY = gui.Height / 2;
                 int         ys[4] = {centerY - 90, centerY - 30, centerY + 30, centerY + 90};
                 const char* labels[4] = {
-                    rom.completed ? "Uncomplete" : "Complete", "Remove", "Global stats", "Exit"};
+                    rom->completed ? "Uncomplete" : "Complete", "Remove", "Global stats", "Exit"};
                 for (int i = 0; i < 4; ++i) {
                     Vec2 btnSize = gui.render_image(
                         cfg.theme_path + "skin/btn-bg-" +
@@ -628,10 +615,10 @@ void Activities::game_detail()
                             // Same as Menu action (Remove)
                             if (gui.confirmation_popup("Remove game from DB?", FONT_MIDDLE_SIZE)) {
                                 DB db;
-                                db.remove(rom.file);
+                                db.remove(rom->file);
                                 roms_list.erase(
                                     std::remove_if(roms_list.begin(), roms_list.end(),
-                                        [&rom](const Rom& r) { return r.file == rom.file; }),
+                                        [&rom](const Rom& r) { return r.file == rom->file; }),
                                     roms_list.end());
                                 filter_roms();
                                 in_game_detail = false;
@@ -741,28 +728,32 @@ void Activities::empty_db()
     gui.render();
 }
 
+Rom* Activities::get_rom(const std::string& rom_file)
+{
+    auto it = roms_list.begin();
+    do {
+        if (it->file == rom_file || fs::path(it->file).filename() == fs::path(rom_file)) {
+            std::cout << "ROM " << it->name << "found in database." << std::endl;
+
+            return &(*it);
+            // in_game_detail = true;
+            // Is it needed out of gui init?
+        }
+    } while (it++ != roms_list.end());
+    return nullptr;
+}
+
 void Activities::refresh_db(std::string selected_rom_file)
 {
     // Save the current selected rom file (if any)
     if (selected_rom_file.empty()) {
         if (!filtered_roms_list.empty() &&
             selected_index < static_cast<int>(filtered_roms_list.size()))
-            selected_rom_file = filtered_roms_list[selected_index].file;
+            selected_rom_file = filtered_roms_list[selected_index]->file;
     } else {
         selected_rom_file = utils::shorten_file_path(selected_rom_file);
-        
-        auto it = roms_list.begin();
-        do {
-            if (it->file == selected_rom_file ||
-                fs::path(it->file).filename() == fs::path(selected_rom_file)) {
-                std::cout << "ROM " << it->name << "found in database." << std::endl;
-                // in_game_detail = true;
-                // Is it needed out of gui init?
-                break;
-            }
-        } while (it++ != roms_list.end());
 
-        if (it == roms_list.end()) {
+        if (get_rom(selected_rom_file)) {
             std::cout << "ROM not found in database, creating new entry for: " << selected_rom_file
                       << std::endl;
             DB  db;
@@ -799,32 +790,33 @@ void Activities::refresh_db(std::string selected_rom_file)
     systems.insert(systems.end(), unique_systems.begin(), unique_systems.end());
     filter_roms();
     // Restore selection to the same rom if possible
-    if (!selected_rom_file.empty()) {
-        for (size_t i = 0; i < filtered_roms_list.size(); ++i) {
-            if (filtered_roms_list[i].file == selected_rom_file) {
-                selected_index = i;
-                break;
-            }
+    for (size_t i = 0; i < filtered_roms_list.size(); ++i) {
+        if (filtered_roms_list[i]->file == selected_rom_file) {
+            selected_index = i;
+            break;
         }
     }
+    if (selected_index >= filtered_roms_list.size())
+        selected_index = 0;
     need_refresh = false;
 
-    // Debug: display loaded values
-    if (selected_index >= 0 && selected_index < static_cast<int>(roms_list.size())) {
-        const Rom& loaded_rom = filtered_roms_list[selected_index];
-        std::cout << "Final ROM data:" << std::endl;
-        std::cout << "  Name: " << loaded_rom.name << std::endl;
-        std::cout << "  File: " << loaded_rom.file << std::endl;
-        std::cout << "  Count: " << loaded_rom.count << std::endl;
-        std::cout << "  Time: " << loaded_rom.time << std::endl;
-        std::cout << "  Total time: '" << loaded_rom.total_time << "'" << std::endl;
-        std::cout << "  Average time: '" << loaded_rom.average_time << "'" << std::endl;
-        std::cout << "  System: '" << loaded_rom.system << "'" << std::endl;
-        std::cout << "  Last: '" << loaded_rom.last << "'" << std::endl;
-        std::cout << "  Selected index: " << selected_index << std::endl;
-        std::cout << "  Total ROMs loaded: " << roms_list.size() << std::endl;
-        std::cout << "  Filtered ROMs: " << filtered_roms_list.size() << std::endl;
-    }
+    std::cout << "db_refreshed !! Selected_index: " << selected_index << std::endl;
+    // // Debug: display loaded values
+    // if (selected_index >= 0 && selected_index < static_cast<int>(filtered_roms_list.size())) {
+    //     const Rom* loaded_rom = filtered_roms_list[selected_index];
+    //     std::cout << "Final ROM data:" << std::endl;
+    //     std::cout << "  Name: " << loaded_rom->name << std::endl;
+    //     std::cout << "  File: " << loaded_rom->file << std::endl;
+    //     std::cout << "  Count: " << loaded_rom->count << std::endl;
+    //     std::cout << "  Time: " << loaded_rom->time << std::endl;
+    //     std::cout << "  Total time: '" << loaded_rom->total_time << "'" << std::endl;
+    //     std::cout << "  Average time: '" << loaded_rom->average_time << "'" << std::endl;
+    //     std::cout << "  System: '" << loaded_rom->system << "'" << std::endl;
+    //     std::cout << "  Last: '" << loaded_rom->last << "'" << std::endl;
+    //     std::cout << "  Selected index: " << selected_index << std::endl;
+    //     std::cout << "  Total ROMs loaded: " << roms_list.size() << std::endl;
+    //     std::cout << "  Filtered ROMs: " << filtered_roms_list.size() << std::endl;
+    // }
 }
 
 static const char gui_help[] = {

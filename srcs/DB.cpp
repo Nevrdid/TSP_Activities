@@ -40,9 +40,8 @@ DB::~DB()
     }
 }
 
-Rom DB::save(const std::string& file, int time, int completed)
+Rom DB::save(Rom& rom, int time)
 {
-    Rom rom;
     if (!db) {
         std::cerr << "No connection to SQLite database." << std::endl;
         return rom;
@@ -54,16 +53,6 @@ Rom DB::save(const std::string& file, int time, int completed)
         std::cerr << "Error preparing SELECT query: " << sqlite3_errmsg(db) << std::endl;
         return rom;
     }
-    rom.file = utils::shorten_file_path(file);
-
-    fs::path filepath(file);
-    rom.name = filepath.stem();
-    rom.count = time ? 1 : 0;
-    rom.time = time;
-    rom.last = time ? utils::getCurrentDateTime() : "-";
-    rom.completed = completed == -1 ? 0 : completed;
-    rom.lastsessiontime = 0;
-
     sqlite3_bind_text(stmt, 1, rom.file.c_str(), -1, SQLITE_STATIC);
     int result = sqlite3_step(stmt);
     if (result == SQLITE_ROW) { // Record exists
@@ -86,7 +75,9 @@ Rom DB::save(const std::string& file, int time, int completed)
             rom.lastsessiontime = rom.time; // duration of the last session
             rom.time += db_time;
         }
-        rom.completed = (completed == -1 ? db_completed : completed);
+
+        if (rom.completed == -1)
+            rom.completed = db_completed;
 
         // Only skip update for too-short sessions when we actually recorded a session.
         if (time > 0 && time < 5) {
@@ -116,7 +107,6 @@ Rom DB::save(const std::string& file, int time, int completed)
                 rom.manual = "";
 
             rom.system = std::regex_replace(rom.file, sys_pattern, R"($1)");
-            rom.pid = -1;
             return rom;
         }
 
@@ -168,7 +158,6 @@ Rom DB::save(const std::string& file, int time, int completed)
             rom.manual = "";
 
         rom.system = std::regex_replace(rom.file, sys_pattern, R"($1)");
-        rom.pid = -1;
     } else if (result == SQLITE_DONE) {
         // Initialize ROM metadata even if we don't save to database
 
@@ -193,11 +182,10 @@ Rom DB::save(const std::string& file, int time, int completed)
             rom.manual = "";
 
         rom.system = std::regex_replace(rom.file, sys_pattern, R"($1)");
-        rom.pid = -1;
 
         // When no existing record: if this call only toggles "completed" (time==0),
         // we still want to create an entry; otherwise keep the original guard.
-        if (!(time == 0 && completed != -1)) {
+        if (!(time == 0 && rom.completed != -1)) {
             // Do not record if last session is too short
             if (time < 5) {
                 sqlite3_finalize(stmt);
@@ -226,7 +214,7 @@ Rom DB::save(const std::string& file, int time, int completed)
         sqlite3_bind_int(insert_stmt, 5, rom.lastsessiontime);
         sqlite3_bind_text(insert_stmt, 6, (time == 0 ? std::string("-") : rom.last).c_str(), -1,
             SQLITE_TRANSIENT);
-        sqlite3_bind_int(insert_stmt, 7, (completed == -1 ? 0 : completed));
+        sqlite3_bind_int(insert_stmt, 7, (rom.completed == -1 ? 0 : rom.completed));
 
         if (sqlite3_step(insert_stmt) != SQLITE_DONE) {
             std::cerr << "Error inserting record: " << sqlite3_errmsg(db) << std::endl;
@@ -241,6 +229,22 @@ Rom DB::save(const std::string& file, int time, int completed)
     rom.total_time = utils::stringifyTime(rom.time);
     rom.average_time = utils::stringifyTime(rom.count ? rom.time / rom.count : 0);
     return rom;
+}
+
+Rom DB::save(const std::string& file, int time)
+{
+    Rom rom;
+    rom.file = utils::shorten_file_path(file);
+
+    fs::path filepath(file);
+    rom.name = filepath.stem();
+    rom.count = time ? 1 : 0;
+    rom.time = time;
+    rom.last = time ? utils::getCurrentDateTime() : "-";
+    rom.completed = -1;
+    rom.lastsessiontime = 0;
+    rom.pid = -1;
+    return save(rom, time);
 }
 
 Rom DB::load(const std::string& file)
@@ -365,6 +369,11 @@ std::vector<Rom> DB::load()
     }
 
     sqlite3_finalize(stmt);
+    
+    std::cout << "Loaded " << roms.size() << " roms." << std::endl;
+    for ( const auto& rom : roms) {
+        std::cout << "  - " << rom.name << " (" << rom.file << ")" << std::endl;
+    }
     return roms;
 }
 

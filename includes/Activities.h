@@ -40,7 +40,7 @@ class Activities
     bool                                  refresh_timer_active = false;
 
     std::vector<Rom> roms_list;
-    std::vector<Rom> filtered_roms_list;
+    std::vector<std::vector<Rom>::iterator> filtered_roms_list;
     size_t           list_size = 0;
 
     size_t total_time = 0;
@@ -68,8 +68,8 @@ class Activities
     void sort_roms();
     void filter_roms();
 
+    Rom* get_rom(const std::string &rom_file);
     void switch_completed();
-    void set_pid(pid_t pid);
     void handle_inputs();
     void game_list();
     void game_detail();

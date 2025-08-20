@@ -45,7 +45,8 @@ class DB
   public:
     DB();
     ~DB();
-    Rom              save(const std::string& rom_file, int elapsed_time = 0, int completed = -1);
+    Rom              save(Rom &rom, int time = 0);
+    Rom              save(const std::string& rom_file, int elapsed_time = 0);
     Rom              load(const std::string& rom_file);
     std::vector<Rom> load();
     void             remove(const std::string& file);
