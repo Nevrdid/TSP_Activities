@@ -17,8 +17,7 @@ Activities::~Activities()
 void Activities::switch_completed()
 {
     // Safety check
-    if (filtered_roms_list.empty() ||
-        selected_index >= filtered_roms_list.size()) {
+    if (filtered_roms_list.empty() || selected_index >= filtered_roms_list.size()) {
         std::cerr << "Error: Invalid ROM access in switch_completed()" << std::endl;
         return;
     }
@@ -89,6 +88,93 @@ void Activities::sort_roms()
     gui.reset_scroll();
 }
 
+void Activities::menu(std::vector<Rom>::iterator rom)
+{
+    // Overlay menu: Complete/Uncomplete, Remove, Global stats, Exit
+    bool   has_rom = !filtered_roms_list.empty();
+    bool   menu_running = true;
+    size_t menu_index = 0;
+    while (menu_running) {
+        gui.load_background_texture();
+        gui.render_image(cfg.theme_path + "skin/float-win-mask.png", gui.Width / 2, gui.Height / 2,
+            gui.Width, gui.Height);
+        // Popup background
+        gui.render_image(cfg.theme_path + "skin/pop-bg.png", gui.Width / 2, gui.Height / 2,
+            gui.Width / 3, has_rom ? 260 : 140);
+
+        // Draw options as buttons (4 items)
+        std::vector<std::string> labels;
+        size_t                   y0 = gui.Height / 2 - 30;
+        size_t                   dy = 60;
+        if (has_rom) {
+            labels.push_back(rom->completed ? "Uncomplete" : "Complete");
+            labels.push_back("Remove");
+            y0 = gui.Height/2 - 90;
+            dy = 60;
+        }
+        labels.push_back("Global stats");
+        labels.push_back("Exit");
+        size_t i = 0;
+        for (auto it = labels.begin(); it != labels.end(); it++, i++) {
+            Vec2 btnSize = gui.render_image(
+                cfg.theme_path + "skin/btn-bg-" +
+                    (menu_index == i ? std::string("f") : std::string("n")) + ".png",
+                gui.Width / 2, y0 + dy * i);
+            gui.render_text(labels[i], gui.Width / 2, y0 + dy * i - btnSize.y / 2 + 5, FONT_MIDDLE_SIZE,
+                menu_index == i ? cfg.selected_color : cfg.unselect_color, 0, true);
+        }
+        gui.render();
+
+        SDL_Event me;
+        while (SDL_PollEvent(&me)) {
+            switch (gui.map_input(me)) {
+            case InputAction::Up:
+                menu_index = has_rom ? (menu_index - 1) % 4 : (menu_index - 1) % 2;
+                break; // up
+            case InputAction::Down:
+                menu_index = has_rom ? (menu_index + 1) % 4 : (menu_index + 1) % 2;
+                break; // down
+            case InputAction::B: menu_running = false; break;
+            case InputAction::Quit:
+                is_running = false;
+                menu_running = false;
+                break;
+            case InputAction::A: {
+                if (menu_index == 0 && has_rom) {
+                    // Same as Select action (toggle complete)
+                    switch_completed();
+                    leftHolding = rightHolding = false;
+                } else if (menu_index == 1 && has_rom) {
+                    // Same as Menu action (Remove)
+                    if (gui.confirmation_popup("Remove game from DB?", FONT_MIDDLE_SIZE)) {
+                        DB db;
+                        db.remove(rom->file);
+                        roms_list.erase(std::remove_if(roms_list.begin(), roms_list.end(),
+                                            [&rom](const Rom& r) { return r.file == rom->file; }),
+                            roms_list.end());
+                        filter_roms();
+                        in_game_detail = false;
+                    }
+                    leftHolding = rightHolding = false;
+                } else if (menu_index == 2 || (menu_index == 0 && !has_rom)) {
+                    // Global stats
+                    overall_stats();
+                    leftHolding = rightHolding = false;
+                } else if (menu_index == 3 || (menu_index == 1 && !has_rom)) {
+                    // Exit
+                    is_running = false;
+                    leftHolding = rightHolding = false;
+                }
+                menu_running = false;
+                break;
+            }
+            default: break;
+            }
+        }
+    }
+    gui.unload_background_texture();
+}
+
 void Activities::game_list()
 {
     Vec2 prevSize;
@@ -126,8 +212,7 @@ void Activities::game_list()
     int x = 10;
     for (size_t j = first; j < last; ++j) {
         std::vector<Rom>::iterator rom = filtered_roms_list[j];
-        SDL_Color                  color =
-            (j == selected_index) ? cfg.selected_color : cfg.unselect_color;
+        SDL_Color color = (j == selected_index) ? cfg.selected_color : cfg.unselect_color;
 
         if (j == selected_index) {
             prevSize = gui.render_image(
@@ -165,8 +250,7 @@ void Activities::game_list()
 
         y += prevSize.y + 8;
     }
-    if (list_size && gui.Width == 1280 &&
-        selected_index < filtered_roms_list.size()) {
+    if (list_size && gui.Width == 1280 && selected_index < filtered_roms_list.size()) {
         gui.render_image(cfg.theme_path + "skin/ic-game-580.png", 1070, 370, 400, 580);
         gui.render_image(filtered_roms_list[selected_index]->image, 1070, 370, 400, 0);
     }
@@ -194,9 +278,10 @@ void Activities::game_list()
         }
         InputAction action = gui.map_input(e);
         // Make sure filtered_roms_list is not empty before accessing selected_index
-        const bool has_rom = !filtered_roms_list.empty() &&
-                             selected_index < filtered_roms_list.size();
-        const Rom& rom = has_rom ? *filtered_roms_list[selected_index] : *(Rom*) nullptr;
+        const bool has_rom =
+            !filtered_roms_list.empty() && selected_index < filtered_roms_list.size();
+        std::vector<Rom>::iterator rom =
+            has_rom ? filtered_roms_list[selected_index] : roms_list.end();
         switch (action) {
         case InputAction::Quit: is_running = false; break;
         case InputAction::Up: {
@@ -209,7 +294,7 @@ void Activities::game_list()
             break;
         }
         case InputAction::Down: {
-            if (selected_index <list_size - 1)
+            if (selected_index < list_size - 1)
                 selected_index++;
             // Start auto-scroll downwards
             downHolding = true;
@@ -240,8 +325,8 @@ void Activities::game_list()
         case InputAction::B: is_running = false; break;
         case InputAction::A:
             if (has_rom) {
-                gui.launch_game(rom.name, rom.system, rom.file);
-                pid_t ret = gui.wait_game(rom.name);
+                gui.launch_game(rom->name, rom->system, rom->file);
+                pid_t ret = gui.wait_game(rom->name);
                 filtered_roms_list[selected_index]->pid = ret;
                 if (ret == -1 || ret == 0)
                     need_refresh = true;
@@ -252,8 +337,8 @@ void Activities::game_list()
             gui.reset_scroll();
             break;
         case InputAction::ZR:
-            if (has_rom && !rom.manual.empty())
-                gui.launch_external(std::string(MANUAL_READER) + " \"" + rom.manual + "\"");
+            if (has_rom && !rom->manual.empty())
+                gui.launch_external(std::string(MANUAL_READER) + " \"" + rom->manual + "\"");
             break;
 
         case InputAction::Select:
@@ -269,92 +354,15 @@ void Activities::game_list()
         case InputAction::Y: {
             // Y runs the game (same as A)
             if (has_rom) {
-                gui.launch_game(rom.name, rom.system, rom.file);
-                pid_t ret = gui.wait_game(rom.name);
+                gui.launch_game(rom->name, rom->system, rom->file);
+                pid_t ret = gui.wait_game(rom->name);
                 filtered_roms_list[selected_index]->pid = ret;
                 if (ret == -1 || ret == 0)
                     need_refresh = true;
             }
             break;
         }
-        case InputAction::Menu: {
-            // Overlay menu: Complete/Uncomplete, Remove, Global stats, Exit
-            if (!has_rom)
-                break;
-            bool menu_running = true;
-            int  menu_index = 0; // 0: Complete/Uncomplete, 1: Remove, 2: Global stats, 3: Exit
-            while (menu_running) {
-                gui.load_background_texture();
-                gui.render_image(cfg.theme_path + "skin/float-win-mask.png", gui.Width / 2,
-                    gui.Height / 2, gui.Width, gui.Height);
-                gui.render_image(
-                    cfg.theme_path + "skin/pop-bg.png", gui.Width / 2, gui.Height / 2, 0, 0);
-
-                int         centerY = gui.Height / 2;
-                int         ys[4] = {centerY - 90, centerY - 30, centerY + 30, centerY + 90};
-                const char* labels[4] = {
-                    rom.completed ? "Uncomplete" : "Complete", "Remove", "Global stats", "Exit"};
-                for (int i = 0; i < 4; ++i) {
-                    Vec2 btnSize = gui.render_image(
-                        cfg.theme_path + "skin/btn-bg-" +
-                            (menu_index == i ? std::string("f") : std::string("n")) + ".png",
-                        gui.Width / 2, ys[i]);
-                    gui.render_text(labels[i], gui.Width / 2, ys[i] - btnSize.y / 2,
-                        FONT_MIDDLE_SIZE, menu_index == i ? cfg.selected_color : cfg.unselect_color,
-                        0, true);
-                }
-
-                gui.render();
-
-                SDL_Event me;
-                while (SDL_PollEvent(&me)) {
-                    switch (gui.map_input(me)) {
-                    case InputAction::Up: menu_index = (menu_index + 3) % 4; break;
-                    case InputAction::Down: menu_index = (menu_index + 1) % 4; break;
-                    case InputAction::B: menu_running = false; break;
-                    case InputAction::Quit:
-                        is_running = false;
-                        menu_running = false;
-                        break;
-                    case InputAction::A: {
-                        if (menu_index == 0) {
-                            switch_completed();
-                            upHolding = downHolding = false;
-                        } else if (menu_index == 1) {
-                            if (gui.confirmation_popup("Remove game from DB?", FONT_MIDDLE_SIZE)) {
-                                DB db;
-                                db.remove(rom.file);
-                                roms_list.erase(
-                                    std::remove_if(roms_list.begin(), roms_list.end(),
-                                        [&rom](const Rom& r) { return r.file == rom.file; }),
-                                    roms_list.end());
-                                filter_roms();
-                                if (filtered_roms_list.empty()) {
-                                    is_running = false;
-                                } else if (selected_index >=
-                                           filtered_roms_list.size()) {
-                                    selected_index =
-                                        static_cast<int>(filtered_roms_list.size()) - 1;
-                                }
-                            }
-                            upHolding = downHolding = false;
-                        } else if (menu_index == 2) {
-                            overall_stats();
-                            upHolding = downHolding = false;
-                        } else if (menu_index == 3) {
-                            is_running = false;
-                            upHolding = downHolding = false;
-                        }
-                        menu_running = false;
-                        break;
-                    }
-                    default: break;
-                    }
-                }
-            }
-            gui.unload_background_texture();
-            break;
-        }
+        case InputAction::Menu: menu(rom); break;
         default: break;
         }
     }
@@ -387,8 +395,7 @@ void Activities::game_detail()
 {
 
     // Safety check
-    if (filtered_roms_list.empty() ||
-        selected_index >= filtered_roms_list.size()) {
+    if (filtered_roms_list.empty() || selected_index >= filtered_roms_list.size()) {
         std::cerr << "Error: Invalid ROM access in game_detail()" << std::endl;
         in_game_detail = false;
         return;
@@ -420,7 +427,7 @@ void Activities::game_detail()
     if (filtered_roms_list.size() > 1) {
         size_t    n = filtered_roms_list.size();
         const int maxDots = 20;
-        size_t       displayCount = std::min(n, static_cast<size_t>(maxDots));
+        size_t    displayCount = std::min(n, static_cast<size_t>(maxDots));
         int       dotsRadius = 6;
         int       spacing = 24;
         int       totalDotsWidth = (displayCount - 1) * spacing;
@@ -567,82 +574,7 @@ void Activities::game_detail()
             if (!rom->manual.empty())
                 gui.launch_external(std::string(MANUAL_READER) + " \"" + rom->manual + "\"");
             break;
-        case InputAction::Menu: {
-            // Overlay menu: Complete/Uncomplete, Remove, Global stats, Exit
-            bool menu_running = true;
-            int  menu_index = 0; // 0: Complete/Uncomplete, 1: Remove, 2: Global stats, 3: Exit
-            while (menu_running) {
-                gui.load_background_texture();
-                gui.render_image(cfg.theme_path + "skin/float-win-mask.png", gui.Width / 2,
-                    gui.Height / 2, gui.Width, gui.Height);
-                // Popup background
-                gui.render_image(
-                    cfg.theme_path + "skin/pop-bg.png", gui.Width / 2, gui.Height / 2, 0, 0);
-
-                // Draw options as buttons (4 items)
-                int         centerY = gui.Height / 2;
-                int         ys[4] = {centerY - 90, centerY - 30, centerY + 30, centerY + 90};
-                const char* labels[4] = {
-                    rom->completed ? "Uncomplete" : "Complete", "Remove", "Global stats", "Exit"};
-                for (int i = 0; i < 4; ++i) {
-                    Vec2 btnSize = gui.render_image(
-                        cfg.theme_path + "skin/btn-bg-" +
-                            (menu_index == i ? std::string("f") : std::string("n")) + ".png",
-                        gui.Width / 2, ys[i]);
-                    gui.render_text(labels[i], gui.Width / 2, ys[i] - btnSize.y / 2,
-                        FONT_MIDDLE_SIZE, menu_index == i ? cfg.selected_color : cfg.unselect_color,
-                        0, true);
-                }
-
-                gui.render();
-
-                SDL_Event me;
-                while (SDL_PollEvent(&me)) {
-                    switch (gui.map_input(me)) {
-                    case InputAction::Up: menu_index = (menu_index + 3) % 4; break;   // up
-                    case InputAction::Down: menu_index = (menu_index + 1) % 4; break; // down
-                    case InputAction::B: menu_running = false; break;
-                    case InputAction::Quit:
-                        is_running = false;
-                        menu_running = false;
-                        break;
-                    case InputAction::A: {
-                        if (menu_index == 0) {
-                            // Same as Select action (toggle complete)
-                            switch_completed();
-                            leftHolding = rightHolding = false;
-                        } else if (menu_index == 1) {
-                            // Same as Menu action (Remove)
-                            if (gui.confirmation_popup("Remove game from DB?", FONT_MIDDLE_SIZE)) {
-                                DB db;
-                                db.remove(rom->file);
-                                roms_list.erase(
-                                    std::remove_if(roms_list.begin(), roms_list.end(),
-                                        [&rom](const Rom& r) { return r.file == rom->file; }),
-                                    roms_list.end());
-                                filter_roms();
-                                in_game_detail = false;
-                            }
-                            leftHolding = rightHolding = false;
-                        } else if (menu_index == 2) {
-                            // Global stats
-                            overall_stats();
-                            leftHolding = rightHolding = false;
-                        } else if (menu_index == 3) {
-                            // Exit
-                            is_running = false;
-                            leftHolding = rightHolding = false;
-                        }
-                        menu_running = false;
-                        break;
-                    }
-                    default: break;
-                    }
-                }
-            }
-            gui.unload_background_texture();
-            break;
-        }
+        case InputAction::Menu: menu(rom); break;
         case InputAction::Select:
             switch_completed();
             leftHolding = rightHolding = false;
@@ -660,8 +592,7 @@ void Activities::game_detail()
             auto sinceLast =
                 std::chrono::duration_cast<std::chrono::milliseconds>(now - lastRepeatTime).count();
             if (sinceLast >= detailRepeatIntervalMs) {
-                if (leftHolding &&
-                    selected_index < filtered_roms_list.size() - 1) {
+                if (leftHolding && selected_index < filtered_roms_list.size() - 1) {
                     selected_index++;
                     lastRepeatTime = now;
                 } else if (rightHolding && selected_index > 0) {
@@ -747,8 +678,7 @@ void Activities::refresh_db(std::string selected_rom_file)
 {
     // Save the current selected rom file (if any)
     if (selected_rom_file.empty()) {
-        if (!filtered_roms_list.empty() &&
-            selected_index < filtered_roms_list.size())
+        if (!filtered_roms_list.empty() && selected_index < filtered_roms_list.size())
             selected_rom_file = filtered_roms_list[selected_index]->file;
     } else {
         selected_rom_file = utils::shorten_file_path(selected_rom_file);

@@ -31,17 +31,17 @@ class Activities
     Config cfg;
     GUI    gui;
 
-    bool is_running = false;
-    bool in_game_detail = false;
-    size_t  selected_index = 0;
+    bool   is_running = false;
+    bool   in_game_detail = false;
+    size_t selected_index = 0;
 
     bool                                  need_refresh = false;
     std::chrono::steady_clock::time_point refresh_timer_start;
     bool                                  refresh_timer_active = false;
 
-    std::vector<Rom> roms_list;
+    std::vector<Rom>                        roms_list;
     std::vector<std::vector<Rom>::iterator> filtered_roms_list;
-    size_t           list_size = 0;
+    size_t                                  list_size = 0;
 
     size_t total_time = 0;
     bool   no_list = false;
@@ -68,9 +68,10 @@ class Activities
     void sort_roms();
     void filter_roms();
 
-    Rom* get_rom(const std::string &rom_file);
+    Rom* get_rom(const std::string& rom_file);
     void switch_completed();
     void handle_inputs();
+    void menu(std::vector<Rom>::iterator rom);
     void game_list();
     void game_detail();
     void overall_stats();
