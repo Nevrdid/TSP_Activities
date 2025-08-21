@@ -171,22 +171,6 @@ int GUI::init()
 
 GUI::~GUI()
 {
-}
-
-TTF_Font* GUI::get_font(int size)
-{
-    if (fonts.find(size) == fonts.end()) {
-        fonts[size] = TTF_OpenFont((cfg.theme_path + cfg.theme.font).c_str(), size * 4 / 3);
-        if (!fonts[size]) {
-            std::cerr << "Failed to load font: " << TTF_GetError() << std::endl;
-            return nullptr;
-        }
-    }
-    return fonts[size];
-}
-
-void GUI::clean()
-{
     SDL_JoystickClose(joystick);
 
     for (auto& texture : image_cache)
@@ -206,6 +190,22 @@ void GUI::clean()
         TTF_CloseFont(font.second);
 
     SDL_Quit();
+}
+
+TTF_Font* GUI::get_font(int size)
+{
+    if (fonts.find(size) == fonts.end()) {
+        fonts[size] = TTF_OpenFont((cfg.theme_path + cfg.theme.font).c_str(), size * 4 / 3);
+        if (!fonts[size]) {
+            std::cerr << "Failed to load font: " << TTF_GetError() << std::endl;
+            return nullptr;
+        }
+    }
+    return fonts[size];
+}
+
+void GUI::clean()
+{
 }
 
 InputAction GUI::map_input(const SDL_Event& e)

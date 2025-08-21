@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstdio>
 #include <set>
 #include <string>
 #include <unistd.h>
@@ -29,11 +30,12 @@ class Activities
   public:
     // Allow main to set these for special GUI modes
   private:
-    Config cfg;
-    GUI    gui;
+    Config     cfg;
+    GUI        gui;
     GameRunner game_runner;
 
     bool   is_running = false;
+    bool   interupted = false;
     bool   in_game_detail = false;
     size_t selected_index = 0;
 

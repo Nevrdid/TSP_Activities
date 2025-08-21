@@ -1,33 +1,30 @@
 #include "Activities.h"
 #include "DB.h"
 #include "Timer.h"
+
 #include <cstring>
 #include <fstream>
 #include <sys/stat.h>
 #include <sys/wait.h>
 
 #if __has_include(<filesystem>)
-#include <filesystem>
+#    include <filesystem>
 namespace fs = std::filesystem;
 #elif __has_include(<experimental/filesystem>)
-#include <experimental/filesystem>
+#    include <experimental/filesystem>
 namespace fs = std::experimental::filesystem;
 #else
-#error "No filesystem support"
+#    error "No filesystem support"
 #endif
-static const char timer_help[] = {
-  "activities Timer usage:\n"
-  "\t activities time [option...]* <romFile> <processPID>\n"
-};
+static const char timer_help[] = {"activities Timer usage:\n"
+                                  "\t activities time [option...]* <romFile> <processPID>\n"};
 
-static const char global_help[] = {
-  "activities usage:\n"
-  "\t activities [command] [options] ...\n"
-  "Commands:\n"
-  "\t- gui: Display the gui\n"
-  "\t- time: Time a game and add it to the DB.\n"
-  "\n*use `activities [command] -h for details\n"
-};
+static const char global_help[] = {"activities usage:\n"
+                                   "\t activities [command] [options] ...\n"
+                                   "Commands:\n"
+                                   "\t- gui: Display the gui\n"
+                                   "\t- time: Time a game and add it to the DB.\n"
+                                   "\n*use `activities [command] -h for details\n"};
 
 Timer* Timer::instance = nullptr;
 
@@ -90,11 +87,16 @@ void timer_daemonize(const std::string& rom_file, const std::string& program_pid
         close(devnull);
     }
 
-    Timer        timer(program_pid);
-    unsigned int duration = timer.run();
-
-    DB db;
-    db.save(rom_file, duration);
+    long duration = -1;
+    // a negative duration mean session end with game beeing suspended.
+    Timer timer(program_pid);
+    while (duration < 0) {
+        duration = timer.run();
+        if (abs(duration) >= 30) {
+            DB db;
+            db.save(rom_file, abs(duration));
+        }
+    }
 
     // Notify the original process that saving is finished
     close(pipe_fd[1]);
@@ -178,7 +180,7 @@ int main(int argc, char* argv[])
         } else if (argc == 5 && std::strcmp(argv[3], "-flag") == 0) {
             // Extract the system from the rom path to build the launcher path
             std::string romPath = argv[2];
-            fs::path p(romPath);
+            fs::path    p(romPath);
             std::string system = p.parent_path().parent_path().filename().string();
 
             // Create the temporary script for monitoring
@@ -195,7 +197,7 @@ int main(int argc, char* argv[])
     } else if (std::strcmp(argv[1], "gui") == 0) {
         Activities app;
         // app runner will handle himself if argv[2] is a romfile or a flag.
-        app.run(argc,argv);
+        app.run(argc, argv);
     } else {
         std::cout << global_help << std::endl;
     }

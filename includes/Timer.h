@@ -30,6 +30,7 @@ class Timer
     int                    inotify_fd = -1;
     int                    watch_fd = -1;
     volatile bool          running = false;
+    volatile bool          suspended = false;
     bool                   is_file_mode = false;
     std::string            file_to_watch;
     std::string            watch_dir;
@@ -46,7 +47,7 @@ class Timer
     ~Timer();
 
     static void   timer_handler(int signum);
-    unsigned long run();
+    long run();
     unsigned long run_file_watch();
     bool          file_exists() const;
 };

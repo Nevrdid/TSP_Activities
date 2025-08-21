@@ -79,37 +79,6 @@ Rom DB::save(Rom& rom, int time)
         if (rom.completed == -1)
             rom.completed = db_completed;
 
-        // Only skip update for too-short sessions when we actually recorded a session.
-        if (time > 0 && time < 5) {
-            sqlite3_finalize(stmt);
-            // Populate derived/display fields before returning to avoid blank UI data
-            rom.total_time = utils::stringifyTime(rom.time);
-            rom.average_time = utils::stringifyTime(rom.count ? rom.time / rom.count : 0);
-
-            std::string imgBase;
-            if (std::regex_search(rom.file, best_pattern))
-                imgBase = std::regex_replace(rom.file, best_pattern, R"(/Best/$1/Imgs)");
-            else
-                imgBase = std::regex_replace(rom.file, img_pattern, R"(/Imgs/$1)");
-
-            rom.image = imgBase + "/" + rom.name + ".png";
-            if (!fs::exists(rom.image))
-                rom.image = "";
-
-            rom.video = std::regex_replace(rom.file, img_pattern, R"(/Videos/$1)") + "/" +
-                        rom.name + ".mp4";
-            if (!fs::exists(rom.video))
-                rom.video = "";
-
-            rom.manual = std::regex_replace(rom.file, img_pattern, R"(/Manuals/$1)") + "/" +
-                         rom.name + ".pdf";
-            if (!fs::exists(rom.manual))
-                rom.manual = "";
-
-            rom.system = std::regex_replace(rom.file, sys_pattern, R"($1)");
-            return rom;
-        }
-
         std::string   update_query = "UPDATE games_datas SET name = ?, count = ?, time = ?, "
                                      " lastsessiontime = ?, last = ?, completed = ? WHERE file = ?";
         sqlite3_stmt* update_stmt;
@@ -183,18 +152,6 @@ Rom DB::save(Rom& rom, int time)
 
         rom.system = std::regex_replace(rom.file, sys_pattern, R"($1)");
 
-        // When no existing record: if this call only toggles "completed" (time==0),
-        // we still want to create an entry; otherwise keep the original guard.
-        if (!(time == 0 && rom.completed != -1)) {
-            // Do not record if last session is too short
-            if (time < 5) {
-                sqlite3_finalize(stmt);
-
-                rom.total_time = utils::stringifyTime(rom.time);
-                rom.average_time = utils::stringifyTime(rom.count ? rom.time / rom.count : 0);
-                return rom;
-            }
-        }
         std::string   insert_query = "INSERT INTO games_datas (file, name, count, time, "
                                      "lastsessiontime, last, completed) VALUES (?, ?, ?, ?, ?, ?, ?)";
         sqlite3_stmt* insert_stmt;
@@ -320,7 +277,7 @@ std::vector<Rom> DB::load(std::vector<Rom> roms)
         return roms;
     }
 
-    std::string   query = "SELECT * FROM games_datas ORDER_BY last DESC";
+    std::string   query = "SELECT * FROM games_datas ORDER BY last DESC";
     sqlite3_stmt* stmt;
     if (sqlite3_prepare_v2(db, query.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
         std::cerr << "Error preparing SELECT query: " << sqlite3_errmsg(db) << std::endl;

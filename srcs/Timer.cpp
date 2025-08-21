@@ -89,7 +89,10 @@ void Timer::timer_handler(int signum)
         if (space_count == 2 && ++i < bytes_read) {
             switch (buffer[i]) {
             case 'Z': instance->running = false; return;
-            case 'T': return;
+            case 'T': 
+                if ( instance->elapsed_seconds > 0 )
+                    instance->suspended=true ; 
+                return;
             default: break;
             }
             break;
@@ -185,11 +188,15 @@ unsigned long Timer::run_file_watch()
     return elapsed_seconds;
 }
 
-unsigned long Timer::run()
+long Timer::run()
 {
     if (is_file_mode) {
         return run_file_watch();
     }
+
+    elapsed_seconds = 0;
+    suspended = false;
+    running = true;
     
     struct sigaction sa;
     sa.sa_handler = Timer::timer_handler;
@@ -206,7 +213,7 @@ unsigned long Timer::run()
         std::cerr << "Failed to set timer" << std::endl;
     }
 
-    while (running) {
+    while (running && !suspended) {
         pause();
     }
 
@@ -216,5 +223,5 @@ unsigned long Timer::run()
     timer.it_interval.tv_usec = 0;
     setitimer(ITIMER_REAL, &timer, nullptr);
 
-    return elapsed_seconds;
+    return suspended ? -elapsed_seconds : elapsed_seconds;
 }
