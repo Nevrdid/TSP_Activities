@@ -188,17 +188,20 @@ void Activities::menu(std::vector<Rom>::iterator rom)
                         rom->launcher = str;
                     }
                     break;
-                case MenuAction::AddGame: 
+                case MenuAction::AddGame:
                     str = gui.file_selector(fs::path("/mnt/SDCARD/Roms"), true);
                     if (!str.empty()) {
                         Rom* existing_rom = get_rom(str);
+                        Rom  new_rom;
                         if (existing_rom) {
-                            gui.message_popup("Error", 28, "The rom is already in database.", 18, 2000);
+                            gui.message_popup(
+                                "Error", 28, "The rom is already in database.", 18, 2000);
                         } else {
                             DB db;
-                            roms_list.push_back(db.save(str));
+                            new_rom = db.save(str);
+                            roms_list.push_back(new_rom);
                         }
-                        refresh_db();
+                        refresh_db(existing_rom ? existing_rom->file : new_rom.file);
                     }
                     leftHolding = rightHolding = false;
                     break;
@@ -718,16 +721,17 @@ void Activities::refresh_db(std::string selected_rom_file)
 {
     // Save the current selected rom file (if any)
     if (selected_rom_file.empty()) {
+        filter_roms(); // refresh filtered to avoid iterators invalids if a rom was added to roms_list.
         if (!filtered_roms_list.empty() && selected_index < filtered_roms_list.size())
             selected_rom_file = filtered_roms_list[selected_index]->file;
     } else {
         selected_rom_file = utils::shorten_file_path(selected_rom_file);
 
-        if (get_rom(selected_rom_file)) {
+        if (!get_rom(selected_rom_file)) {
             std::cout << "ROM not found in database, creating new entry for: " << selected_rom_file
                       << std::endl;
             DB  db;
-            Rom new_rom = db.save(selected_rom_file);
+            db.save(selected_rom_file);
         }
     }
 

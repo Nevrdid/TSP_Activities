@@ -1,9 +1,7 @@
 #include "GUI.h"
 
 #include <SDL.h>
-#include <errno.h>
 #include <map>
-#include <signal.h>
 
 void GUI::draw_green_dot(int x, int y, int radius)
 {
