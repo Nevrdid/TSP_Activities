@@ -286,8 +286,6 @@ std::vector<Rom> DB::load(std::vector<Rom> previous_roms)
 
     std::vector<Rom> roms;
     bool             is_reload = !previous_roms.empty();
-    // input roms when reloading and db should have exact same
-    // roms as when can't add roms out of a activity app start ( no reload)
     while (sqlite3_step(stmt) == SQLITE_ROW) {
         Rom rom;
         rom.file = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0)));
@@ -335,6 +333,7 @@ std::vector<Rom> DB::load(std::vector<Rom> previous_roms)
 
             rom.system = std::regex_replace(rom.file, sys_pattern, R"($1)");
         }
+        rom.launcher = utils::get_launcher(rom.system, rom.name);
         roms.push_back(rom);
     }
 

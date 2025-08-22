@@ -1,8 +1,5 @@
 #include "utils.h"
 
-#include <fcntl.h>
-#include <sys/stat.h>
-
 namespace utils
 {
 std::string getCurrentDateTime()
@@ -126,6 +123,70 @@ std::string shorten_file_path(fs::path filepath, std::string unknown_part)
         unknown_part = filepath.filename().string();
         return shorten_file_path(filepath.parent_path(), unknown_part);
     }
+}
+
+std::vector<std::string> get_launchers(const std::string& system)
+{
+    std::vector<std::string> launchers;
+    std::ifstream            sys_cfg2("/mnt/SDCARD/Emus/" + system + "/config.json");
+    if (!sys_cfg2.fail()) {
+        nlohmann::json j;
+        sys_cfg2 >> j;
+        sys_cfg2.close();
+        if (j.contains("launchlist")) {
+            for (const auto& [key, value] : j["launchlist"].items()) {
+                launchers.push_back(value["name"].get<std::string>());
+                std::cout << launchers.back() << std::endl;
+            }
+        }
+    }
+    return launchers;
+}
+
+std::string get_launcher(const std::string& system, const std::string& romName)
+{
+    std::string   ret;
+    std::ifstream game_cfg("/mnt/SDCARD/Roms/" + system + "/.games_config/" + romName + ".cfg");
+    if (!game_cfg.fail()) {
+        std::string line;
+        std::getline(game_cfg, line, '=');
+        std::getline(game_cfg, line, '=');
+        game_cfg.close();
+        ret = line;
+    } else {
+
+        std::ifstream sys_cfg("/mnt/SDCARD/Emus/" + system + "/launchers.cfg");
+        if (!sys_cfg.fail()) {
+            std::string line;
+            std::getline(sys_cfg, line, '=');
+            std::getline(sys_cfg, line, '=');
+            sys_cfg.close();
+            ret = line;
+        } else {
+            std::ifstream sys_cfg2("/mnt/SDCARD/Emus/" + system + "config.json");
+            if (!sys_cfg2.fail()) {
+                nlohmann::json j;
+                sys_cfg2.close();
+                sys_cfg2 >> j;
+
+                if (j.contains("launchlist"))
+                    ret = j["launchlist"][1]["name"].get<std::string>();
+                else
+                    ret = j["launch.sh"].get<std::string>();
+            }
+        }
+    }
+    ret.erase(ret.end() - 1);
+    return ret;
+}
+
+void set_launcher(const std::string& system, const std::string& romName, const std::string& launcher) {
+  std::ofstream game_cfg("/mnt/SDCARD/Roms/" + system + "/.games_config/" + romName + ".cfg");
+  if (!game_cfg.fail()) {
+    game_cfg << "launcher=" << launcher << std::endl;
+    game_cfg.close();
+  }
+  return ;
 }
 
 } // namespace utils

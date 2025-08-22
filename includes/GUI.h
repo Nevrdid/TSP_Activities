@@ -186,4 +186,5 @@ class GUI
     void infos_window(std::string title, int title_size,
         std::vector<std::pair<std::string, std::string>> content, int content_size, int x, int y,
         int width, int height);
+    const std::string string_selector(const std::string& title, std::vector<std::string> inputs);
 };

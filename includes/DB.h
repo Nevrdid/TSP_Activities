@@ -34,6 +34,7 @@ typedef struct
     std::string video;
     std::string manual;
     pid_t         pid;
+    std::string launcher;
 } Rom;
 
 class DB

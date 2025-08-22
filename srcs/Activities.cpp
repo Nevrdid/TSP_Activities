@@ -93,6 +93,7 @@ enum class MenuAction
     SaveNStop,
     CompleteUncomplete,
     Remove,
+    ChangeLauncher,
     GlobalStats,
     Exit
 };
@@ -116,6 +117,7 @@ void Activities::menu(std::vector<Rom>::iterator rom)
             items.push_back(MenuItem(
                 rom->completed ? "Uncomplete" : "Complete", MenuAction::CompleteUncomplete));
             items.push_back(MenuItem("Remove", MenuAction::Remove));
+            items.push_back(MenuItem("Change Launcher", MenuAction::ChangeLauncher));
         }
         items.push_back(MenuItem("Global stats", MenuAction::GlobalStats));
         items.push_back(MenuItem("Exit", MenuAction::Exit));
@@ -139,7 +141,8 @@ void Activities::menu(std::vector<Rom>::iterator rom)
         }
         gui.render();
 
-        SDL_Event me;
+        SDL_Event   me;
+        std::string str;
         while (SDL_PollEvent(&me)) {
             switch (gui.map_input(me)) {
             case InputAction::Up: menu_index = (menu_index - 1) % items.size(); break;   // up
@@ -172,6 +175,13 @@ void Activities::menu(std::vector<Rom>::iterator rom)
                         filter_roms();
                     }
                     leftHolding = rightHolding = false;
+                    break;
+                case MenuAction::ChangeLauncher:
+                    str = gui.string_selector("Select new launcher:", utils::get_launchers(rom->system));
+                    if (!str.empty()) {
+                        utils::set_launcher(rom->system, rom->name, str);
+                        rom->launcher = str;
+                    }
                     break;
                 case MenuAction::GlobalStats:
                     // Global stats
@@ -489,7 +499,7 @@ void Activities::game_detail()
         {"Last session: ", utils::stringifyTime(rom->lastsessiontime)},
         {"Play count: ", std::to_string(rom->count)},
         {"System: ", rom->system.empty() ? "N/A" : rom->system},
-        {"Completed: ", rom->completed ? "Yes" : "No"}};
+        {"Completed: ", rom->completed ? "Yes" : "No"}, {"Launcher: ", rom->launcher}};
     gui.infos_window("Informations", FONT_TINY_SIZE, details, FONT_MINI_SIZE,
         3 * gui.Width / 4 - 10, gui.Height / 2, gui.Width / 2 - 50, gui.Height / 2);
 
@@ -759,6 +769,7 @@ void Activities::refresh_db(std::string selected_rom_file)
         std::cout << "  Total time: '" << loaded_rom->total_time << "'" << std::endl;
         std::cout << "  Average time: '" << loaded_rom->average_time << "'" << std::endl;
         std::cout << "  System: '" << loaded_rom->system << "'" << std::endl;
+        std::cout << "  Launcher: '" << loaded_rom->launcher << "'" << std::endl;
         std::cout << "  Last: '" << loaded_rom->last << "'" << std::endl;
         std::cout << "  Selected index: " << selected_index << std::endl;
         std::cout << "  Total ROMs loaded: " << roms_list.size() << std::endl;

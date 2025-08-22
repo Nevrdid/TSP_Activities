@@ -1,12 +1,9 @@
 #include "GUI.h"
 
+#include <SDL.h>
 #include <errno.h>
 #include <map>
 #include <signal.h>
-
-#include "GUI.h"
-
-#include <SDL.h>
 
 void GUI::draw_green_dot(int x, int y, int radius)
 {
@@ -583,4 +580,43 @@ void GUI::infos_window(std::string title, int title_size,
             {{content[i].first, cfg.selected_color}, {content[i].second, cfg.info_color}},
             x - width / 2 + 20, y0 + dy * i, content_size);
     }
+}
+
+const std::string GUI::string_selector(const std::string &title, std::vector<std::string> inputs)
+{
+    size_t selected_index = 0;
+    bool   running = true;
+    while (running) {
+        load_background_texture();
+        render_image(
+            cfg.theme_path + "skin/float-win-mask.png", Width / 2, Height / 2, Width, Height);
+        render_image(cfg.theme_path + "skin/pop-bg.png", Width / 2, Height / 2, 0, 0);
+        render_text(
+            title, Width / 2, Height / 4, FONT_BIG_SIZE, cfg.title_color, 0, true);
+
+        int y_offset = Height / 3 + FONT_BIG_SIZE;
+        for (size_t i = 0; i < inputs.size(); ++i) {
+            render_text(inputs[i], Width / 2, y_offset, FONT_MIDDLE_SIZE,
+                (i == selected_index) ? cfg.selected_color : cfg.unselect_color, 0, true);
+            y_offset += FONT_MIDDLE_SIZE + 10;
+        }
+
+        render();
+        SDL_Event e;
+        while (SDL_PollEvent(&e)) {
+            switch (map_input(e)) {
+            case InputAction::Up:
+                selected_index = (selected_index - 1 + inputs.size()) % inputs.size();
+                break;
+            case InputAction::Down: selected_index = (selected_index + 1) % inputs.size(); break;
+            case InputAction::B:
+            case InputAction::Quit:
+                return "";
+            case InputAction::A: running = false; break;
+            default: break;
+            }
+        }
+    }
+    unload_background_texture();
+    return inputs[selected_index];
 }
