@@ -47,6 +47,6 @@ std::vector<std::string> get_launchers(const std::string& system);
 std::string get_launcher(const std::string& system, const std::string& romName);
 void set_launcher(const std::string& system, const std::string& romName, const std::string& launcher);
 
-std::vector<std::string> get_directory_content(fs::path location);
+std::vector<std::string> get_directory_content(fs::path location, bool hide_hidden = false);
 std::string shorten_file_path(fs::path filepath, std::string unknown_part = "");
 } // namespace utils

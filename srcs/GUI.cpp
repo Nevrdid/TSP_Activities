@@ -583,10 +583,24 @@ void GUI::infos_window(std::string title, int title_size,
 }
 
 // TODO: Only accept a specific type of file (add vector<string> as argument with filetype accepted)
-const std::string GUI::file_selector(fs::path location)
+const std::string GUI::file_selector(fs::path location, bool hide_empties)
 {
-    std::vector<std::string> content = utils::get_directory_content(location);
-    std::string              sub = string_selector("File explorer", content);
+    std::vector<std::string> content = utils::get_directory_content(location, true);
+    if (hide_empties) {
+        content.erase(std::remove_if(content.begin(), content.end(),
+                          [location](const std::string& sub) {
+                              std::string next = location.string() + "/" + sub;
+                              if (fs::is_empty(fs::path(next)))
+                                  return true;
+                              std::vector<std::string> sub_content =
+                                  utils::get_directory_content(next, true);
+                              return sub_content.size() < 2;
+                          }),
+            content.end());
+    }
+
+    std::string sub = string_selector("File explorer", content);
+
     if (sub.empty())
         return "";
     std::string next = location.string() + "/" + sub;

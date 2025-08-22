@@ -189,7 +189,7 @@ void Activities::menu(std::vector<Rom>::iterator rom)
                     }
                     break;
                 case MenuAction::AddGame: 
-                    str = gui.file_selector(fs::path("/mnt/SDCARD/Roms"));
+                    str = gui.file_selector(fs::path("/mnt/SDCARD/Roms"), true);
                     if (!str.empty()) {
                         Rom* existing_rom = get_rom(str);
                         if (existing_rom) {
