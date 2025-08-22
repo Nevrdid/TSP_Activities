@@ -359,14 +359,14 @@ void GUI::render_multicolor_text(
     }
 }
 
-void GUI::render_text(
+Vec2 GUI::render_text(
     const std::string& text, int x, int y, int font_size, SDL_Color color, int width, bool center)
 {
     CachedText& cached = getCachedText({text, font_size, color});
 
     if (!cached.texture) {
         std::cerr << "Failed to retrieve or cache text texture." << std::endl;
-        return;
+        return {};
     }
 
     if (center) {
@@ -380,6 +380,7 @@ void GUI::render_text(
         SDL_Rect dest_rect = {x, y, cached.width, cached.height};
         SDL_RenderCopy(renderer, cached.texture, nullptr, &dest_rect);
     }
+    return {cached.width, cached.height};
 }
 
 void GUI::render_scrollable_text(
@@ -587,9 +588,11 @@ const std::string GUI::file_selector(fs::path location, bool hide_empties)
     if (hide_empties) {
         content.erase(std::remove_if(content.begin(), content.end(),
                           [location](const std::string& sub) {
-                              if (sub == "..") return false;
+                              if (sub == "..")
+                                  return false;
                               std::string next = location.string() + "/" + sub;
-                              if (fs::status(next).type() == fs::file_type::regular) return false;
+                              if (fs::status(next).type() == fs::file_type::regular)
+                                  return false;
                               if (fs::is_empty(fs::path(next)))
                                   return true;
                               std::vector<std::string> sub_content =
@@ -599,7 +602,7 @@ const std::string GUI::file_selector(fs::path location, bool hide_empties)
             content.end());
     }
 
-    std::string sub = string_selector("File explorer", content);
+    std::string sub = string_selector("File explorer", content, 0, false);
 
     if (sub.empty())
         return "";
@@ -609,36 +612,58 @@ const std::string GUI::file_selector(fs::path location, bool hide_empties)
     return utils::shorten_file_path(next);
 }
 
-const std::string GUI::string_selector(const std::string& title, std::vector<std::string> inputs)
+const std::string GUI::string_selector(const std::string& title, std::vector<std::string> inputs, size_t max_width, bool center)
 {
     bool   running = true;
     size_t selected_index = 0;
     Vec2   prevSize;
-    size_t    list_lines = 8;
+    size_t list_size = inputs.size();
+    size_t lines = std::min(static_cast<int>(inputs.size()), title.empty() ? 11 : 10);
+
+
+    size_t dy = 60; // button : 52 +  8 padding
+
+    if (max_width == 0)
+        max_width = Width  - 50;
+    int height = dy * lines + 8;
+
+    // Calculate width according to inputs length and max_width
+    int maxStrLen = 0;
+    if (!title.empty())
+        maxStrLen = render_text(title,0,-FONT_BIG_SIZE,FONT_BIG_SIZE,cfg.title_color, 0, false).x;
+    for (const auto& input : inputs)
+        maxStrLen = std::max(maxStrLen, render_text(input,0,-FONT_MIDDLE_SIZE,FONT_MIDDLE_SIZE,cfg.selected_color, 0, false).x);
+    size_t width = std::min(static_cast<int>(maxStrLen), static_cast<int>(max_width));
+
+    int x0 = static_cast<int>(Width / 2) - (center ? 0 : width / 2);
+    int y0 = static_cast<int>(Height / 2) - height / 2 + 8;
+
+    int scrollbar_size =
+        list_size > lines ? (Height - y0) / std::min(static_cast<int>(inputs.size()), 50) : 0;
+
     while (running) {
         clean();
-
+        int y = y0;
         load_background_texture();
         render_image(
             cfg.theme_path + "skin/float-win-mask.png", Width / 2, Height / 2, Width, Height);
-        render_image(
-            cfg.theme_path + "skin/pop-bg.png", Width / 2, Height / 2, Width, Height, IMG_CENTER);
-        render_text(title, Width / 2, 30, FONT_BIG_SIZE, cfg.title_color, 0, true);
+        if (!title.empty()) {
+            render_image(
+                cfg.theme_path + "skin/pop-bg.png", Width / 2, Height / 2 - 30, width + 50, height + 60);
+            render_text(title, Width / 2, y0 - 60, FONT_BIG_SIZE, cfg.title_color, 0, true);
+        } else {
+            render_image(cfg.theme_path + "skin/pop-bg.png", Width / 2, Height / 2, width + 50, height);
+        }
 
-        size_t list_size = inputs.size();
+        size_t first =
+            (list_size <= lines)
+                ? 0
+                : std::max(0, static_cast<int>(selected_index) - static_cast<int>(lines) / 2);
+        size_t last = std::min(first + lines, inputs.size());
 
-        size_t first = (list_size <= static_cast<size_t>(list_lines))
-                           ? 0
-                           : std::max(0, static_cast<int>(selected_index) - static_cast<int>(list_lines) / 2);
-        size_t last = std::min(first + list_lines, inputs.size());
-
-        size_t dy = 60;
-        int    y = (Height - (list_lines - 1) * dy) / 2;
-        int    x = 0.1 * Width;
-
-        int scrollbar_size = (Height - y) / std::min(static_cast<int>(inputs.size()), 50);
-        render_image(std::string(APP_DIR) + "/.assets/scroll-v.svg", Width - 40,
-            y + (Height - y - 10) * selected_index / list_size, 50, scrollbar_size, IMG_NONE);
+        if (scrollbar_size)
+            render_image(std::string(APP_DIR) + "/.assets/scroll-v.svg", (Width + width) / 2 - 12,
+                y + (height - scrollbar_size / 2) * selected_index / list_size, 50, scrollbar_size, IMG_NONE);
 
         auto line = inputs.begin() + first;
         for (size_t j = first; j < last; ++j) {
@@ -646,16 +671,18 @@ const std::string GUI::string_selector(const std::string& title, std::vector<std
 
             prevSize = render_image(cfg.theme_path + "skin/list-item-1line-sort-bg-" +
                                         (j == selected_index ? "f" : "n") + ".png",
-                x, y, Width * 0.8, dy, IMG_NONE);
+                x0, y + (center ? (dy - 8) / 2 : 0), width + 4, dy - 8,
+                center ? IMG_CENTER : IMG_NONE);
 
-            if (j == selected_index) {
-                render_scrollable_text(*line, x, y + 2, prevSize.x - 5, FONT_MIDDLE_SIZE, color);
+            if (j == selected_index && !center) {
+                render_scrollable_text(*line, x0, y + 2, prevSize.x - 5, FONT_MIDDLE_SIZE, color);
             } else {
-                render_text(*line, x, y + 2, FONT_MIDDLE_SIZE, color, prevSize.x - 5);
+                render_text(*line, x0, y + 2, FONT_MIDDLE_SIZE, color, prevSize.x - 5,
+                    center ? true : false);
             }
 
             line++;
-            y += prevSize.y + 8;
+            y += dy;
         }
         render();
 
@@ -675,11 +702,11 @@ const std::string GUI::string_selector(const std::string& title, std::vector<std
                 break;
             }
             case InputAction::Left:
-                selected_index = selected_index > list_lines ? selected_index - list_lines : 0;
+                selected_index = selected_index > lines ? selected_index - lines : 0;
                 break;
             case InputAction::Right:
-                selected_index = list_size > list_lines && selected_index < list_size - list_lines
-                                     ? selected_index + list_lines
+                selected_index = list_size > lines && selected_index < list_size - lines
+                                     ? selected_index + lines
                                      : static_cast<int>(list_size) - 1;
                 break;
 

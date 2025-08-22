@@ -34,7 +34,8 @@ namespace fs = std::experimental::filesystem;
 
 #define FONT APP_DIR "assets/Lato-Medium.ttf"
 
-#define FONT_BIG_SIZE 54
+#define FONT_ENORMOUS_SIZE 54
+#define FONT_BIG_SIZE 42
 #define FONT_MIDDLE_SIZE 30
 #define FONT_TINY_SIZE 20
 #define FONT_MINI_SIZE 16
@@ -162,7 +163,7 @@ class GUI
     Vec2 render_image(
         const std::string& image_path, int x, int y, int w = 0, int h = 0, int flags = IMG_CENTER);
 
-    void render_text(const std::string& text, int x, int y, int font_size,
+    Vec2 render_text(const std::string& text, int x, int y, int font_size,
         SDL_Color color = {255, 255, 255, 255}, int width = 0, bool center = false);
 
     void render_multicolor_text(const vecColorString& colored_texts, int x, int y, int font_size);
@@ -188,5 +189,5 @@ class GUI
         int width, int height);
 
     const std::string file_selector(fs::path location, bool hide_empties = false);
-    const std::string string_selector(const std::string& title, std::vector<std::string> inputs);
+    const std::string string_selector(const std::string& title, std::vector<std::string> inputs, size_t max_width=0, bool center = false);
 };

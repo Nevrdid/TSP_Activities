@@ -102,129 +102,67 @@ typedef std::pair<std::string, MenuAction> MenuItem;
 
 void Activities::menu(std::vector<Rom>::iterator rom)
 {
-    // Overlay menu: Complete/Uncomplete, Remove, Global stats, Exit
-    bool   has_rom = !filtered_roms_list.empty();
-    bool   menu_running = true;
-    size_t menu_index = 0;
-    while (menu_running && is_running) {
-        gui.load_background_texture();
-        gui.render_image(cfg.theme_path + "skin/float-win-mask.png", gui.Width / 2, gui.Height / 2,
-            gui.Width, gui.Height);
-
-        std::vector<MenuItem> items;
-        if (has_rom) {
-            if (rom->pid != -1)
-                items.push_back(MenuItem("Save & Stop", MenuAction::SaveNStop));
-            items.push_back(MenuItem(
-                rom->completed ? "Uncomplete" : "Complete", MenuAction::CompleteUncomplete));
-            items.push_back(MenuItem("Remove", MenuAction::Remove));
-            items.push_back(MenuItem("Change Launcher", MenuAction::ChangeLauncher));
-        }
-        items.push_back(MenuItem("Add Game", MenuAction::AddGame));
-        items.push_back(MenuItem("Global stats", MenuAction::GlobalStats));
-        items.push_back(MenuItem("Exit", MenuAction::Exit));
-
-        size_t dy = 60;
-        size_t y0 = (gui.Height - (items.size() - 1) * dy) / 2;
-
-        // Popup background
-        gui.render_image(cfg.theme_path + "skin/pop-bg.png", gui.Width / 2, gui.Height / 2,
-            gui.Width / 3, dy * items.size() + 20);
-
-        size_t i = 0;
-        for (auto it = items.begin(); it != items.end(); it++, i++) {
-            Vec2 btnSize = gui.render_image(
-                cfg.theme_path + "skin/btn-bg-" +
-                    (menu_index == i ? std::string("f") : std::string("n")) + ".png",
-                gui.Width / 2, y0 + dy * i);
-            gui.render_text(items[i].first, gui.Width / 2, y0 + dy * i - btnSize.y / 2 + 5,
-                FONT_MIDDLE_SIZE, menu_index == i ? cfg.selected_color : cfg.unselect_color, 0,
-                true);
-        }
-        gui.render();
-
-        SDL_Event   me;
-        std::string str;
-        while (SDL_PollEvent(&me)) {
-            switch (gui.map_input(me)) {
-            case InputAction::Up:
-                menu_index = (menu_index - 1 + items.size()) % items.size();
-                break;                                                                   // up
-            case InputAction::Down: menu_index = (menu_index + 1) % items.size(); break; // down
-            case InputAction::B: menu_running = false; break;
-            case InputAction::Quit: is_running = false; break;
-            case InputAction::A: {
-                MenuAction choosenAction = items[menu_index].second;
-                switch (choosenAction) {
-                case MenuAction::SaveNStop:
-                    // Same as Select action (toggle complete)
-                    game_runner.stop(rom->file);
-                    rom->pid = -1;
-                    need_refresh = true;
-                    leftHolding = rightHolding = false;
-                    break;
-                case MenuAction::CompleteUncomplete:
-                    // Same as Select action (toggle complete)
-                    switch_completed();
-                    leftHolding = rightHolding = false;
-                    break;
-                case MenuAction::Remove:
-                    // Same as Menu action (Remove)
-                    if (gui.confirmation_popup("Remove game from DB?", FONT_MIDDLE_SIZE)) {
-                        DB db;
-                        db.remove(rom->file);
-                        roms_list.erase(std::remove_if(roms_list.begin(), roms_list.end(),
-                                            [&rom](const Rom& r) { return r.file == rom->file; }),
-                            roms_list.end());
-                        filter_roms();
-                    }
-                    leftHolding = rightHolding = false;
-                    break;
-                case MenuAction::ChangeLauncher:
-                    str = gui.string_selector(
-                        "Select new launcher:", utils::get_launchers(rom->system));
-                    if (!str.empty()) {
-                        utils::set_launcher(rom->system, rom->name, str);
-                        rom->launcher = str;
-                    }
-                    break;
-                case MenuAction::AddGame:
-                    str = gui.file_selector(fs::path("/mnt/SDCARD/Roms"), true);
-                    if (!str.empty()) {
-                        Rom* existing_rom = get_rom(str);
-                        Rom  new_rom;
-                        if (existing_rom) {
-                            gui.message_popup(
-                                "Error", 28, "The rom is already in database.", 18, 2000);
-                        } else {
-                            DB db;
-                            new_rom = db.save(str);
-                            roms_list.push_back(new_rom);
-                        }
-                        refresh_db(existing_rom ? existing_rom->file : new_rom.file);
-                    }
-                    leftHolding = rightHolding = false;
-                    break;
-                case MenuAction::GlobalStats:
-                    // Global stats
-                    overall_stats();
-                    leftHolding = rightHolding = false;
-                    break;
-                case MenuAction::Exit:
-                    // Exit
-                    is_running = false;
-                    leftHolding = rightHolding = false;
-                    break;
-                }
-
-                menu_running = false;
-                break;
-            }
-            default: break;
-            }
-        }
+    std::vector<std::string> items;
+    if (!filtered_roms_list.empty()) {
+        if (rom->pid != -1)
+            items.push_back("Save & Stop");
+        items.push_back(rom->completed ? "Uncomplete" : "Complete");
+        items.push_back("Remove");
+        items.push_back("Change Launcher");
     }
-    gui.unload_background_texture();
+    items.push_back("Add Game");
+    items.push_back("Global stats");
+    items.push_back("Exit");
+
+    std::string choosenAction = gui.string_selector("", items, gui.Width / 3, true);
+
+    if (choosenAction == "Save & Stop") {
+        game_runner.stop(rom->file);
+        rom->pid = -1;
+        need_refresh = true;
+        leftHolding = rightHolding = false;
+    } else if (choosenAction == "Uncomplete" || choosenAction == "Complete") {
+        switch_completed();
+        leftHolding = rightHolding = false;
+    } else if (choosenAction == "Remove") {
+        if (gui.confirmation_popup("Remove game from DB?", FONT_MIDDLE_SIZE)) {
+            DB db;
+            db.remove(rom->file);
+            roms_list.erase(std::remove_if(roms_list.begin(), roms_list.end(),
+                                [&rom](const Rom& r) { return r.file == rom->file; }),
+                roms_list.end());
+            filter_roms();
+        }
+        leftHolding = rightHolding = false;
+    } else if (choosenAction == "Change Launcher") {
+    std::vector<std::string> launchers = utils::get_launchers(rom->system);
+        std::string str =
+            gui.string_selector("Select new launcher:", launchers, gui.Width / 2, true);
+        if (!str.empty()) {
+            utils::set_launcher(rom->system, rom->name, str);
+            rom->launcher = str;
+        }
+    } else if (choosenAction == "Add Game") {
+        std::string str = gui.file_selector(fs::path("/mnt/SDCARD/Roms"), true);
+        if (!str.empty()) {
+            Rom* existing_rom = get_rom(str);
+            Rom  new_rom;
+            if (existing_rom) {
+                gui.message_popup("Error", 28, "The rom is already in database.", 18, 2000);
+            } else {
+                DB db;
+                new_rom = db.save(str);
+                roms_list.push_back(new_rom);
+            }
+            refresh_db(existing_rom ? existing_rom->file : new_rom.file);
+        }
+        leftHolding = rightHolding = false;
+    } else if (choosenAction == "Global stats") {
+        overall_stats();
+        leftHolding = rightHolding = false;
+    } else if (choosenAction == "Exit") {
+        leftHolding = rightHolding = false;
+    }
 }
 
 void Activities::game_list()
@@ -721,7 +659,8 @@ void Activities::refresh_db(std::string selected_rom_file)
 {
     // Save the current selected rom file (if any)
     if (selected_rom_file.empty()) {
-        filter_roms(); // refresh filtered to avoid iterators invalids if a rom was added to roms_list.
+        filter_roms(); // refresh filtered to avoid iterators invalids if a rom was added to
+                       // roms_list.
         if (!filtered_roms_list.empty() && selected_index < filtered_roms_list.size())
             selected_rom_file = filtered_roms_list[selected_index]->file;
     } else {
@@ -730,7 +669,7 @@ void Activities::refresh_db(std::string selected_rom_file)
         if (!get_rom(selected_rom_file)) {
             std::cout << "ROM not found in database, creating new entry for: " << selected_rom_file
                       << std::endl;
-            DB  db;
+            DB db;
             db.save(selected_rom_file);
         }
     }

@@ -72,7 +72,7 @@ class Activities
     void sort_roms();
     void filter_roms();
 
-    Rom* get_rom(const std::string& rom_file);
+    Rom* get_rom(const std::string& rom_file = "");
     void switch_completed();
     void handle_inputs();
     void menu(std::vector<Rom>::iterator rom);
