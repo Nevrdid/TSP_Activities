@@ -190,7 +190,10 @@ std::string get_launcher(const std::string& system, const std::string& romName)
 void set_launcher(
     const std::string& system, const std::string& romName, const std::string& launcher)
 {
-    std::ofstream game_cfg("/mnt/SDCARD/Roms/" + system + "/.games_config/" + romName + ".cfg");
+  std::string cfg_folder("/mnt/SDCARD/Roms/" + system + "/.games_config");
+    if (!fs::exists(cfg_folder))
+        fs::create_directory(cfg_folder);
+    std::ofstream game_cfg(cfg_folder + "/" + romName + ".cfg");
     if (!game_cfg.fail()) {
         game_cfg << "launcher=" << launcher << std::endl;
         game_cfg.close();

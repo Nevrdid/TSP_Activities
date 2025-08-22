@@ -589,7 +589,9 @@ const std::string GUI::file_selector(fs::path location, bool hide_empties)
     if (hide_empties) {
         content.erase(std::remove_if(content.begin(), content.end(),
                           [location](const std::string& sub) {
+                              if (sub == "..") return false;
                               std::string next = location.string() + "/" + sub;
+                              if (fs::status(next).type() == fs::file_type::regular) return false;
                               if (fs::is_empty(fs::path(next)))
                                   return true;
                               std::vector<std::string> sub_content =
@@ -605,7 +607,7 @@ const std::string GUI::file_selector(fs::path location, bool hide_empties)
         return "";
     std::string next = location.string() + "/" + sub;
     if (fs::status(next).type() == fs::file_type::directory)
-        return file_selector(next);
+        return file_selector(next, true);
     return utils::shorten_file_path(next);
 }
 
