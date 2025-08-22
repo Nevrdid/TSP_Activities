@@ -90,7 +90,8 @@ void Timer::timer_handler(int signum)
             switch (buffer[i]) {
             case 'Z': instance->running = false; return;
             case 'T': 
-                if ( instance->elapsed_seconds > 0 )
+                // Keep sum session between sleep until 30 seconds min are reached.
+                if ( instance->elapsed_seconds > 30 ) 
                     instance->suspended=true ; 
                 return;
             default: break;
