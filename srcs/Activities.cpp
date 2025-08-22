@@ -145,7 +145,9 @@ void Activities::menu(std::vector<Rom>::iterator rom)
         std::string str;
         while (SDL_PollEvent(&me)) {
             switch (gui.map_input(me)) {
-            case InputAction::Up: menu_index = (menu_index - 1) % items.size(); break;   // up
+            case InputAction::Up:
+                menu_index = (menu_index - 1 + items.size()) % items.size();
+                break;                                                                   // up
             case InputAction::Down: menu_index = (menu_index + 1) % items.size(); break; // down
             case InputAction::B: menu_running = false; break;
             case InputAction::Quit: is_running = false; break;
@@ -177,7 +179,8 @@ void Activities::menu(std::vector<Rom>::iterator rom)
                     leftHolding = rightHolding = false;
                     break;
                 case MenuAction::ChangeLauncher:
-                    str = gui.string_selector("Select new launcher:", utils::get_launchers(rom->system));
+                    str = gui.string_selector(
+                        "Select new launcher:", utils::get_launchers(rom->system));
                     if (!str.empty()) {
                         utils::set_launcher(rom->system, rom->name, str);
                         rom->launcher = str;
@@ -601,10 +604,7 @@ void Activities::game_detail()
                 game_runner.start_external(std::string(MANUAL_READER) + " \"" + rom->manual + "\"");
             break;
         case InputAction::Menu: menu(rom); break;
-        case InputAction::Select:
-            switch_completed();
-            leftHolding = rightHolding = false;
-            break;
+        case InputAction::Select: break;
         default: break;
         }
     }
