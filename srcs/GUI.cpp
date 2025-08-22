@@ -614,7 +614,7 @@ const std::string GUI::string_selector(const std::string& title, std::vector<std
     bool   running = true;
     size_t selected_index = 0;
     Vec2   prevSize;
-    int    list_lines = 8;
+    size_t    list_lines = 8;
     while (running) {
         clean();
 
@@ -629,7 +629,7 @@ const std::string GUI::string_selector(const std::string& title, std::vector<std
 
         size_t first = (list_size <= static_cast<size_t>(list_lines))
                            ? 0
-                           : std::max(0, static_cast<int>(selected_index) - list_lines / 2);
+                           : std::max(0, static_cast<int>(selected_index) - static_cast<int>(list_lines) / 2);
         size_t last = std::min(first + list_lines, inputs.size());
 
         size_t dy = 60;
@@ -637,8 +637,8 @@ const std::string GUI::string_selector(const std::string& title, std::vector<std
         int    x = 0.1 * Width;
 
         int scrollbar_size = (Height - y) / std::min(static_cast<int>(inputs.size()), 50);
-        render_image(std::string(APP_DIR) + "/.assets/scroll-v.svg", Width - 25,
-            y + (Height - y) * selected_index / list_size, 50, scrollbar_size, IMG_CENTER);
+        render_image(std::string(APP_DIR) + "/.assets/scroll-v.svg", Width - 40,
+            y + (Height - y - 10) * selected_index / list_size, 50, scrollbar_size, IMG_NONE);
 
         auto line = inputs.begin() + first;
         for (size_t j = first; j < last; ++j) {
@@ -675,11 +675,11 @@ const std::string GUI::string_selector(const std::string& title, std::vector<std
                 break;
             }
             case InputAction::Left:
-                selected_index = selected_index > 10 ? selected_index - 10 : 0;
+                selected_index = selected_index > list_lines ? selected_index - list_lines : 0;
                 break;
             case InputAction::Right:
-                selected_index = list_size > 10 && selected_index < list_size - 10
-                                     ? selected_index + 10
+                selected_index = list_size > list_lines && selected_index < list_size - list_lines
+                                     ? selected_index + list_lines
                                      : static_cast<int>(list_size) - 1;
                 break;
 
