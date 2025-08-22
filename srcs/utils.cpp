@@ -135,8 +135,8 @@ std::vector<std::string> get_launchers(const std::string& system)
         sys_cfg2.close();
         if (j.contains("launchlist")) {
             for (const auto& [key, value] : j["launchlist"].items()) {
-                launchers.push_back(value["name"].get<std::string>());
-                std::cout << launchers.back() << std::endl;
+                if (value["launch"].get<std::string>().size() > 1)
+                    launchers.push_back(value["name"].get<std::string>());
             }
         }
     }
@@ -169,10 +169,16 @@ std::string get_launcher(const std::string& system, const std::string& romName)
                 sys_cfg2.close();
                 sys_cfg2 >> j;
 
-                if (j.contains("launchlist"))
-                    ret = j["launchlist"][1]["name"].get<std::string>();
-                else
+                if (j.contains("launchlist")) {
+                    for (const auto& [key, value] : j["launchlist"].items()) {
+                        if (value["launch"].get<std::string>().size() > 1) {
+                            ret = value["name"].get<std::string>();
+                            break;
+                        }
+                    }
+                } else {
                     ret = j["launch.sh"].get<std::string>();
+                }
             }
         }
     }
@@ -180,13 +186,15 @@ std::string get_launcher(const std::string& system, const std::string& romName)
     return ret;
 }
 
-void set_launcher(const std::string& system, const std::string& romName, const std::string& launcher) {
-  std::ofstream game_cfg("/mnt/SDCARD/Roms/" + system + "/.games_config/" + romName + ".cfg");
-  if (!game_cfg.fail()) {
-    game_cfg << "launcher=" << launcher << std::endl;
-    game_cfg.close();
-  }
-  return ;
+void set_launcher(
+    const std::string& system, const std::string& romName, const std::string& launcher)
+{
+    std::ofstream game_cfg("/mnt/SDCARD/Roms/" + system + "/.games_config/" + romName + ".cfg");
+    if (!game_cfg.fail()) {
+        game_cfg << "launcher=" << launcher << std::endl;
+        game_cfg.close();
+    }
+    return;
 }
 
 } // namespace utils
