@@ -695,7 +695,7 @@ Rom* Activities::get_rom(const std::string& rom_file)
             // in_game_detail = true;
             // Is it needed out of gui init?
         }
-    } while (it++ != roms_list.end());
+    } while (++it != roms_list.end());
     return nullptr;
 }
 
