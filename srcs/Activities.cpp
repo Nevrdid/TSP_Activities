@@ -346,8 +346,7 @@ void Activities::game_list()
         case InputAction::A:
             if (has_rom) {
                 game_runner.start(rom->name, rom->system, rom->file);
-                pid_t ret = game_runner.wait(rom->file);
-                filtered_roms_list[selected_index]->pid = ret;
+                rom->pid = game_runner.wait(rom->file);
                 need_refresh = true;
             }
             break;
@@ -374,8 +373,7 @@ void Activities::game_list()
             // Y runs the game (same as A)
             if (has_rom) {
                 game_runner.start(rom->name, rom->system, rom->file);
-                pid_t ret = game_runner.wait(rom->file);
-                filtered_roms_list[selected_index]->pid = ret;
+                rom->pid = game_runner.wait(rom->file);
                 need_refresh = true;
             }
             break;
@@ -571,20 +569,14 @@ void Activities::game_detail()
             break;
         case InputAction::A:
             game_runner.start(rom->name, rom->system, rom->file);
-            {
-                pid_t ret = game_runner.wait(rom->file);
-                filtered_roms_list[selected_index]->pid = ret;
-                need_refresh = true;
-            }
+            rom->pid = game_runner.wait(rom->file);
+            need_refresh = true;
             break;
         case InputAction::Y:
             // Y runs the game now (same as A)
             game_runner.start(rom->name, rom->system, rom->file);
-            {
-                pid_t ret = game_runner.wait(rom->file);
-                filtered_roms_list[selected_index]->pid = ret;
-                need_refresh = true;
-            }
+            rom->pid = game_runner.wait(rom->file);
+            need_refresh = true;
             break;
         case InputAction::ZL:
             if (!rom->video.empty())

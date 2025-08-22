@@ -268,25 +268,24 @@ Rom DB::load(const std::string& file)
     return rom;
 }
 
-std::vector<Rom> DB::load(std::vector<Rom> roms)
+std::vector<Rom> DB::load(std::vector<Rom> previous_roms)
 {
     std::cout << "DB: Loading all roms." << std::endl;
 
     if (!db) {
         std::cerr << "No connection to SQLite database." << std::endl;
-        return roms;
+        return previous_roms;
     }
 
     std::string   query = "SELECT * FROM games_datas ORDER BY last DESC";
     sqlite3_stmt* stmt;
     if (sqlite3_prepare_v2(db, query.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
         std::cerr << "Error preparing SELECT query: " << sqlite3_errmsg(db) << std::endl;
-        return roms;
+        return previous_roms;
     }
 
-    bool is_reload = !roms.empty();
-    auto it = roms.begin();
-    size_t i = 0;
+    std::vector<Rom> roms;
+    bool             is_reload = !previous_roms.empty();
     // input roms when reloading and db should have exact same
     // roms as when can't add roms out of a activity app start ( no reload)
     while (sqlite3_step(stmt) == SQLITE_ROW) {
@@ -301,7 +300,19 @@ std::vector<Rom> DB::load(std::vector<Rom> roms)
 
         rom.total_time = utils::stringifyTime(rom.time);
         rom.average_time = utils::stringifyTime(rom.count ? rom.time / rom.count : 0);
-        if (!is_reload) {
+        rom.pid = -1;
+        if (is_reload) {
+            std::vector<Rom>::iterator previous_rom = std::find_if(previous_roms.begin(),
+                previous_roms.end(), [&](Rom& r) { return r.file == rom.file; });
+            if (previous_rom != previous_roms.end()) {
+                rom.pid = previous_rom->pid;
+                rom.image = previous_rom->image;
+                rom.video = previous_rom->video;
+                rom.manual = previous_rom->manual;
+                rom.system = previous_rom->system;
+            }
+        }
+        if (rom.pid == -1) {
             std::string imgBase;
             if (std::regex_search(rom.file, best_pattern))
                 imgBase = std::regex_replace(rom.file, best_pattern, R"(/Best/$1/Imgs)");
@@ -323,18 +334,8 @@ std::vector<Rom> DB::load(std::vector<Rom> roms)
                 rom.manual = "";
 
             rom.system = std::regex_replace(rom.file, sys_pattern, R"($1)");
-            rom.pid = -1;
-            roms.push_back(rom);
-        } else {
-            rom.image = it->image;
-            rom.video = it->video;
-            rom.manual = it->manual;
-            rom.system = it->system;
-            rom.pid = it->pid;
-            roms[i++] = rom;        
-            it++;
         }
-
+        roms.push_back(rom);
     }
 
     sqlite3_finalize(stmt);
