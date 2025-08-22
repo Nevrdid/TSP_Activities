@@ -126,7 +126,7 @@ class GUI
     SDL_Renderer* renderer = nullptr;
     SDL_Joystick* joystick;
 
-    std::map<int, TTF_Font*>     fonts;
+    std::map<int, TTF_Font*> fonts;
 
     std::vector<CachedText>                    cached_text;
     std::unordered_map<std::string, CachedImg> image_cache;
@@ -144,7 +144,7 @@ class GUI
     void draw_green_dot(int x, int y, int radius = 8);
     void draw_circle(int x, int y, int radius, SDL_Color color, bool filled = true);
     // Draw a check mark centered at (x, y) with given size and color
-    void                          draw_checkmark(int x, int y, int size, SDL_Color color);
+    void draw_checkmark(int x, int y, int size, SDL_Color color);
     GUI(const Config& cfg);
     ~GUI();
 
@@ -159,8 +159,8 @@ class GUI
     void        clear_screen();
     void        render();
 
-    Vec2  render_image(
-         const std::string& image_path, int x, int y, int w = 0, int h = 0, int flags = IMG_CENTER);
+    Vec2 render_image(
+        const std::string& image_path, int x, int y, int w = 0, int h = 0, int flags = IMG_CENTER);
 
     void render_text(const std::string& text, int x, int y, int font_size,
         SDL_Color color = {255, 255, 255, 255}, int width = 0, bool center = false);
@@ -186,5 +186,7 @@ class GUI
     void infos_window(std::string title, int title_size,
         std::vector<std::pair<std::string, std::string>> content, int content_size, int x, int y,
         int width, int height);
+
+    const std::string file_selector(fs::path location);
     const std::string string_selector(const std::string& title, std::vector<std::string> inputs);
 };

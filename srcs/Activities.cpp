@@ -94,6 +94,7 @@ enum class MenuAction
     CompleteUncomplete,
     Remove,
     ChangeLauncher,
+    AddGame,
     GlobalStats,
     Exit
 };
@@ -119,6 +120,7 @@ void Activities::menu(std::vector<Rom>::iterator rom)
             items.push_back(MenuItem("Remove", MenuAction::Remove));
             items.push_back(MenuItem("Change Launcher", MenuAction::ChangeLauncher));
         }
+        items.push_back(MenuItem("Add Game", MenuAction::AddGame));
         items.push_back(MenuItem("Global stats", MenuAction::GlobalStats));
         items.push_back(MenuItem("Exit", MenuAction::Exit));
 
@@ -186,6 +188,23 @@ void Activities::menu(std::vector<Rom>::iterator rom)
                         rom->launcher = str;
                     }
                     break;
+                case MenuAction::AddGame: 
+                    str = gui.file_selector(fs::path("/mnt/SDCARD/Roms"));
+                    if (!str.empty()) {
+                        Rom* existing_rom = get_rom(str);
+                        if (existing_rom) {
+                            gui.message_popup("Error", 28, "The rom is already in database.", 18, 2000);
+                            need_refresh = true;
+                        } else {
+                            DB db;
+                            roms_list.push_back(db.save(str));
+                            need_refresh = true;
+                        }
+                    } else {
+                        gui.message_popup("Error", 28, "Operation canceled", 18, 2000);
+                    }
+                    leftHolding = rightHolding = false;
+                    break;
                 case MenuAction::GlobalStats:
                     // Global stats
                     overall_stats();
@@ -243,17 +262,14 @@ void Activities::game_list()
 
     int y = 80;
     int x = 10;
+
+    std::vector<Rom>::iterator rom = filtered_roms_list[first];
     for (size_t j = first; j < last; ++j) {
-        std::vector<Rom>::iterator rom = filtered_roms_list[j];
         SDL_Color color = (j == selected_index) ? cfg.selected_color : cfg.unselect_color;
 
-        if (j == selected_index) {
-            prevSize = gui.render_image(
-                cfg.theme_path + "skin/list-item-1line-sort-bg-f.png", x, y, 0, 0, IMG_NONE);
-        } else {
-            prevSize = gui.render_image(
-                cfg.theme_path + "skin/list-item-1line-sort-bg-n.png", x, y, 0, 0, IMG_NONE);
-        }
+        prevSize = gui.render_image(cfg.theme_path + "skin/list-item-1line-sort-bg-" +
+                                        (j == selected_index ? "f" : "n") + ".png",
+            x, y, 0, 0, IMG_NONE);
 
         int offset = 5;
 
@@ -282,6 +298,7 @@ void Activities::game_list()
             x + 15, y + prevSize.y / 2 + 6, FONT_TINY_SIZE);
 
         y += prevSize.y + 8;
+        rom++;
     }
     if (list_size && gui.Width == 1280 && selected_index < filtered_roms_list.size()) {
         gui.render_image(cfg.theme_path + "skin/ic-game-580.png", 1070, 370, 400, 580);

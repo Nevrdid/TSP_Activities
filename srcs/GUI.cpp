@@ -582,40 +582,102 @@ void GUI::infos_window(std::string title, int title_size,
     }
 }
 
-const std::string GUI::string_selector(const std::string &title, std::vector<std::string> inputs)
+// TODO: Only accept a specific type of file (add vector<string> as argument with filetype accepted)
+const std::string GUI::file_selector(fs::path location)
 {
-    size_t selected_index = 0;
+    std::vector<std::string> content = utils::get_directory_content(location);
+    std::string              sub = string_selector("File explorer", content);
+    if (sub.empty())
+        return "";
+    std::string next = location.string() + "/" + sub;
+    if (fs::status(next).type() == fs::file_type::directory)
+        return file_selector(next);
+    return utils::shorten_file_path(next);
+}
+
+const std::string GUI::string_selector(const std::string& title, std::vector<std::string> inputs)
+{
     bool   running = true;
+    size_t selected_index = 0;
+    Vec2   prevSize;
+    int    list_lines = 8;
     while (running) {
+        clean();
+
         load_background_texture();
         render_image(
             cfg.theme_path + "skin/float-win-mask.png", Width / 2, Height / 2, Width, Height);
-        render_image(cfg.theme_path + "skin/pop-bg.png", Width / 2, Height / 2, 0, 0);
-        render_text(
-            title, Width / 2, Height / 4, FONT_BIG_SIZE, cfg.title_color, 0, true);
+        render_image(
+            cfg.theme_path + "skin/pop-bg.png", Width / 2, Height / 2, Width, Height, IMG_CENTER);
+        render_text(title, Width / 2, 30, FONT_BIG_SIZE, cfg.title_color, 0, true);
 
-        int y_offset = Height / 3 + FONT_BIG_SIZE;
-        for (size_t i = 0; i < inputs.size(); ++i) {
-            render_text(inputs[i], Width / 2, y_offset, FONT_MIDDLE_SIZE,
-                (i == selected_index) ? cfg.selected_color : cfg.unselect_color, 0, true);
-            y_offset += FONT_MIDDLE_SIZE + 10;
+        size_t list_size = inputs.size();
+
+        size_t first = (list_size <= static_cast<size_t>(list_lines))
+                           ? 0
+                           : std::max(0, static_cast<int>(selected_index) - list_lines / 2);
+        size_t last = std::min(first + list_lines, inputs.size());
+
+        size_t dy = 60;
+        int    y = (Height - (list_lines - 1) * dy) / 2;
+        int    x = 0.1 * Width;
+
+        int scrollbar_size = (Height - y) / std::min(static_cast<int>(inputs.size()), 50);
+        render_image(std::string(APP_DIR) + "/.assets/scroll-v.svg", Width - 25,
+            y + (Height - y) * selected_index / list_size, 50, scrollbar_size, IMG_CENTER);
+
+        auto line = inputs.begin() + first;
+        for (size_t j = first; j < last; ++j) {
+            SDL_Color color = (j == selected_index) ? cfg.selected_color : cfg.unselect_color;
+
+            prevSize = render_image(cfg.theme_path + "skin/list-item-1line-sort-bg-" +
+                                        (j == selected_index ? "f" : "n") + ".png",
+                x, y, Width * 0.8, dy, IMG_NONE);
+
+            if (j == selected_index) {
+                render_scrollable_text(*line, x, y + 2, prevSize.x - 5, FONT_MIDDLE_SIZE, color);
+            } else {
+                render_text(*line, x, y + 2, FONT_MIDDLE_SIZE, color, prevSize.x - 5);
+            }
+
+            line++;
+            y += prevSize.y + 8;
         }
-
         render();
+
+        size_t    prev_selected_index = selected_index;
         SDL_Event e;
         while (SDL_PollEvent(&e)) {
+
             switch (map_input(e)) {
-            case InputAction::Up:
-                selected_index = (selected_index - 1 + inputs.size()) % inputs.size();
+            case InputAction::Up: {
+                if (selected_index > 0)
+                    selected_index--;
                 break;
-            case InputAction::Down: selected_index = (selected_index + 1) % inputs.size(); break;
+            }
+            case InputAction::Down: {
+                if (selected_index < list_size - 1)
+                    selected_index++;
+                break;
+            }
+            case InputAction::Left:
+                selected_index = selected_index > 10 ? selected_index - 10 : 0;
+                break;
+            case InputAction::Right:
+                selected_index = list_size > 10 && selected_index < list_size - 10
+                                     ? selected_index + 10
+                                     : static_cast<int>(list_size) - 1;
+                break;
+
             case InputAction::B:
-            case InputAction::Quit:
-                return "";
+            case InputAction::Quit: return "";
             case InputAction::A: running = false; break;
             default: break;
             }
         }
+
+        if (prev_selected_index != selected_index)
+            reset_scroll();
     }
     unload_background_texture();
     return inputs[selected_index];

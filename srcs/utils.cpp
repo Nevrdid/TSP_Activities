@@ -197,4 +197,19 @@ void set_launcher(
     return;
 }
 
+std::vector<std::string> get_directory_content(fs::path location) {
+  std::vector<std::string> content;
+  if (!fs::exists(location) || !fs::is_directory(location)) {
+    return content;
+  }
+
+  content.push_back("..");
+  for (const auto& entry : fs::directory_iterator(location)) {
+    if (entry.path().filename().string().at(0) != '.')
+        content.push_back(entry.path().filename().string());
+  }
+  return content;
+}
+
+
 } // namespace utils
