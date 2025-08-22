@@ -28,6 +28,14 @@ GameRunner::~GameRunner()
         gui.message_popup("Good bye", 32, "Your games are saved.", 18, 15);
 }
 
+void GameRunner::stop(const std::string& romFile) {
+        pid_t pid = get_child_pid(romFile);
+        pid_t gpid = utils::get_pgid_of_process(pid);
+        utils::resume_process_group(gpid);
+        utils::kill_process_group(pid);
+        childs.erase(romFile);
+}
+
 void GameRunner::export_childs_list()
 {
     if (childs.empty()) {
@@ -42,10 +50,6 @@ void GameRunner::export_childs_list()
         file.flush();
         file.close();
     }
-}
-
-void GameRunner::stop_all()
-{
 }
 
 void GameRunner::start(

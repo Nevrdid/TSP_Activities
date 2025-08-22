@@ -10,7 +10,7 @@ class GameRunner
     GameRunner(GUI& gui);
     ~GameRunner();
 
-    void  stop_all();
+    void  stop(const std::string& romFile);
     void  start(const std::string& romName, const std::string& system, const std::string& rom);
     pid_t wait(const std::string& romFile);
 
@@ -26,5 +26,4 @@ class GameRunner
     std::map<std::string, pid_t>    childs;
 
     GUI& gui;
-
 };

@@ -88,6 +88,16 @@ void Activities::sort_roms()
     gui.reset_scroll();
 }
 
+enum class MenuAction
+{
+    SaveNStop,
+    CompleteUncomplete,
+    Remove,
+    GlobalStats,
+    Exit
+};
+typedef std::pair<std::string, MenuAction> MenuItem;
+
 void Activities::menu(std::vector<Rom>::iterator rom)
 {
     // Overlay menu: Complete/Uncomplete, Remove, Global stats, Exit
@@ -98,29 +108,32 @@ void Activities::menu(std::vector<Rom>::iterator rom)
         gui.load_background_texture();
         gui.render_image(cfg.theme_path + "skin/float-win-mask.png", gui.Width / 2, gui.Height / 2,
             gui.Width, gui.Height);
+
+        std::vector<MenuItem> items;
+        if (has_rom) {
+            if (rom->pid != -1)
+                items.push_back(MenuItem("Save & Stop", MenuAction::SaveNStop));
+            items.push_back(MenuItem(
+                rom->completed ? "Uncomplete" : "Complete", MenuAction::CompleteUncomplete));
+            items.push_back(MenuItem("Remove", MenuAction::Remove));
+        }
+        items.push_back(MenuItem("Global stats", MenuAction::GlobalStats));
+        items.push_back(MenuItem("Exit", MenuAction::Exit));
+
+        size_t dy = 60;
+        size_t y0 = (gui.Height - (items.size() - 1) * dy) / 2;
+
         // Popup background
         gui.render_image(cfg.theme_path + "skin/pop-bg.png", gui.Width / 2, gui.Height / 2,
-            gui.Width / 3, has_rom ? 260 : 140);
+            gui.Width / 3, dy * items.size() + 20);
 
-        // Draw options as buttons (4 items)
-        std::vector<std::string> labels;
-        size_t                   y0 = gui.Height / 2 - 30;
-        size_t                   dy = 60;
-        if (has_rom) {
-            labels.push_back(rom->completed ? "Uncomplete" : "Complete");
-            labels.push_back("Remove");
-            y0 = gui.Height / 2 - 90;
-            dy = 60;
-        }
-        labels.push_back("Global stats");
-        labels.push_back("Exit");
         size_t i = 0;
-        for (auto it = labels.begin(); it != labels.end(); it++, i++) {
+        for (auto it = items.begin(); it != items.end(); it++, i++) {
             Vec2 btnSize = gui.render_image(
                 cfg.theme_path + "skin/btn-bg-" +
                     (menu_index == i ? std::string("f") : std::string("n")) + ".png",
                 gui.Width / 2, y0 + dy * i);
-            gui.render_text(labels[i], gui.Width / 2, y0 + dy * i - btnSize.y / 2 + 5,
+            gui.render_text(items[i].first, gui.Width / 2, y0 + dy * i - btnSize.y / 2 + 5,
                 FONT_MIDDLE_SIZE, menu_index == i ? cfg.selected_color : cfg.unselect_color, 0,
                 true);
         }
@@ -129,20 +142,26 @@ void Activities::menu(std::vector<Rom>::iterator rom)
         SDL_Event me;
         while (SDL_PollEvent(&me)) {
             switch (gui.map_input(me)) {
-            case InputAction::Up:
-                menu_index = has_rom ? (menu_index - 1) % 4 : (menu_index - 1) % 2;
-                break; // up
-            case InputAction::Down:
-                menu_index = has_rom ? (menu_index + 1) % 4 : (menu_index + 1) % 2;
-                break; // down
+            case InputAction::Up: menu_index = (menu_index - 1) % items.size(); break;   // up
+            case InputAction::Down: menu_index = (menu_index + 1) % items.size(); break; // down
             case InputAction::B: menu_running = false; break;
             case InputAction::Quit: is_running = false; break;
             case InputAction::A: {
-                if (menu_index == 0 && has_rom) {
+                MenuAction choosenAction = items[menu_index].second;
+                switch (choosenAction) {
+                case MenuAction::SaveNStop:
+                    // Same as Select action (toggle complete)
+                    game_runner.stop(rom->file);
+                    rom->pid = -1;
+                    need_refresh = true;
+                    leftHolding = rightHolding = false;
+                    break;
+                case MenuAction::CompleteUncomplete:
                     // Same as Select action (toggle complete)
                     switch_completed();
                     leftHolding = rightHolding = false;
-                } else if (menu_index == 1 && has_rom) {
+                    break;
+                case MenuAction::Remove:
                     // Same as Menu action (Remove)
                     if (gui.confirmation_popup("Remove game from DB?", FONT_MIDDLE_SIZE)) {
                         DB db;
@@ -154,15 +173,19 @@ void Activities::menu(std::vector<Rom>::iterator rom)
                         in_game_detail = false;
                     }
                     leftHolding = rightHolding = false;
-                } else if (menu_index == 2 || (menu_index == 0 && !has_rom)) {
+                    break;
+                case MenuAction::GlobalStats:
                     // Global stats
                     overall_stats();
                     leftHolding = rightHolding = false;
-                } else if (menu_index == 3 || (menu_index == 1 && !has_rom)) {
+                    break;
+                case MenuAction::Exit:
                     // Exit
                     is_running = false;
                     leftHolding = rightHolding = false;
+                    break;
                 }
+
                 menu_running = false;
                 break;
             }
@@ -220,7 +243,6 @@ void Activities::game_list()
                 cfg.theme_path + "skin/list-item-1line-sort-bg-n.png", x, y, 0, 0, IMG_NONE);
         }
 
-        // Green dot if game is running (pid != -1)
         int offset = 5;
 
         if (rom->completed)
@@ -403,8 +425,16 @@ void Activities::game_detail()
     // Header: Game name
     gui.render_image(cfg.theme_path + "skin/title-bg.png", gui.Width / 2, FONT_MIDDLE_SIZE,
         gui.Width, 2 * FONT_MIDDLE_SIZE);
+    int offset = 10;
+    if (rom->pid != -1)
+        offset += gui.render_image(std::string(APP_DIR) + "/.assets/green_dot.svg",
+                         offset + FONT_MIDDLE_SIZE / 2, offset + FONT_MIDDLE_SIZE / 2,
+                         FONT_MIDDLE_SIZE * 1.5, FONT_MIDDLE_SIZE * 1.5, IMG_CENTER)
+                      .x +
+                  offset;
+
     gui.render_scrollable_text(
-        rom->name, 10, 0, gui.Width - 2 * 10, FONT_MIDDLE_SIZE, cfg.unselect_color);
+        rom->name, offset, 0, gui.Width - 2 * 10, FONT_MIDDLE_SIZE, cfg.unselect_color);
 
     // Left side: Rom image (reduced size)
     int frameWidth = gui.Width / 2 - 120;  // reduced
