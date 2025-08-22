@@ -170,7 +170,6 @@ void Activities::menu(std::vector<Rom>::iterator rom)
                                             [&rom](const Rom& r) { return r.file == rom->file; }),
                             roms_list.end());
                         filter_roms();
-                        in_game_detail = false;
                     }
                     leftHolding = rightHolding = false;
                     break;
