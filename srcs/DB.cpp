@@ -199,7 +199,7 @@ Rom DB::save(const std::string& file, int time)
     rom.time = time;
     rom.last = time ? utils::getCurrentDateTime() : "-";
     rom.completed = -1;
-    rom.lastsessiontime = 0;
+    rom.lastsessiontime = time;
     rom.pid = -1;
     return save(rom, time);
 }
