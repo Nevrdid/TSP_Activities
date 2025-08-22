@@ -147,7 +147,7 @@ std::string get_launcher(const std::string& system, const std::string& romName)
 {
     std::string   ret;
     std::ifstream game_cfg("/mnt/SDCARD/Roms/" + system + "/.games_config/" + romName + ".cfg");
-    if (!game_cfg.fail()) {
+    if (game_cfg.is_open() && !game_cfg.fail()) {
         std::string line;
         std::getline(game_cfg, line, '=');
         std::getline(game_cfg, line, '=');
@@ -156,18 +156,18 @@ std::string get_launcher(const std::string& system, const std::string& romName)
     } else {
 
         std::ifstream sys_cfg("/mnt/SDCARD/Emus/" + system + "/launchers.cfg");
-        if (!sys_cfg.fail()) {
+        if (sys_cfg.is_open() && !sys_cfg.fail()) {
             std::string line;
             std::getline(sys_cfg, line, '=');
             std::getline(sys_cfg, line, '=');
             sys_cfg.close();
             ret = line;
         } else {
-            std::ifstream sys_cfg2("/mnt/SDCARD/Emus/" + system + "config.json");
-            if (!sys_cfg2.fail()) {
+            std::ifstream sys_cfg2("/mnt/SDCARD/Emus/" + system + "/config.json");
+            if (sys_cfg2.is_open() && !sys_cfg2.fail()) {
                 nlohmann::json j;
-                sys_cfg2.close();
                 sys_cfg2 >> j;
+                sys_cfg2.close();
 
                 if (j.contains("launchlist")) {
                     for (const auto& [key, value] : j["launchlist"].items()) {
@@ -182,7 +182,8 @@ std::string get_launcher(const std::string& system, const std::string& romName)
             }
         }
     }
-    ret.erase(ret.end() - 1);
+    if (ret.empty()) return "-";
+    if (ret.back() == '\n') ret.pop_back();
     return ret;
 }
 
