@@ -194,14 +194,11 @@ void Activities::menu(std::vector<Rom>::iterator rom)
                         Rom* existing_rom = get_rom(str);
                         if (existing_rom) {
                             gui.message_popup("Error", 28, "The rom is already in database.", 18, 2000);
-                            need_refresh = true;
                         } else {
                             DB db;
                             roms_list.push_back(db.save(str));
-                            need_refresh = true;
                         }
-                    } else {
-                        gui.message_popup("Error", 28, "Operation canceled", 18, 2000);
+                        refresh_db();
                     }
                     leftHolding = rightHolding = false;
                     break;
