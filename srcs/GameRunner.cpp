@@ -104,20 +104,21 @@ pid_t GameRunner::get_child_pid(const std::string& romFile)
     return it->second;
 }
 
-pid_t GameRunner::wait(const std::string& romFile)
+std::pair<pid_t, int>   GameRunner::wait(const std::string& romFile)
 {
+    int   combo = 0;
     pid_t pid = get_child_pid(romFile);
     if (pid == -1) {
         std::cerr << "ActivitiesApp: Could not find child process for " << romFile << std::endl;
-        return -1;
+        return {pid, 0};
     }
     std::cout << "GameRunner: Waiting for " << romFile << " (PID: " << pid << ")" << std::endl;
 
     // Pause the GUI interface while the game is running
-    int combo = 0;
     int status = 0;
 
     while (true) {
+
         // Check if the process still exists
         if (kill(pid, 0) != 0 && errno == ESRCH) {
             std::cout << "ActivitiesApp: Game " << romFile << " exited (process no longer exists)"
@@ -131,7 +132,7 @@ pid_t GameRunner::wait(const std::string& romFile)
             // If the game was stoped by a signal, that mostly because of cmd_to_launch_killer.sh
             //    // so we not remove it from child to keep it in autostarts
             if (WIFSIGNALED(status))
-                return pid;
+                return {pid, 3};
             std::cout << "ActivitiesApp: Game " << romFile << " exited with status " << status
                       << std::endl;
             break;
@@ -143,7 +144,7 @@ pid_t GameRunner::wait(const std::string& romFile)
         SDL_Event e;
         while (SDL_PollEvent(&e)) {
             if (e.type == SDL_QUIT)
-                return pid;
+                return {pid, 0};
 
             if (e.type == SDL_JOYBUTTONDOWN) {
                 switch (e.jbutton.button) {
@@ -159,14 +160,29 @@ pid_t GameRunner::wait(const std::string& romFile)
                 }
             }
             if (combo == 3) {
-                // Before suspending, remember if ra_hotkey existed to restore later
-                if (utils::ra_hotkey_exists())
-                    ra_hotkey_roms.insert(romFile);
+                combo = 0;
                 utils::suspend_process_group(utils::get_pgid_of_process(pid));
-                std::cout << "ActivitiesApp: Game " << romFile << " suspended" << std::endl;
-                // Returning to GUI (suspended): mark and remove ra_hotkey now
-                utils::remove_ra_hotkey();
-                return pid;
+                gui.save_background_texture(gui.take_screenshot());
+
+                std::vector<std::string> choices;
+                choices.push_back("Running");
+                choices.push_back("Favorites");
+                choices.push_back("Any");
+                std::string choice = gui.string_selector("Switch to: ", choices, gui.Width / 3, true);
+                if (choice == "") {
+                    utils::resume_process_group(utils::get_pgid_of_process(pid));
+                    gui.delete_background_texture();
+                } else {
+                    if (utils::ra_hotkey_exists()) {
+                        ra_hotkey_roms.insert(romFile);
+                        utils::remove_ra_hotkey();
+                    }
+                    std::cout << "ActivitiesApp: Game " << romFile << " suspended" << std::endl;
+                    gui.delete_background_texture();
+                    if (choice == "Running") return {pid, 1};
+                    if (choice == "Favorites") return {pid, 2};
+                    if (choice == "Any") return {pid, 3};
+                }
             }
         }
 
@@ -176,7 +192,7 @@ pid_t GameRunner::wait(const std::string& romFile)
     ra_hotkey_roms.erase(romFile);
     childs.erase(romFile);
     export_childs_list();
-    return -1;
+    return {-1, 0};
 }
 
 pid_t GameRunner::suspend(const std::string& romFile)

@@ -22,8 +22,15 @@ enum Sort
 };
 
 static const std::string sort_names[] = {"Name", "Time", "Count", "Last"};
-
-static const std::string states_names[] = {"All", "Running", "Completed", "Not completed"};
+enum Filter
+{
+    All,
+    Running,
+    Favorites,
+    Completed,
+    NotCompleted
+};
+static const std::string states_names[] = {"All", "Running", "Favorites", "Completed", "Not Completed"};
 
 class Activities
 {
@@ -74,8 +81,10 @@ class Activities
     void sort_roms();
     void filter_roms();
 
+    void handle_game_return(Rom * rom, std::pair<pid_t, int> wait_ending);
     Rom* get_rom(const std::string& rom_file = "");
     void switch_completed();
+    void switch_favorite();
     void handle_inputs();
     void menu(std::vector<Rom>::iterator rom);
     void game_list();

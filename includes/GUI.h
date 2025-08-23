@@ -160,6 +160,8 @@ class GUI
     void        clear_screen();
     void        render();
 
+    SDL_Texture* take_screenshot();
+
     Vec2 render_image(
         const std::string& image_path, int x, int y, int w = 0, int h = 0, int flags = IMG_CENTER);
 
@@ -178,7 +180,7 @@ class GUI
         const std::string& btn1, const std::string& btn2, const std::string& text, int x);
     TTF_Font* get_font(int size);
 
-    void save_background_texture();
+    void save_background_texture(SDL_Texture* required_texture = nullptr);
     void delete_background_texture();
     bool confirmation_popup(const std::string& message, int font_size);
 

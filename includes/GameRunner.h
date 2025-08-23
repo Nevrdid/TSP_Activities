@@ -10,9 +10,9 @@ class GameRunner
     GameRunner(GUI& gui);
     ~GameRunner();
 
-    void  stop(const std::string& romFile);
-    void  start(const std::string& romName, const std::string& system, const std::string& rom);
-    pid_t wait(const std::string& romFile);
+    void stop(const std::string& romFile);
+    void start(const std::string& romName, const std::string& system, const std::string& rom);
+    std::pair<pid_t, int> wait(const std::string& romFile);
 
     pid_t suspend(const std::string& romFile);
     void  start_external(const std::string& command);

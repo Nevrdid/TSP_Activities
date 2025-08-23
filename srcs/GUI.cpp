@@ -1,7 +1,65 @@
 #include "GUI.h"
 
 #include <SDL.h>
+#include <linux/fb.h>
 #include <map>
+#include <sys/ioctl.h>
+#include <sys/mman.h>
+
+SDL_Texture* GUI::take_screenshot()
+{
+
+    int                      fb_fd = -1;
+    struct fb_fix_screeninfo finfo;
+    void*                    fb_ptr = NULL;
+    SDL_Surface*             surface = NULL;
+    SDL_Texture*             texture = NULL;
+
+    fb_fd = open("/dev/fb0", O_RDONLY);
+    if (fb_fd == -1)
+        std::cerr << "Error: Could not open framebuffer device." << std::endl;
+
+    if (ioctl(fb_fd, FBIOGET_FSCREENINFO, &finfo) == -1) {
+        std::cerr << "Error: Could not get fixed screen info from framebuffer." << std::endl;
+        close(fb_fd);
+        return nullptr;
+    }
+    fb_ptr = mmap(0, finfo.smem_len, PROT_READ, MAP_SHARED, fb_fd, 0);
+    if (fb_ptr == MAP_FAILED) {
+        std::cerr << "Error: Could not mmap framebuffer device." << std::endl;
+        close(fb_fd);
+        return nullptr;
+    }
+
+    close(fb_fd);
+
+    Uint32 sdl_pixel_format = SDL_PIXELFORMAT_ARGB8888;
+    surface = SDL_CreateRGBSurfaceWithFormat(0, 1280, 720, 32, sdl_pixel_format);
+    if (!surface) {
+        std::cerr << "Error: Could not create SDL_Surface." << std::endl;
+        munmap(fb_ptr, finfo.smem_len);
+        return nullptr;
+    }
+    Uint8* src_row = (Uint8*) fb_ptr;
+    Uint8* dst_row = (Uint8*) surface->pixels;
+
+    for (int y = 0; y < 720; ++y) {
+        memcpy(dst_row, src_row, finfo.line_length);
+        src_row += finfo.line_length;
+        dst_row += surface->pitch;
+    }
+
+    texture = SDL_CreateTextureFromSurface(renderer, surface);
+    if (!texture) {
+        std::cerr << "Error: Could not create SDL_Texture from surface." << std::endl;
+        return nullptr;
+    }
+
+    munmap(fb_ptr, finfo.smem_len);
+    SDL_FreeSurface(surface);
+
+    return texture;
+}
 
 void GUI::draw_green_dot(int x, int y, int radius)
 {
@@ -434,7 +492,6 @@ void GUI::render_background(const std::string& system)
         SDL_RenderCopy(renderer, background_texture, nullptr, nullptr);
         return;
     }
-        
 
     auto render_bg_image = [this](const std::string& path) {
         render_image(path, Width / 2, Height / 2, Width, Height);
@@ -475,12 +532,15 @@ void GUI::display_keybind(const std::string& btn1, const std::string& btn2, cons
     render_text(text, x + 4 * prevX / 2, Height - 32, FONT_MINI_SIZE, cfg.info_color);
 };
 
-void GUI::save_background_texture()
+void GUI::save_background_texture(SDL_Texture* required_texture)
 {
     if (background_texture) {
         std::cerr << "Unload previous background first." << std::endl;
         return;
+        // delete_background_texture();
     }
+    if (required_texture)
+        SDL_RenderCopy(renderer, required_texture, nullptr, nullptr);
 
     SDL_Surface* screen_surface =
         SDL_CreateRGBSurfaceWithFormat(0, Width, Height, 32, SDL_PIXELFORMAT_RGBA8888);
@@ -649,14 +709,14 @@ const std::string GUI::string_selector(
         int y = y0;
         render_background();
         render_image(
-            cfg.theme_path + "skin/float-win-mask.png", Width / 2, Height / 2, Width, Height);
+            cfg.theme_path + "skin/background-mask.png", Width / 2, Height / 2, Width, Height);
         if (!title.empty()) {
-            render_image(cfg.theme_path + "skin/pop-bg.png", Width / 2, Height / 2 - 30, width + 50,
-                height + 60);
+            render_image(cfg.theme_path + "skin/bg-menu-05.png", Width / 2, Height / 2 - 30,
+                width + 50, height + 60);
             render_text(title, Width / 2, y0 - 60, FONT_BIG_SIZE, cfg.title_color, 0, true);
         } else {
             render_image(
-                cfg.theme_path + "skin/pop-bg.png", Width / 2, Height / 2, width + 50, height);
+                cfg.theme_path + "skin/bg-menu-05.png", Width / 2, Height / 2, width + 50, height);
         }
 
         size_t first =

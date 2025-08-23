@@ -29,6 +29,21 @@ void Activities::switch_completed()
     rom = db.save(rom);
 }
 
+void Activities::switch_favorite()
+{
+    // Safety check
+    if (filtered_roms_list.empty() || selected_index >= filtered_roms_list.size()) {
+        std::cerr << "Error: Invalid ROM access in switch_favorite()" << std::endl;
+        return;
+    }
+
+    Rom& rom = *filtered_roms_list[selected_index];
+
+    rom.favorite = rom.favorite ? 0 : 1;
+    DB db;
+    rom = db.save(rom);
+}
+
 void Activities::filter_roms()
 {
     // Safety check to avoid out-of-bounds access
@@ -42,8 +57,9 @@ void Activities::filter_roms()
     for (auto it = roms_list.begin(); it != roms_list.end(); it++) {
         if (it->system == current_system || system_index == 0) {
             if (filter_state == 0 || (filter_state == 1 && it->pid != -1) ||
-                (filter_state == 2 && it->completed == 1) ||
-                (filter_state == 3 && it->completed == 0)) {
+                (filter_state == 2 && it->favorite == 1) ||
+                (filter_state == 3 && it->completed == 1) ||
+                (filter_state == 4 && it->completed == 0)) {
                 filtered_roms_list.push_back(it);
                 total_time += it->time;
             }
@@ -100,6 +116,7 @@ void Activities::menu(std::vector<Rom>::iterator rom)
         if (rom->pid != -1)
             items.push_back("Save & Stop");
         items.push_back(rom->completed ? "Uncomplete" : "Complete");
+        items.push_back(rom->favorite ? "UnFavorite" : "Favorite");
         items.push_back("Remove");
         items.push_back("Change Launcher");
     }
@@ -117,6 +134,9 @@ void Activities::menu(std::vector<Rom>::iterator rom)
         leftHolding = rightHolding = false;
     } else if (choosenAction == "Uncomplete" || choosenAction == "Complete") {
         switch_completed();
+        leftHolding = rightHolding = false;
+    } else if (choosenAction == "UnFavorite" || choosenAction == "Favorite") {
+        switch_favorite();
         leftHolding = rightHolding = false;
     } else if (choosenAction == "Remove") {
         if (gui.confirmation_popup("Remove game from DB?", FONT_MIDDLE_SIZE)) {
@@ -146,8 +166,33 @@ void Activities::menu(std::vector<Rom>::iterator rom)
         leftHolding = rightHolding = false;
     } else if (choosenAction == "Exit") {
         leftHolding = rightHolding = false;
+        is_running = false;
     }
     gui.delete_background_texture();
+}
+
+void Activities::handle_game_return(Rom* rom, std::pair<pid_t, int> wait_ending)
+{
+    switch (wait_ending.second) {
+    case 1:
+        sort_by = Sort::Last;
+        filter_state = Filter::Running;
+        // in_game_detail = true;
+        break;
+    case 2:
+        sort_by = Sort::Last;
+        filter_state = Filter::Favorites;
+        // in_game_detail = true;
+        break;
+    case 0:
+    case 3:
+        sort_by = Sort::Last;
+        filter_state = Filter::All;
+        // in_game_detail = true;
+        break;
+    }
+    rom->pid = wait_ending.first;
+    need_refresh = true;
 }
 
 void Activities::game_list()
@@ -198,6 +243,10 @@ void Activities::game_list()
 
         if (rom->completed)
             offset += gui.render_image(std::string(APP_DIR) + "/.assets/green_check.svg",
+                             x + offset, y + FONT_MIDDLE_SIZE / 2, 16, 16, IMG_NONE)
+                          .x;
+        if (rom->favorite)
+            offset += gui.render_image(cfg.theme_path + "skin/icon-star.png",
                              x + offset, y + FONT_MIDDLE_SIZE / 2, 16, 16, IMG_NONE)
                           .x;
         if (rom->pid != -1)
@@ -298,8 +347,7 @@ void Activities::game_list()
         case InputAction::A:
             if (has_rom) {
                 game_runner.start(rom->name, rom->system, rom->file);
-                rom->pid = game_runner.wait(rom->file);
-                need_refresh = true;
+                handle_game_return(&(*rom), game_runner.wait(rom->file));
             }
             break;
         case InputAction::X:
@@ -325,8 +373,7 @@ void Activities::game_list()
             // Y runs the game (same as A)
             if (has_rom) {
                 game_runner.start(rom->name, rom->system, rom->file);
-                rom->pid = game_runner.wait(rom->file);
-                need_refresh = true;
+                handle_game_return(&(*rom), game_runner.wait(rom->file));
             }
             break;
         }
@@ -521,14 +568,12 @@ void Activities::game_detail()
             break;
         case InputAction::A:
             game_runner.start(rom->name, rom->system, rom->file);
-            rom->pid = game_runner.wait(rom->file);
-            need_refresh = true;
+            handle_game_return(&(*rom), game_runner.wait(rom->file));
             break;
         case InputAction::Y:
             // Y runs the game now (same as A)
             game_runner.start(rom->name, rom->system, rom->file);
-            rom->pid = game_runner.wait(rom->file);
-            need_refresh = true;
+            handle_game_return(&(*rom), game_runner.wait(rom->file));
             break;
         case InputAction::ZL:
             if (!rom->video.empty())
@@ -824,7 +869,7 @@ void Activities::auto_resume()
     // Keep latest played game active.
     game_runner.start(
         ordered_roms.back()->name, ordered_roms.back()->system, ordered_roms.back()->file);
-    ordered_roms.back()->pid = game_runner.wait(ordered_roms.back()->file);
+    handle_game_return(&(*ordered_roms.back()), game_runner.wait(ordered_roms.back()->file));
     // Ask a refresh to potentially get the new session
     // + update roms_list if any of the game is not in the db.
 
