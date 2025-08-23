@@ -182,15 +182,17 @@ std::string get_launcher(const std::string& system, const std::string& romName)
             }
         }
     }
-    if (ret.empty()) return "-";
-    if (ret.back() == '\n') ret.pop_back();
+    if (ret.empty())
+        return "-";
+    if (ret.back() == '\n')
+        ret.pop_back();
     return ret;
 }
 
 void set_launcher(
     const std::string& system, const std::string& romName, const std::string& launcher)
 {
-  std::string cfg_folder("/mnt/SDCARD/Roms/" + system + "/.games_config");
+    std::string cfg_folder("/mnt/SDCARD/Roms/" + system + "/.games_config");
     if (!fs::exists(cfg_folder))
         fs::create_directory(cfg_folder);
     std::ofstream game_cfg(cfg_folder + "/" + romName + ".cfg");
@@ -201,19 +203,19 @@ void set_launcher(
     return;
 }
 
-std::vector<std::string> get_directory_content(fs::path location, bool hide_hidden) {
-  std::vector<std::string> content;
-  if (!fs::exists(location) || !fs::is_directory(location)) {
+std::vector<std::string> get_directory_content(fs::path location, bool hide_hidden)
+{
+    std::vector<std::string> content;
+    if (!fs::exists(location) || !fs::is_directory(location)) {
+        return content;
+    }
+
+    content.push_back("..");
+    for (const auto& entry : fs::directory_iterator(location)) {
+        if (!hide_hidden || entry.path().filename().string().at(0) != '.')
+            content.push_back(entry.path().filename().string());
+    }
     return content;
-  }
-
-  content.push_back("..");
-  for (const auto& entry : fs::directory_iterator(location)) {
-    if (!hide_hidden || entry.path().filename().string().at(0) != '.')
-        content.push_back(entry.path().filename().string());
-  }
-  return content;
 }
-
 
 } // namespace utils

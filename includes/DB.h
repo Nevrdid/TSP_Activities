@@ -1,13 +1,13 @@
 #pragma once
 
 #if __has_include(<filesystem>)
-#include <filesystem>
+#    include <filesystem>
 namespace fs = std::filesystem;
 #elif __has_include(<experimental/filesystem>)
-#include <experimental/filesystem>
+#    include <experimental/filesystem>
 namespace fs = std::experimental::filesystem;
 #else
-#error "No filesystem support"
+#    error "No filesystem support"
 #endif
 
 #include <iostream>
@@ -19,13 +19,13 @@ namespace fs = std::experimental::filesystem;
 
 typedef struct
 {
-    std::string file;     // #0 in games_datas
-    std::string name;     // #1 in games_datas
-    int         count;    // #2 in games_datas
-    int         time;     // #3 in games_datas
+    std::string file;            // #0 in games_datas
+    std::string name;            // #1 in games_datas
+    int         count;           // #2 in games_datas
+    int         time;            // #3 in games_datas
     int         lastsessiontime; // #4 in games_datas (duration in seconds)
-    std::string last;     // #5 in games_datas
-    int         completed; // #6 in games_datas
+    std::string last;            // #5 in games_datas
+    int         completed;       // #6 in games_datas
 
     std::string total_time;
     std::string average_time;
@@ -33,7 +33,7 @@ typedef struct
     std::string image;
     std::string video;
     std::string manual;
-    pid_t         pid;
+    pid_t       pid;
     std::string launcher;
 } Rom;
 
@@ -46,7 +46,7 @@ class DB
   public:
     DB();
     ~DB();
-    Rom              save(Rom &rom, int time = 0);
+    Rom              save(Rom& rom, int time = 0);
     Rom              save(const std::string& rom_file, int elapsed_time = 0);
     Rom              load(const std::string& rom_file);
     std::vector<Rom> load(std::vector<Rom> roms);

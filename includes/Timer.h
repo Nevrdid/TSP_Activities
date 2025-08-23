@@ -1,13 +1,13 @@
 #pragma once
 
 #if __has_include(<filesystem>)
-#include <filesystem>
+#    include <filesystem>
 namespace fs = std::filesystem;
 #elif __has_include(<experimental/filesystem>)
-#include <experimental/filesystem>
+#    include <experimental/filesystem>
 namespace fs = std::experimental::filesystem;
 #else
-#error "No filesystem support"
+#    error "No filesystem support"
 #endif
 
 #include "utils.h"
@@ -18,9 +18,9 @@ namespace fs = std::experimental::filesystem;
 #include <signal.h>
 #include <sstream>
 #include <string>
+#include <sys/inotify.h>
 #include <sys/time.h>
 #include <unistd.h>
-#include <sys/inotify.h>
 
 class Timer
 {
@@ -47,7 +47,7 @@ class Timer
     ~Timer();
 
     static void   timer_handler(int signum);
-    long run();
+    long          run();
     unsigned long run_file_watch();
     bool          file_exists() const;
 };

@@ -1,23 +1,24 @@
 #pragma once
 
 #if __has_include(<filesystem>)
-#include <filesystem>
+#    include <filesystem>
 namespace fs = std::filesystem;
 #elif __has_include(<experimental/filesystem>)
-#include <experimental/filesystem>
+#    include <experimental/filesystem>
 namespace fs = std::experimental::filesystem;
 #else
-#error "No filesystem support"
+#    error "No filesystem support"
 #endif
 
-#include <SDL.h>
 #include "json.hpp"
+
+#include <SDL.h>
 #include <fstream>
 #include <iostream>
 #include <map>
 #include <string>
-#include <vector>
 #include <unordered_map>
+#include <vector>
 
 #define CONFIG_FILE APP_DIR "data/config.ini"
 

@@ -612,7 +612,8 @@ const std::string GUI::file_selector(fs::path location, bool hide_empties)
     return utils::shorten_file_path(next);
 }
 
-const std::string GUI::string_selector(const std::string& title, std::vector<std::string> inputs, size_t max_width, bool center)
+const std::string GUI::string_selector(
+    const std::string& title, std::vector<std::string> inputs, size_t max_width, bool center)
 {
     bool   running = true;
     size_t selected_index = 0;
@@ -620,19 +621,21 @@ const std::string GUI::string_selector(const std::string& title, std::vector<std
     size_t list_size = inputs.size();
     size_t lines = std::min(static_cast<int>(inputs.size()), title.empty() ? 11 : 10);
 
-
     size_t dy = 60; // button : 52 +  8 padding
 
     if (max_width == 0)
-        max_width = Width  - 50;
+        max_width = Width - 50;
     int height = dy * lines + 8;
 
     // Calculate width according to inputs length and max_width
     int maxStrLen = 0;
     if (!title.empty())
-        maxStrLen = render_text(title,0,-FONT_BIG_SIZE,FONT_BIG_SIZE,cfg.title_color, 0, false).x;
+        maxStrLen =
+            render_text(title, 0, -FONT_BIG_SIZE, FONT_BIG_SIZE, cfg.title_color, 0, false).x;
     for (const auto& input : inputs)
-        maxStrLen = std::max(maxStrLen, render_text(input,0,-FONT_MIDDLE_SIZE,FONT_MIDDLE_SIZE,cfg.selected_color, 0, false).x);
+        maxStrLen = std::max(maxStrLen,
+            render_text(input, 0, -FONT_MIDDLE_SIZE, FONT_MIDDLE_SIZE, cfg.selected_color, 0, false)
+                .x);
     size_t width = std::min(static_cast<int>(maxStrLen), static_cast<int>(max_width));
 
     int x0 = static_cast<int>(Width / 2) - (center ? 0 : width / 2);
@@ -648,11 +651,12 @@ const std::string GUI::string_selector(const std::string& title, std::vector<std
         render_image(
             cfg.theme_path + "skin/float-win-mask.png", Width / 2, Height / 2, Width, Height);
         if (!title.empty()) {
-            render_image(
-                cfg.theme_path + "skin/pop-bg.png", Width / 2, Height / 2 - 30, width + 50, height + 60);
+            render_image(cfg.theme_path + "skin/pop-bg.png", Width / 2, Height / 2 - 30, width + 50,
+                height + 60);
             render_text(title, Width / 2, y0 - 60, FONT_BIG_SIZE, cfg.title_color, 0, true);
         } else {
-            render_image(cfg.theme_path + "skin/pop-bg.png", Width / 2, Height / 2, width + 50, height);
+            render_image(
+                cfg.theme_path + "skin/pop-bg.png", Width / 2, Height / 2, width + 50, height);
         }
 
         size_t first =
@@ -663,7 +667,8 @@ const std::string GUI::string_selector(const std::string& title, std::vector<std
 
         if (scrollbar_size)
             render_image(std::string(APP_DIR) + "/.assets/scroll-v.svg", (Width + width) / 2 - 12,
-                y + (height - scrollbar_size / 2) * selected_index / list_size, 50, scrollbar_size, IMG_NONE);
+                y + (height - scrollbar_size / 2) * selected_index / list_size, 50, scrollbar_size,
+                IMG_NONE);
 
         auto line = inputs.begin() + first;
         for (size_t j = first; j < last; ++j) {

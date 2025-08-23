@@ -187,7 +187,7 @@ class GUI
     void infos_window(std::string title, int title_size,
         std::vector<std::pair<std::string, std::string>> content, int content_size, int x, int y,
         int width, int height);
-
-    const std::string file_selector(fs::path location, bool hide_empties = false);
-    const std::string string_selector(const std::string& title, std::vector<std::string> inputs, size_t max_width=0, bool center = false);
+    const std::string file_selector(fs::path location, bool hide_empties);
+    const std::string string_selector(
+        const std::string& title, std::vector<std::string> inputs, size_t max_width, bool center);
 };

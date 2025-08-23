@@ -88,18 +88,6 @@ void Activities::sort_roms()
     gui.reset_scroll();
 }
 
-enum class MenuAction
-{
-    SaveNStop,
-    CompleteUncomplete,
-    Remove,
-    ChangeLauncher,
-    AddGame,
-    GlobalStats,
-    Exit
-};
-typedef std::pair<std::string, MenuAction> MenuItem;
-
 void Activities::menu(std::vector<Rom>::iterator rom)
 {
     std::vector<std::string> items;
@@ -135,8 +123,8 @@ void Activities::menu(std::vector<Rom>::iterator rom)
         }
         leftHolding = rightHolding = false;
     } else if (choosenAction == "Change Launcher") {
-    std::vector<std::string> launchers = utils::get_launchers(rom->system);
-        std::string str =
+        std::vector<std::string> launchers = utils::get_launchers(rom->system);
+        std::string              str =
             gui.string_selector("Select new launcher:", launchers, gui.Width / 2, true);
         if (!str.empty()) {
             utils::set_launcher(rom->system, rom->name, str);
@@ -144,18 +132,8 @@ void Activities::menu(std::vector<Rom>::iterator rom)
         }
     } else if (choosenAction == "Add Game") {
         std::string str = gui.file_selector(fs::path("/mnt/SDCARD/Roms"), true);
-        if (!str.empty()) {
-            Rom* existing_rom = get_rom(str);
-            Rom  new_rom;
-            if (existing_rom) {
-                gui.message_popup("Error", 28, "The rom is already in database.", 18, 2000);
-            } else {
-                DB db;
-                new_rom = db.save(str);
-                roms_list.push_back(new_rom);
-            }
-            refresh_db(existing_rom ? existing_rom->file : new_rom.file);
-        }
+        if (!str.empty())
+            refresh_db(str); // refresh_db will save the rom as it will not find it in db
         leftHolding = rightHolding = false;
     } else if (choosenAction == "Global stats") {
         overall_stats();
@@ -201,8 +179,8 @@ void Activities::game_list()
     int y = 80;
     int x = 10;
 
-    std::vector<Rom>::iterator rom = filtered_roms_list[first];
-    for (size_t j = first; j < last; ++j) {
+    for (size_t j = first; j < last; j++) {
+        std::vector<Rom>::iterator rom = filtered_roms_list[j];
         SDL_Color color = (j == selected_index) ? cfg.selected_color : cfg.unselect_color;
 
         prevSize = gui.render_image(cfg.theme_path + "skin/list-item-1line-sort-bg-" +
@@ -236,7 +214,6 @@ void Activities::game_list()
             x + 15, y + prevSize.y / 2 + 6, FONT_TINY_SIZE);
 
         y += prevSize.y + 8;
-        rom++;
     }
     if (list_size && gui.Width == 1280 && selected_index < filtered_roms_list.size()) {
         gui.render_image(cfg.theme_path + "skin/ic-game-580.png", 1070, 370, 400, 580);
@@ -677,34 +654,17 @@ void Activities::refresh_db(std::string selected_rom_file)
     // TODO: change DB as an instance
     DB db;
     roms_list = db.load(roms_list);
-    //
-    // // Reinjects pids for games still running (present in gui.childs)
-    //
-    // auto& childs = game_runner.get_childs();
-    // for (auto& rom : roms_list) {
-    //     auto it = childs.find(rom.name);
-    //     if (it != childs.end()) {
-    //         // Checks that the process still exists
-    //         if (kill(it->second, 0) == 0) {
-    //             rom.pid = it->second;
-    //         } else {
-    //             rom.pid = -1;
-    //             childs.erase(it); // Cleans up dead pids
-    //         }
-    //     } else {
-    //         rom.pid = -1;
-    //     }
-    // }
 
     std::set<std::string> unique_systems;
     for (const auto& rom : roms_list) {
         unique_systems.insert(rom.system);
     }
+    systems.clear();
     systems.push_back("");
     systems.insert(systems.end(), unique_systems.begin(), unique_systems.end());
     filter_roms();
     // Restore selection to the same rom if possible
-    for (size_t i = 0; i < filtered_roms_list.size(); ++i) {
+    for (size_t i = 0; i < filtered_roms_list.size(); i++) {
         if (filtered_roms_list[i]->file == selected_rom_file) {
             selected_index = i;
             break;
