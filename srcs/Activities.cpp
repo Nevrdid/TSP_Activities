@@ -59,29 +59,34 @@ void Activities::filter_roms()
 
 void Activities::sort_roms()
 {
+    bool rev = reverse_sort;
     switch (sort_by) {
     case Sort::Name:
         std::sort(filtered_roms_list.begin(), filtered_roms_list.end(),
-            [](std::vector<Rom>::iterator a, std::vector<Rom>::iterator b) {
-                return a->name < b->name;
+            [rev](std::vector<Rom>::iterator a, std::vector<Rom>::iterator b) {
+                bool ret = a->name < b->name;
+                return  rev ? !ret : ret;
             });
         break;
     case Sort::Time:
         std::sort(filtered_roms_list.begin(), filtered_roms_list.end(),
-            [](std::vector<Rom>::iterator a, std::vector<Rom>::iterator b) {
-                return a->total_time > b->total_time;
+            [rev](std::vector<Rom>::iterator a, std::vector<Rom>::iterator b) {
+                bool ret = a->total_time > b->total_time;
+                return rev ? !ret : ret;
             });
         break;
     case Sort::Count:
         std::sort(filtered_roms_list.begin(), filtered_roms_list.end(),
-            [](std::vector<Rom>::iterator a, std::vector<Rom>::iterator b) {
-                return a->count > b->count;
+            [rev](std::vector<Rom>::iterator a, std::vector<Rom>::iterator b) {
+                bool ret = a->count > b->count;
+                return rev ? !ret : ret;
             });
         break;
     case Sort::Last:
         std::sort(filtered_roms_list.begin(), filtered_roms_list.end(),
-            [](std::vector<Rom>::iterator a, std::vector<Rom>::iterator b) {
-                return a->last > b->last;
+            [rev](std::vector<Rom>::iterator a, std::vector<Rom>::iterator b) {
+                bool ret = a->last > b->last;
+                return rev ? !ret : ret;
             });
         break;
     }
@@ -704,7 +709,8 @@ static const char gui_help[] = {
     "Options:\n"
     "  -h\tDisplay help text\n"
     "  -D\tStart the gui in details mode instead of list\n"
-    "  -s\tSet initial sort method. Default: (name,time,count,\e[0mlast\e[1m)\n"
+    "  -s\tSet the initial sort method. Default: (name,time,count,\e[0mlast\e[1m)\n"
+    "  -r\tReverse the initial sort order. "
     "  -S\tSet the initial system to filter. (\e[1mall\e[0m,gba,psp,fc...)\n"
     "  -c\tSet the initial completed filter (\e[1mall\e[1m,on,off)\n"
     "  -f\tSet the initial romFile to display. default: first of the filtered and sorted list. "
@@ -713,7 +719,7 @@ static const char gui_help[] = {
 extern char* optarg;
 extern int   optind;
 
-static const char options[] = "hDs:S:c:f:";
+static const char options[] = "hDs:rS:c:f:";
 int               Activities::parseArgs(int argc, char** argv)
 {
     int option;
@@ -741,6 +747,8 @@ int               Activities::parseArgs(int argc, char** argv)
                 sort_by = Sort::Count;
             }
             break;
+        case 'r':
+            reverse_sort = true;
         case 'S':
             if (optarg == NULL)
                 break;

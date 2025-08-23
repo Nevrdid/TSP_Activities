@@ -52,6 +52,7 @@ class Activities
     int    filter_state = 0;
 
     Sort sort_by = Sort::Last;
+    bool reverse_sort = false;
 
     std::vector<std::string> systems;
     size_t                   system_index = 0;
