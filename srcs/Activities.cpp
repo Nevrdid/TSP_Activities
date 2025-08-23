@@ -65,7 +65,7 @@ void Activities::sort_roms()
         std::sort(filtered_roms_list.begin(), filtered_roms_list.end(),
             [rev](std::vector<Rom>::iterator a, std::vector<Rom>::iterator b) {
                 bool ret = a->name < b->name;
-                return  rev ? !ret : ret;
+                return rev ? !ret : ret;
             });
         break;
     case Sort::Time:
@@ -107,7 +107,6 @@ void Activities::menu(std::vector<Rom>::iterator rom)
     items.push_back("Global stats");
     items.push_back("Exit");
 
-    
     gui.save_background_texture();
     std::string choosenAction = gui.string_selector("", items, gui.Width / 3, true);
 
@@ -131,7 +130,7 @@ void Activities::menu(std::vector<Rom>::iterator rom)
         leftHolding = rightHolding = false;
     } else if (choosenAction == "Change Launcher") {
         std::vector<std::string> launchers = utils::get_launchers(rom->system);
-        std::string str =
+        std::string              str =
             gui.string_selector("Select new launcher:", launchers, gui.Width / 2, true);
         if (!str.empty()) {
             utils::set_launcher(rom->system, rom->name, str);
@@ -719,7 +718,7 @@ static const char gui_help[] = {
 extern char* optarg;
 extern int   optind;
 
-static const char options[] = "hDs:rS:c:f:";
+static const char options[] = "hDRs:rS:c:f:";
 int               Activities::parseArgs(int argc, char** argv)
 {
     int option;
@@ -733,7 +732,8 @@ int               Activities::parseArgs(int argc, char** argv)
             puts(gui_help);
             status = 1;
             break;
-        case 'D': in_game_detail = 1; break;
+        case 'D': in_game_detail = true; break;
+        case 'R': auto_resume_enabled = false; break;
         case 's':
             if (optarg == NULL)
                 break;
@@ -747,8 +747,7 @@ int               Activities::parseArgs(int argc, char** argv)
                 sort_by = Sort::Count;
             }
             break;
-        case 'r':
-            reverse_sort = true;
+        case 'r': reverse_sort = true; break;
         case 'S':
             if (optarg == NULL)
                 break;
@@ -784,6 +783,54 @@ int               Activities::parseArgs(int argc, char** argv)
     return status;
 }
 
+void Activities::auto_resume()
+{
+
+    std::ifstream file("/mnt/SDCARD/Apps/Activities/data/autostarts.txt");
+    if (file.fail())
+        return;
+    std::cout << "\t Auto-resume games..." << std::endl;
+    std::string       romFile;
+    std::vector<Rom*> ordered_roms;
+    while (std::getline(file, romFile)) {
+        // Check if the ROM file exists before attempting to start it
+
+        if (fs::exists(romFile)) {
+            Rom* rom = get_rom(romFile);
+            if (!rom) {
+                std::cout << "ROM " << romFile << " not found in DB, creating new entry."
+                          << std::endl;
+                DB db;
+                roms_list.push_back(db.save(romFile)); // Save the new ROM entry
+                rom = &roms_list.back();
+            } else {
+                std::cout << "Found rom: " << rom->name << std::endl;
+            }
+            ordered_roms.push_back(rom);
+        } else {
+            std::cerr << "Autostart ROM file not found: " << romFile << std::endl;
+        }
+    }
+    std::sort(
+        ordered_roms.begin(), ordered_roms.end(), [](Rom* a, Rom* b) { return a->last < b->last; });
+
+    // sort games by last session date and stay on most recent one.
+    for (auto rom_it = ordered_roms.begin(); rom_it < ordered_roms.end() - 1; rom_it++) {
+        game_runner.start((*rom_it)->name, (*rom_it)->system, (*rom_it)->file);
+        // Wait for the game to finish loading and update its PID
+        sleep(2);
+        (*rom_it)->pid = game_runner.suspend((*rom_it)->file);
+    }
+    // Keep latest played game active.
+    game_runner.start(
+        ordered_roms.back()->name, ordered_roms.back()->system, ordered_roms.back()->file);
+    ordered_roms.back()->pid = game_runner.wait(ordered_roms.back()->file);
+    // Ask a refresh to potentially get the new session
+    // + update roms_list if any of the game is not in the db.
+
+    need_refresh = true;
+}
+
 void Activities::run(int argc, char** argv)
 {
     if (parseArgs(argc, argv)) {
@@ -796,48 +843,8 @@ void Activities::run(int argc, char** argv)
         empty_db();
         sleep(5);
     }
-    std::ifstream file("/mnt/SDCARD/Apps/Activities/data/autostarts.txt");
-    if (!file.fail()) {
-        std::cout << "\t Autostart..." << std::endl;
-        std::string       romFile;
-        std::vector<Rom*> ordered_roms;
-        while (std::getline(file, romFile)) {
-            // Check if the ROM file exists before attempting to start it
-
-            if (fs::exists(romFile)) {
-                // Find the Rom object in the database
-                Rom* rom = get_rom(romFile);
-                if (!rom) {
-                    // If ROM not found, create a new entry
-                    std::cout << "ROM " << romFile << " not found in DB, creating new entry."
-                              << std::endl;
-                    DB db;
-                    roms_list.push_back(db.save(romFile)); // Save the new ROM entry
-                    need_refresh = true;                   // Mark for refresh to load the new entry
-                    rom = &roms_list.back();
-                } else {
-                    std::cout << "Found rom: " << rom->name << std::endl;
-                }
-                ordered_roms.push_back(rom);
-            } else {
-                std::cerr << "Autostart ROM file not found: " << romFile << std::endl;
-            }
-        }
-        std::sort(ordered_roms.begin(), ordered_roms.end(),
-            [](Rom* a, Rom* b) { return a->last < b->last; });
-
-        // sort games by last session date and stay on most recent one.
-        for (auto rom_it = ordered_roms.begin(); rom_it < ordered_roms.end() - 1; rom_it++) {
-            game_runner.start((*rom_it)->name, (*rom_it)->system, (*rom_it)->file);
-            // Wait for the game to finish loading and update its PID
-            sleep(2);
-            (*rom_it)->pid = game_runner.suspend((*rom_it)->file);
-        }
-        game_runner.start(
-            ordered_roms.back()->name, ordered_roms.back()->system, ordered_roms.back()->file);
-        ordered_roms.back()->pid = game_runner.wait(ordered_roms.back()->file);
-        need_refresh = true;
-    }
+    if (auto_resume_enabled)
+        auto_resume();
 
     while (is_running) {
         // Refreshes data after game return, with a one-second pause

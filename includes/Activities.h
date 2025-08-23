@@ -37,6 +37,7 @@ class Activities
     bool   is_running = false;
     bool   interupted = false;
     bool   in_game_detail = false;
+    bool   auto_resume_enabled = true;
     size_t selected_index = 0;
 
     bool                                  need_refresh = false;
@@ -87,5 +88,6 @@ class Activities
     ~Activities();
 
     void refresh_db(std::string selected_rom_file = "");
+    void auto_resume();
     void run(int argc, char** argv);
 };
