@@ -199,10 +199,6 @@ TTF_Font* GUI::get_font(int size)
     return fonts[size];
 }
 
-void GUI::clean()
-{
-}
-
 InputAction GUI::map_input(const SDL_Event& e)
 {
     // Handle triggers as axes for ZL (lefttrigger, a2) and ZR (righttrigger, a5)
@@ -434,6 +430,12 @@ void GUI::render_background(const std::string& system)
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderClear(renderer);
 
+    if (background_texture) {
+        SDL_RenderCopy(renderer, background_texture, nullptr, nullptr);
+        return;
+    }
+        
+
     auto render_bg_image = [this](const std::string& path) {
         render_image(path, Width / 2, Height / 2, Width, Height);
     };
@@ -473,10 +475,10 @@ void GUI::display_keybind(const std::string& btn1, const std::string& btn2, cons
     render_text(text, x + 4 * prevX / 2, Height - 32, FONT_MINI_SIZE, cfg.info_color);
 };
 
-void GUI::load_background_texture()
+void GUI::save_background_texture()
 {
     if (background_texture) {
-        SDL_RenderCopy(renderer, background_texture, nullptr, nullptr);
+        std::cerr << "Unload previous background first." << std::endl;
         return;
     }
 
@@ -505,7 +507,7 @@ void GUI::load_background_texture()
     SDL_RenderCopy(renderer, background_texture, nullptr, nullptr);
 }
 
-void GUI::unload_background_texture()
+void GUI::delete_background_texture()
 {
 
     if (background_texture) {
@@ -520,7 +522,7 @@ bool GUI::confirmation_popup(const std::string& message, int font_size)
     bool running = true;
     Vec2 prevSize;
     while (running) {
-        load_background_texture();
+        render_background();
         render_image(
             cfg.theme_path + "skin/float-win-mask.png", Width / 2, Height / 2, Width, Height);
         render_image(cfg.theme_path + "skin/pop-bg.png", Width / 2, Height / 2, 0, 0);
@@ -547,7 +549,6 @@ bool GUI::confirmation_popup(const std::string& message, int font_size)
             }
         }
     }
-    unload_background_texture();
     return confirmed;
 }
 
@@ -631,11 +632,11 @@ const std::string GUI::string_selector(
     int maxStrLen = 0;
     if (!title.empty())
         maxStrLen =
-            render_text(title, 0, -FONT_BIG_SIZE, FONT_BIG_SIZE, cfg.title_color, 0, false).x;
+            render_text(title, 0, -2 * FONT_BIG_SIZE, FONT_BIG_SIZE, cfg.title_color, 0, false).x;
     for (const auto& input : inputs)
-        maxStrLen = std::max(maxStrLen,
-            render_text(input, 0, -FONT_MIDDLE_SIZE, FONT_MIDDLE_SIZE, cfg.selected_color, 0, false)
-                .x);
+        maxStrLen = std::max(maxStrLen, render_text(input, 0, -2 * FONT_MIDDLE_SIZE,
+                                            FONT_MIDDLE_SIZE, cfg.selected_color, 0, false)
+                                            .x);
     size_t width = std::min(static_cast<int>(maxStrLen), static_cast<int>(max_width));
 
     int x0 = static_cast<int>(Width / 2) - (center ? 0 : width / 2);
@@ -645,9 +646,8 @@ const std::string GUI::string_selector(
         list_size > lines ? (Height - y0) / std::min(static_cast<int>(inputs.size()), 50) : 0;
 
     while (running) {
-        clean();
         int y = y0;
-        load_background_texture();
+        render_background();
         render_image(
             cfg.theme_path + "skin/float-win-mask.png", Width / 2, Height / 2, Width, Height);
         if (!title.empty()) {
@@ -725,6 +725,7 @@ const std::string GUI::string_selector(
         if (prev_selected_index != selected_index)
             reset_scroll();
     }
-    unload_background_texture();
+    // Not unload_background_texture
+    // Parent will handle it to allow nested string selectors to keep the same background.
     return inputs[selected_index];
 }

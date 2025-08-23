@@ -178,8 +178,8 @@ class GUI
         const std::string& btn1, const std::string& btn2, const std::string& text, int x);
     TTF_Font* get_font(int size);
 
-    void load_background_texture();
-    void unload_background_texture();
+    void save_background_texture();
+    void delete_background_texture();
     bool confirmation_popup(const std::string& message, int font_size);
 
     void message_popup(

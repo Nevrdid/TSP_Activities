@@ -102,6 +102,8 @@ void Activities::menu(std::vector<Rom>::iterator rom)
     items.push_back("Global stats");
     items.push_back("Exit");
 
+    
+    gui.save_background_texture();
     std::string choosenAction = gui.string_selector("", items, gui.Width / 3, true);
 
     if (choosenAction == "Save & Stop") {
@@ -124,7 +126,7 @@ void Activities::menu(std::vector<Rom>::iterator rom)
         leftHolding = rightHolding = false;
     } else if (choosenAction == "Change Launcher") {
         std::vector<std::string> launchers = utils::get_launchers(rom->system);
-        std::string              str =
+        std::string str =
             gui.string_selector("Select new launcher:", launchers, gui.Width / 2, true);
         if (!str.empty()) {
             utils::set_launcher(rom->system, rom->name, str);
@@ -141,6 +143,7 @@ void Activities::menu(std::vector<Rom>::iterator rom)
     } else if (choosenAction == "Exit") {
         leftHolding = rightHolding = false;
     }
+    gui.delete_background_texture();
 }
 
 void Activities::game_list()
@@ -571,6 +574,7 @@ void Activities::game_detail()
 void Activities::overall_stats()
 {
     bool running = true;
+    gui.save_background_texture();
     while (running && is_running) {
 
         int count = 0;
@@ -588,7 +592,7 @@ void Activities::overall_stats()
             {"Total play time: ", utils::stringifyTime(time)},
             {"Average play time: ", utils::stringifyTime(count ? time / count : 0)}};
 
-        gui.load_background_texture();
+        gui.render_background();
         gui.render_image(cfg.theme_path + "skin/float-win-mask.png", gui.Width / 2, gui.Height / 2,
             gui.Width, gui.Height);
         gui.infos_window("Overall stats", FONT_MIDDLE_SIZE, content, FONT_TINY_SIZE, gui.Width / 2,
@@ -606,7 +610,7 @@ void Activities::overall_stats()
             }
         }
     }
-    gui.unload_background_texture();
+    gui.delete_background_texture();
 }
 
 void Activities::empty_db()
