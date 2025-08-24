@@ -188,6 +188,7 @@ void Activities::handle_game_return(Rom* rom, std::pair<pid_t, int> wait_ending)
         // in_game_detail = true;
         break;
     }
+    filter_roms();
     rom->pid = wait_ending.first;
 }
 
