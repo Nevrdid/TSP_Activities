@@ -13,11 +13,6 @@ Timer::Timer(const std::string& pid)
         std::cerr << "Failed to open" << stat_path << std::endl;
         return;
     }
-    if (instance) {
-        std::cerr << "Timer instance already exists" << std::endl;
-        return;
-    }
-    instance = this;
 }
 
 Timer::Timer(const std::string& file_path, bool file_mode)
@@ -51,12 +46,6 @@ Timer::Timer(const std::string& file_path, bool file_mode)
         inotify_fd = -1;
         return;
     }
-
-    if (instance) {
-        std::cerr << "Timer instance already exists" << std::endl;
-        return;
-    }
-    instance = this;
 }
 
 Timer::~Timer()
@@ -67,23 +56,23 @@ Timer::~Timer()
         inotify_rm_watch(inotify_fd, watch_fd);
     if (inotify_fd != -1)
         close(inotify_fd);
-    instance = nullptr;
 }
 
 void Timer::timer_handler(int signum)
 {
+    Timer& instance = Timer::getInstance();
     (void) signum;
-    if (!instance || !instance->running)
+    if (!instance.running)
         return;
 
-    if (lseek(instance->fd, 0, SEEK_SET) == -1) {
-        instance->running = false;
+    if (lseek(instance.fd, 0, SEEK_SET) == -1) {
+        instance.running = false;
         return;
     }
     char    buffer[128];
-    ssize_t bytes_read = read(instance->fd, buffer, sizeof(buffer) - 1);
+    ssize_t bytes_read = read(instance.fd, buffer, sizeof(buffer) - 1);
     if (bytes_read <= 0) {
-        instance->running = false;
+        instance.running = false;
         return;
     }
     int space_count = 0;
@@ -92,21 +81,21 @@ void Timer::timer_handler(int signum)
             space_count++;
         if (space_count == 2 && ++i < bytes_read) {
             switch (buffer[i]) {
-            case 'Z': instance->running = false; return;
+            case 'Z': instance.running = false; return;
             case 'T':
                 // Keep sum session between sleep until 30 seconds min are reached.
-                if (instance->elapsed_seconds > 30)
-                    instance->suspended = true;
+                if (instance.elapsed_seconds > 30)
+                    instance.suspended = true;
                 return;
             default: break;
             }
             break;
         }
     }
-    instance->tick_counter++;
-    if (instance->tick_counter == 4) {
-        instance->elapsed_seconds++;
-        instance->tick_counter = 0;
+    instance.tick_counter++;
+    if (instance.tick_counter == 4) {
+        instance.elapsed_seconds++;
+        instance.tick_counter = 0;
     }
 }
 

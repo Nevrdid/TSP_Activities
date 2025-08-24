@@ -63,12 +63,21 @@ struct Theme
 class Config
 {
   private:
+    Config();
+    Config(const Config& copy);
+    Config& operator=(const Config& copy);
+
     bool      load_theme(const std::string& filePath);
     SDL_Color parseColor(const std::string& colorStr) const;
 
   public:
-    Config();
     ~Config();
+
+    static Config& getInstance()
+    {
+        static Config instance;
+        return instance;
+    }
 
     SDL_Color   selected_color = {0, 255, 0, 255};
     SDL_Color   unselect_color = {255, 238, 180, 255};

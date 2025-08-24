@@ -26,8 +26,6 @@ static const char global_help[] = {"activities usage:\n"
                                    "\t- time: Time a game and add it to the DB.\n"
                                    "\n*use `activities [command] -h for details\n"};
 
-Timer* Timer::instance = nullptr;
-
 // Daemonize the timer to avoid it being killed before it saves time.
 void timer_daemonize(const std::string& rom_file, const std::string& program_pid)
 {
@@ -89,11 +87,11 @@ void timer_daemonize(const std::string& rom_file, const std::string& program_pid
 
     long duration = -1;
     // a negative duration mean session end with game beeing suspended.
-    Timer timer(program_pid);
+    Timer& timer = Timer::getInstance(program_pid);
     while (duration < 0) {
         duration = timer.run();
         if (abs(duration) >= 30) {
-            DB db;
+            DB& db = DB::getInstance();
             db.save(rom_file, abs(duration));
         }
     }
@@ -157,10 +155,10 @@ void file_watcher_daemonize(const std::string& activity_name, const std::string&
         close(devnull);
     }
 
-    Timer        timer(file_path, true);
+    Timer&       timer = Timer::getInstance(file_path, true);
     unsigned int duration = timer.run();
 
-    DB db;
+    DB& db = DB::getInstance();
     db.save(activity_name, duration);
 
     // Notify the original process that saving is finished
@@ -195,7 +193,7 @@ int main(int argc, char* argv[])
             std::cout << timer_help << std::endl;
         }
     } else if (std::strcmp(argv[1], "gui") == 0) {
-        Activities app;
+        Activities& app = Activities::getInstance();
         // app runner will handle himself if argv[2] is a romfile or a flag.
         app.run(argc, argv);
     } else {

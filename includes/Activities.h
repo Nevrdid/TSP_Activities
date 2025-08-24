@@ -30,26 +30,26 @@ enum Filter
     Completed,
     NotCompleted
 };
-static const std::string states_names[] = {"All", "Running", "Favorites", "Completed", "Not Completed"};
+static const std::string states_names[] = {
+    "All", "Running", "Favorites", "Completed", "Not Completed"};
 
 class Activities
 {
-  public:
-    // Allow main to set these for special GUI modes
   private:
-    Config     cfg;
-    GUI        gui;
-    GameRunner game_runner;
+    Activities();
+    Activities(const Activities& copy);
+    Activities& operator=(const Activities& copy);
+
+    Config&     cfg;
+    GUI&        gui;
+    GameRunner& game_runner;
+    DB& db;
 
     bool   is_running = false;
     bool   interupted = false;
     bool   in_game_detail = false;
     bool   auto_resume_enabled = true;
     size_t selected_index = 0;
-
-    bool                                  need_refresh = false;
-    std::chrono::steady_clock::time_point refresh_timer_start;
-    bool                                  refresh_timer_active = false;
 
     std::vector<Rom>                        roms_list;
     std::vector<std::vector<Rom>::iterator> filtered_roms_list;
@@ -81,7 +81,7 @@ class Activities
     void sort_roms();
     void filter_roms();
 
-    void handle_game_return(Rom * rom, std::pair<pid_t, int> wait_ending);
+    void handle_game_return(Rom* rom, std::pair<pid_t, int> wait_ending);
     Rom* get_rom(const std::string& rom_file = "");
     void switch_completed();
     void switch_favorite();
@@ -93,8 +93,13 @@ class Activities
     void empty_db();
 
   public:
-    Activities();
     ~Activities();
+
+    static Activities& getInstance()
+    {
+        static Activities instance;
+        return instance;
+    }
 
     void refresh_db(std::string selected_rom_file = "");
     void auto_resume();

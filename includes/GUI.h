@@ -121,6 +121,10 @@ typedef std::vector<std::pair<std::string, SDL_Color>> vecColorString;
 class GUI
 {
   private:
+    GUI();
+    GUI(const GUI& copy);
+    GUI& operator=(const GUI& copy);
+    
     const Config& cfg;
 
     SDL_Window*   window = nullptr;
@@ -142,12 +146,17 @@ class GUI
     bool keep_ra_hotkey_off = false;
 
   public:
+    ~GUI();
+
+    static GUI& getInstance(){
+      static GUI instance;
+      return instance;
+    }
+
     void draw_green_dot(int x, int y, int radius = 8);
     void draw_circle(int x, int y, int radius, SDL_Color color, bool filled = true);
     // Draw a check mark centered at (x, y) with given size and color
     void draw_checkmark(int x, int y, int size, SDL_Color color);
-    GUI(const Config& cfg);
-    ~GUI();
 
     void clean();
 

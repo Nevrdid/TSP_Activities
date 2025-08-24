@@ -6,9 +6,23 @@
 
 class GameRunner
 {
+  private:
+    GameRunner();
+    GameRunner(const GameRunner& copy); 
+    GameRunner& operator=(const GameRunner& copy);
+    GUI& gui;
+
+    // Track whether ra_hotkey existed when suspending a given game
+    std::unordered_set<std::string> ra_hotkey_roms;
+    std::map<std::string, pid_t>    childs;
+
   public:
-    GameRunner(GUI& gui);
     ~GameRunner();
+
+    static GameRunner& getInstance() {
+      static GameRunner instance;
+      return instance;
+    }
 
     void stop(const std::string& romFile);
     void start(const std::string& romName, const std::string& system, const std::string& rom);
@@ -20,10 +34,4 @@ class GameRunner
     void  add_child(const std::string& romFile, int pid);
     pid_t get_child_pid(const std::string& romFile);
 
-  private:
-    // Track whether ra_hotkey existed when suspending a given game
-    std::unordered_set<std::string> ra_hotkey_roms;
-    std::map<std::string, pid_t>    childs;
-
-    GUI& gui;
 };

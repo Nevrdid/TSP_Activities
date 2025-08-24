@@ -41,12 +41,23 @@ typedef struct
 class DB
 {
   private:
+    DB();
+    DB(const DB& copy);
+    DB& operator=(const DB& copy);
+
     sqlite3*    db;      // SQLite database connection
     std::string db_file; // SQLite database file
 
   public:
-    DB();
     ~DB();
+
+    static DB& getInstance()
+    {
+        static DB instance;
+        return instance;
+    }
+
+    bool             is_refresh_needed();
     Rom              save(Rom& rom, int time = 0);
     Rom              save(const std::string& rom_file, int elapsed_time = 0);
     Rom              load(const std::string& rom_file);

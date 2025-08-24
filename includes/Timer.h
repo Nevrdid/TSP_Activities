@@ -25,7 +25,15 @@ namespace fs = std::experimental::filesystem;
 class Timer
 {
   private:
-    static Timer*          instance;
+    Timer();
+    Timer(const std::string& pid);
+    Timer(const std::string& file_path, bool file_mode);
+    Timer(const Timer& copy);
+    Timer& operator=(const Timer& copy);
+
+    // Timer(const Timer&) = delete;
+    // Timer& operator=(const Timer&) = delete;
+
     int                    fd = -1;
     int                    inotify_fd = -1;
     int                    watch_fd = -1;
@@ -38,13 +46,17 @@ class Timer
     volatile unsigned long elapsed_seconds = 0;
     volatile unsigned int  tick_counter = 0;
 
-    Timer(const Timer&) = delete;
-    Timer& operator=(const Timer&) = delete;
-
   public:
-    Timer(const std::string& pid);
-    Timer(const std::string& file_path, bool file_mode);
     ~Timer();
+
+    static Timer& getInstance(const std::string& pid = "") {
+      static Timer instance(pid);
+      return instance;
+    }
+    static Timer& getInstance(const std::string& file_path, bool file_mode) {
+      static Timer instance(file_path, file_mode);
+      return instance;
+    }
 
     static void   timer_handler(int signum);
     long          run();

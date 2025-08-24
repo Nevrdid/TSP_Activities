@@ -1,9 +1,10 @@
 #include "Activities.h"
 
 Activities::Activities()
-    : cfg()
-    , gui(cfg)
-    , game_runner(gui)
+    : cfg(Config::getInstance())
+    , gui(GUI::getInstance())
+    , game_runner(GameRunner::getInstance())
+    , db(DB::getInstance())
 {
     gui.init();
     is_running = true;
@@ -25,7 +26,6 @@ void Activities::switch_completed()
     Rom& rom = *filtered_roms_list[selected_index];
 
     rom.completed = rom.completed ? 0 : 1;
-    DB db;
     rom = db.save(rom);
 }
 
@@ -40,7 +40,6 @@ void Activities::switch_favorite()
     Rom& rom = *filtered_roms_list[selected_index];
 
     rom.favorite = rom.favorite ? 0 : 1;
-    DB db;
     rom = db.save(rom);
 }
 
@@ -130,7 +129,6 @@ void Activities::menu(std::vector<Rom>::iterator rom)
     if (choosenAction == "Save & Stop") {
         game_runner.stop(rom->file);
         rom->pid = -1;
-        need_refresh = true;
         leftHolding = rightHolding = false;
     } else if (choosenAction == "Uncomplete" || choosenAction == "Complete") {
         switch_completed();
@@ -140,7 +138,6 @@ void Activities::menu(std::vector<Rom>::iterator rom)
         leftHolding = rightHolding = false;
     } else if (choosenAction == "Remove") {
         if (gui.confirmation_popup("Remove game from DB?", FONT_MIDDLE_SIZE)) {
-            DB db;
             db.remove(rom->file);
             roms_list.erase(std::remove_if(roms_list.begin(), roms_list.end(),
                                 [&rom](const Rom& r) { return r.file == rom->file; }),
@@ -192,7 +189,6 @@ void Activities::handle_game_return(Rom* rom, std::pair<pid_t, int> wait_ending)
         break;
     }
     rom->pid = wait_ending.first;
-    need_refresh = true;
 }
 
 void Activities::game_list()
@@ -699,13 +695,11 @@ void Activities::refresh_db(std::string selected_rom_file)
         if (!get_rom(selected_rom_file)) {
             std::cout << "ROM not found in database, creating new entry for: " << selected_rom_file
                       << std::endl;
-            DB db;
             db.save(selected_rom_file);
         }
     }
 
     // TODO: change DB as an instance
-    DB db;
     roms_list = db.load(roms_list);
 
     std::set<std::string> unique_systems;
@@ -725,7 +719,6 @@ void Activities::refresh_db(std::string selected_rom_file)
     }
     if (selected_index >= filtered_roms_list.size())
         selected_index = 0;
-    need_refresh = false;
 
     std::cout << "db_refreshed !! Selected_index: " << selected_index << std::endl;
     // Debug: display loaded values
@@ -845,7 +838,6 @@ void Activities::auto_resume()
             if (!rom) {
                 std::cout << "ROM " << romFile << " not found in DB, creating new entry."
                           << std::endl;
-                DB db;
                 roms_list.push_back(db.save(romFile)); // Save the new ROM entry
                 rom = &roms_list.back();
             } else {
@@ -870,10 +862,6 @@ void Activities::auto_resume()
     game_runner.start(
         ordered_roms.back()->name, ordered_roms.back()->system, ordered_roms.back()->file);
     handle_game_return(&(*ordered_roms.back()), game_runner.wait(ordered_roms.back()->file));
-    // Ask a refresh to potentially get the new session
-    // + update roms_list if any of the game is not in the db.
-
-    need_refresh = true;
 }
 
 void Activities::run(int argc, char** argv)
@@ -892,25 +880,8 @@ void Activities::run(int argc, char** argv)
         auto_resume();
 
     while (is_running) {
-        // Refreshes data after game return, with a one-second pause
-        if (need_refresh) {
-            if (!refresh_timer_active) {
-                // Start the non-blocking timer
-                refresh_timer_start = std::chrono::steady_clock::now();
-                refresh_timer_active = true;
-            } else {
-                // Check if 1 second has elapsed
-                auto now = std::chrono::steady_clock::now();
-                auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
-                    now - refresh_timer_start);
-
-                if (elapsed.count() >= 1000) {
-                    // 1 second has elapsed, proceed with refresh
-                    refresh_timer_active = false;
+        if (db.is_refresh_needed())
                     refresh_db();
-                }
-            }
-        }
         // Safety check to avoid out-of-bounds access
         std::string current_system = "";
         if (!systems.empty() && system_index < systems.size())

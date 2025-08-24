@@ -1,7 +1,7 @@
 #include <GameRunner.h>
 
-GameRunner::GameRunner(GUI& gui)
-    : gui(gui)
+GameRunner::GameRunner()
+    : gui(GUI::getInstance())
 {
 }
 
@@ -104,7 +104,7 @@ pid_t GameRunner::get_child_pid(const std::string& romFile)
     return it->second;
 }
 
-std::pair<pid_t, int>   GameRunner::wait(const std::string& romFile)
+std::pair<pid_t, int> GameRunner::wait(const std::string& romFile)
 {
     int   combo = 0;
     pid_t pid = get_child_pid(romFile);
@@ -131,10 +131,12 @@ std::pair<pid_t, int>   GameRunner::wait(const std::string& romFile)
         if (result == pid) {
             // If the game was stoped by a signal, that mostly because of cmd_to_launch_killer.sh
             //    // so we not remove it from child to keep it in autostarts
-            if (WIFSIGNALED(status))
+            if (WIFSIGNALED(status)) {
                 return {pid, 3};
-            std::cout << "ActivitiesApp: Game " << romFile << " exited with status " << status
-                      << std::endl;
+                std::cout << "ActivitiesApp: Game " << romFile << " exited with status " << status
+                          << std::endl;
+            }
+            return {-1, 3};
             break;
         }
         // Pause the GUI interface while the game is running
@@ -168,7 +170,8 @@ std::pair<pid_t, int>   GameRunner::wait(const std::string& romFile)
                 choices.push_back("Running");
                 choices.push_back("Favorites");
                 choices.push_back("Any");
-                std::string choice = gui.string_selector("Switch to: ", choices, gui.Width / 3, true);
+                std::string choice =
+                    gui.string_selector("Switch to: ", choices, gui.Width / 3, true);
                 if (choice == "") {
                     utils::resume_process_group(utils::get_pgid_of_process(pid));
                     gui.delete_background_texture();
@@ -179,9 +182,12 @@ std::pair<pid_t, int>   GameRunner::wait(const std::string& romFile)
                     }
                     std::cout << "ActivitiesApp: Game " << romFile << " suspended" << std::endl;
                     gui.delete_background_texture();
-                    if (choice == "Running") return {pid, 1};
-                    if (choice == "Favorites") return {pid, 2};
-                    if (choice == "Any") return {pid, 3};
+                    if (choice == "Running")
+                        return {pid, 1};
+                    if (choice == "Favorites")
+                        return {pid, 2};
+                    if (choice == "Any")
+                        return {pid, 3};
                 }
             }
         }

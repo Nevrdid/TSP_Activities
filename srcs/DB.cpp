@@ -40,6 +40,39 @@ DB::~DB()
         sqlite3_close(db);
     }
 }
+bool DB::is_refresh_needed()
+{
+    static int data_version = -1;
+
+    bool is_needed = false;
+
+    std::string query = "PRAGMA data_version";
+    sqlite3_stmt* stmt;
+
+    if (sqlite3_prepare_v2(db, query.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
+        std::cerr << "Error preparing PRAGMA query: " << sqlite3_errmsg(db) << std::endl;
+        return false;
+    }
+
+    if (sqlite3_step(stmt) == SQLITE_ROW) {
+        int current_data_version = sqlite3_column_int(stmt, 0);
+        // std::cout << "Current data_version: " << current_data_version << std::endl;
+
+        if (current_data_version != data_version) {
+            // std::cout << "Data version changed from " << data_version << " to " << current_data_version << ". Refresh needed!" << std::endl;
+            data_version = current_data_version;
+            is_needed = true;
+        } else {
+            std::cout << "Data version is still " << data_version << ". No refresh needed." << std::endl;
+        }
+    } else {
+        std::cerr << "Error executing PRAGMA query or no row returned: " << sqlite3_errmsg(db) << std::endl;
+    }
+
+    sqlite3_finalize(stmt);
+
+    return is_needed;
+}
 
 Rom DB::save(Rom& rom, int time)
 {
@@ -83,8 +116,9 @@ Rom DB::save(Rom& rom, int time)
         if (rom.favorite == -1)
             rom.favorite = db_favorite;
 
-        std::string   update_query = "UPDATE games_datas SET name = ?, count = ?, time = ?, "
-                                     " lastsessiontime = ?, last = ?, completed = ?, favorite = ? WHERE file = ?";
+        std::string update_query =
+            "UPDATE games_datas SET name = ?, count = ?, time = ?, "
+            " lastsessiontime = ?, last = ?, completed = ?, favorite = ? WHERE file = ?";
         sqlite3_stmt* update_stmt;
         if (sqlite3_prepare_v2(db, update_query.c_str(), -1, &update_stmt, nullptr) != SQLITE_OK) {
             std::cerr << "Error preparing UPDATE query: " << sqlite3_errmsg(db) << std::endl;
@@ -157,8 +191,9 @@ Rom DB::save(Rom& rom, int time)
 
         rom.system = std::regex_replace(rom.file, sys_pattern, R"($1)");
 
-        std::string   insert_query = "INSERT INTO games_datas (file, name, count, time, "
-                                     "lastsessiontime, last, completed, favorite) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+        std::string insert_query =
+            "INSERT INTO games_datas (file, name, count, time, "
+            "lastsessiontime, last, completed, favorite) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
         sqlite3_stmt* insert_stmt;
 
         if (sqlite3_prepare_v2(db, insert_query.c_str(), -1, &insert_stmt, nullptr) != SQLITE_OK) {

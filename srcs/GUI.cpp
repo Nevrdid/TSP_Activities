@@ -6,6 +6,81 @@
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 
+
+#include "GUI.h"
+
+GUI::GUI()
+    : cfg(Config::getInstance())
+{
+}
+
+int GUI::init()
+{
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_JOYSTICK) < 0) {
+        std::cerr << "SDL could not initialize! SDL_Error: " << SDL_GetError() << std::endl;
+        return -1;
+    }
+
+    joystick = SDL_JoystickOpen(0);
+    if (joystick == NULL)
+        std::cerr << "Couldn't open joystick 0: " << SDL_GetError() << std::endl;
+    else
+        std::cout << "Joystick 0 opened successfully." << std::endl;
+
+    SDL_JoystickEventState(SDL_ENABLE);
+
+    window = SDL_CreateWindow("Game Timer", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 320,
+        200, SDL_WINDOW_FULLSCREEN | SDL_WINDOW_SHOWN);
+    if (!window) {
+        std::cerr << "Window could not be created! SDL_Error: " << SDL_GetError() << std::endl;
+        return -1;
+    }
+
+    renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+    if (!renderer) {
+        std::cerr << "Renderer could not be created! SDL_Error: " << SDL_GetError() << std::endl;
+        SDL_DestroyWindow(window);
+        return -1;
+    }
+    // Wait the window to be resized to fullscreen
+    SDL_Event e;
+    while (SDL_PollEvent(&e)) {
+    }
+
+    SDL_GetRendererOutputSize(renderer, &Width, &Height);
+    std::cout << "Width: " << Width << ", Height: " << Height << std::endl;
+
+    if (TTF_Init()) {
+        std::cerr << "Failed to init ttf: " << TTF_GetError() << std::endl;
+        return -1;
+    }
+
+    return 0;
+}
+
+GUI::~GUI()
+{
+    SDL_JoystickClose(joystick);
+
+    for (auto& texture : image_cache)
+        if (texture.second.texture)
+            SDL_DestroyTexture(texture.second.texture);
+    image_cache.clear();
+
+    for (auto& entry : cached_text)
+        if (entry.texture)
+            SDL_DestroyTexture(entry.texture);
+
+    cached_text.clear();
+    SDL_DestroyRenderer(renderer);
+    SDL_DestroyWindow(window);
+
+    for (auto& font : fonts)
+        TTF_CloseFont(font.second);
+
+    SDL_Quit();
+}
+
 SDL_Texture* GUI::take_screenshot()
 {
 
@@ -170,79 +245,6 @@ void GUI::draw_checkmark(int x, int y, int size, SDL_Color color)
     int yC = y - h / 2;
     draw_line(xA, yA, xB, yB);
     draw_line(xB, yB, xC, yC);
-}
-#include "GUI.h"
-
-GUI::GUI(const Config& cfg)
-    : cfg(cfg)
-{
-}
-
-int GUI::init()
-{
-    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_JOYSTICK) < 0) {
-        std::cerr << "SDL could not initialize! SDL_Error: " << SDL_GetError() << std::endl;
-        return -1;
-    }
-
-    joystick = SDL_JoystickOpen(0);
-    if (joystick == NULL)
-        std::cerr << "Couldn't open joystick 0: " << SDL_GetError() << std::endl;
-    else
-        std::cout << "Joystick 0 opened successfully." << std::endl;
-
-    SDL_JoystickEventState(SDL_ENABLE);
-
-    window = SDL_CreateWindow("Game Timer", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 320,
-        200, SDL_WINDOW_FULLSCREEN | SDL_WINDOW_SHOWN);
-    if (!window) {
-        std::cerr << "Window could not be created! SDL_Error: " << SDL_GetError() << std::endl;
-        return -1;
-    }
-
-    renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
-    if (!renderer) {
-        std::cerr << "Renderer could not be created! SDL_Error: " << SDL_GetError() << std::endl;
-        SDL_DestroyWindow(window);
-        return -1;
-    }
-    // Wait the window to be resized to fullscreen
-    SDL_Event e;
-    while (SDL_PollEvent(&e)) {
-    }
-
-    SDL_GetRendererOutputSize(renderer, &Width, &Height);
-    std::cout << "Width: " << Width << ", Height: " << Height << std::endl;
-
-    if (TTF_Init()) {
-        std::cerr << "Failed to init ttf: " << TTF_GetError() << std::endl;
-        return -1;
-    }
-
-    return 0;
-}
-
-GUI::~GUI()
-{
-    SDL_JoystickClose(joystick);
-
-    for (auto& texture : image_cache)
-        if (texture.second.texture)
-            SDL_DestroyTexture(texture.second.texture);
-    image_cache.clear();
-
-    for (auto& entry : cached_text)
-        if (entry.texture)
-            SDL_DestroyTexture(entry.texture);
-
-    cached_text.clear();
-    SDL_DestroyRenderer(renderer);
-    SDL_DestroyWindow(window);
-
-    for (auto& font : fonts)
-        TTF_CloseFont(font.second);
-
-    SDL_Quit();
 }
 
 TTF_Font* GUI::get_font(int size)
