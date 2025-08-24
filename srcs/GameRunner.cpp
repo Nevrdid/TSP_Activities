@@ -136,7 +136,6 @@ std::pair<pid_t, int> GameRunner::wait(const std::string& romFile)
                 std::cout << "ActivitiesApp: Game " << romFile << " exited with status " << status
                           << std::endl;
             }
-            return {-1, 3};
             break;
         }
         // Pause the GUI interface while the game is running
