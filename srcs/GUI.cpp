@@ -613,35 +613,34 @@ bool GUI::confirmation_popup(const std::string& message, int font_size)
 
 void GUI::message_popup(int duration, const std::vector<Text>& lines)
 {
-    int  margin = 20;
-    Vec2 win = {0, 2 * margin};
-
-    Vec2 prevSize;
-    for (const Text& line : lines) {
-
-        prevSize = render_text(line.str, 0, -2 * line.size, line.size, line.color, 0, false);
-        win.x = std::max(win.x, prevSize.x);
-        win.y += prevSize.y * 1.2;
-    }
-    win.x += margin;
-    render_image(cfg.theme_path + "skin/bg-menu-05.png", Width / 2, Height / 2, win.x, win.y);
 
     if (lines.empty()) {
-        render();
         SDL_Delay(duration);
         return;
     }
-
-    int current_y = (Height / 2) - win.y / 2 + margin;
-
-    for (const Text& line : lines)
-        current_y +=
-            1.2 * render_text(line.str, Width * 0.5, current_y, line.size, line.color, 0, true).y;
-
-    render();
-    if (duration < 1000)
-        return;
     while (duration > 0) {
+        render_background();
+        int  margin = 20;
+        Vec2 win = {0, 2 * margin};
+
+        Vec2 prevSize;
+        for (const Text& line : lines) {
+
+            prevSize = render_text(line.str, 0, -2 * line.size, line.size, line.color, 0, false);
+            win.x = std::max(win.x, prevSize.x);
+            win.y += prevSize.y * 1.2;
+        }
+        win.x += margin;
+        render_image(cfg.theme_path + "skin/bg-menu-05.png", Width / 2, Height / 2, win.x, win.y);
+
+        int current_y = (Height / 2) - win.y / 2 + margin;
+
+        for (const Text& line : lines)
+            current_y +=
+                1.2 *
+                render_text(line.str, Width * 0.5, current_y, line.size, line.color, 0, true).y;
+        render();
+
         SDL_Event e;
         while (SDL_PollEvent(&e)) {
             switch (map_input(e)) {
@@ -651,8 +650,8 @@ void GUI::message_popup(int duration, const std::vector<Text>& lines)
             default: break;
             }
         }
-        SDL_Delay(100);
-        duration -= 100;
+        SDL_Delay(15);
+        duration -= 15;
     }
 }
 // void GUI::message_popup(

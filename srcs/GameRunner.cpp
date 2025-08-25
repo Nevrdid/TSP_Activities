@@ -8,9 +8,11 @@ GameRunner::GameRunner()
 
 GameRunner::~GameRunner()
 {
+    gui.save_background_texture();
     if (childs.empty()) {
         gui.message_popup(
             2000, {{"Leaving...", 32, cfg.title_color}, {"Good bye", 32, cfg.selected_color}});
+        gui.delete_background_texture();
         return;
     }
     int status;
@@ -33,6 +35,8 @@ GameRunner::~GameRunner()
     for (int i = 0; i < 30; i++)
         gui.message_popup(15,
             {{"Good bye", 32, cfg.title_color}, {"Your games are saved.", 18, cfg.title_color}});
+
+    gui.delete_background_texture();
 }
 
 void GameRunner::stop(const std::string& romFile)
@@ -139,7 +143,7 @@ std::pair<pid_t, int> GameRunner::wait(const std::string& romFile)
         if (result == pid) {
             // If the game was stoped by a signal, that mostly because of
             // cmd_to_launch_killer.sh
-            //    // so we not remove it from child to keep it in autostarts
+            // so we not remove it from child to keep it in autostarts
             if (WIFSIGNALED(status)) {
                 return {pid, 3};
                 std::cout << "ActivitiesApp: Game " << romFile << " exited with status " << status
