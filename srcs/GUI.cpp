@@ -6,9 +6,6 @@
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 
-
-#include "GUI.h"
-
 GUI::GUI()
     : cfg(Config::getInstance())
 {
@@ -614,16 +611,60 @@ bool GUI::confirmation_popup(const std::string& message, int font_size)
     return confirmed;
 }
 
-void GUI::message_popup(
-    std::string title, int title_size, std::string message, int message_size, int duration)
+void GUI::message_popup(int duration, const std::vector<Text>& lines)
 {
-    render_image(cfg.theme_path + "skin/pop-bg.png", Width / 2, Height / 2, Width / 3, Height / 3);
-    render_text(
-        title, Width / 2, Height / 3 + 2 * title_size, title_size, cfg.title_color, 0, true);
-    render_text(message, Width / 2, Height / 2, message_size, cfg.selected_color, 0, true);
+    int  margin = 20;
+    Vec2 win = {0, 2 * margin};
+
+    Vec2 prevSize;
+    for (const Text& line : lines) {
+
+        prevSize = render_text(line.str, 0, -2 * line.size, line.size, line.color, 0, false);
+        win.x = std::max(win.x, prevSize.x);
+        win.y += prevSize.y * 1.2;
+    }
+    win.x += margin;
+    render_image(cfg.theme_path + "skin/bg-menu-05.png", Width / 2, Height / 2, win.x, win.y);
+
+    if (lines.empty()) {
+        render();
+        SDL_Delay(duration);
+        return;
+    }
+
+    int current_y = (Height / 2) - win.y / 2 + margin;
+
+    for (const Text& line : lines)
+        current_y +=
+            1.2 * render_text(line.str, Width * 0.5, current_y, line.size, line.color, 0, true).y;
+
     render();
-    SDL_Delay(duration);
+    if (duration < 1000)
+        return;
+    while (duration > 0) {
+        SDL_Event e;
+        while (SDL_PollEvent(&e)) {
+            switch (map_input(e)) {
+            case InputAction::B:
+            case InputAction::A:
+            case InputAction::Quit: duration = 0; break;
+            default: break;
+            }
+        }
+        SDL_Delay(100);
+        duration -= 100;
+    }
 }
+// void GUI::message_popup(
+//     std::string title, int title_size, std::string message, int message_size, int duration)
+// {
+//     render_image(cfg.theme_path + "skin/pop-bg.png", Width / 2, Height / 2, Width / 3, Height /
+//     3); render_text(
+//         title, Width / 2, Height / 3 + 2 * title_size, title_size, cfg.title_color, 0, true);
+//     render_text(message, Width / 2, Height / 2, message_size, cfg.selected_color, 0, true);
+//     render();
+//     SDL_Delay(duration);
+// }
 
 void GUI::infos_window(std::string title, int title_size,
     std::vector<std::pair<std::string, std::string>> content, int content_size, int x, int y,
@@ -644,71 +685,40 @@ void GUI::infos_window(std::string title, int title_size,
     }
 }
 
-// TODO: Only accept a specific type of file (add vector<string> as argument with filetype accepted)
-const std::string GUI::file_selector(fs::path location, bool hide_empties)
-{
-    std::vector<std::string> content = utils::get_directory_content(location, true);
-    if (hide_empties) {
-        content.erase(std::remove_if(content.begin(), content.end(),
-                          [location](const std::string& sub) {
-                              if (sub == "..")
-                                  return false;
-                              std::string next = location.string() + "/" + sub;
-                              if (fs::status(next).type() == fs::file_type::regular)
-                                  return false;
-                              if (fs::is_empty(fs::path(next)))
-                                  return true;
-                              std::vector<std::string> sub_content =
-                                  utils::get_directory_content(next, true);
-                              return sub_content.size() < 2;
-                          }),
-            content.end());
-    }
-
-    std::string sub = string_selector("File explorer", content, 0, false);
-
-    if (sub.empty())
-        return "";
-    std::string next = location.string() + "/" + sub;
-    if (fs::status(next).type() == fs::file_type::directory)
-        return file_selector(next, true);
-    return utils::shorten_file_path(next);
-}
-
-const std::string GUI::string_selector(
-    const std::string& title, std::vector<std::string> inputs, size_t max_width, bool center)
+std::pair<bool, size_t> GUI::_selector_core(const std::string& title,
+    const std::vector<std::string>& labels, size_t max_width, bool center,
+    size_t initial_selected_index, const std::map<std::string, std::function<bool()>>& actions)
 {
     bool   running = true;
-    size_t selected_index = 0;
-    Vec2   prevSize;
-    size_t list_size = inputs.size();
-    size_t lines = std::min(static_cast<int>(inputs.size()), title.empty() ? 11 : 10);
+    size_t selected_index = initial_selected_index;
+    size_t list_size = labels.size();
+    size_t lines = std::min(static_cast<int>(list_size), title.empty() ? 11 : 10);
 
     size_t dy = 60; // button : 52 +  8 padding
-
-    if (max_width == 0)
-        max_width = Width - 50;
-    int height = dy * lines + 8;
 
     // Calculate width according to inputs length and max_width
     int maxStrLen = 0;
     if (!title.empty())
         maxStrLen =
             render_text(title, 0, -2 * FONT_BIG_SIZE, FONT_BIG_SIZE, cfg.title_color, 0, false).x;
-    for (const auto& input : inputs)
-        maxStrLen = std::max(maxStrLen, render_text(input, 0, -2 * FONT_MIDDLE_SIZE,
+    for (const auto& label : labels)
+        maxStrLen = std::max(maxStrLen, render_text(label, 0, -2 * FONT_MIDDLE_SIZE,
                                             FONT_MIDDLE_SIZE, cfg.selected_color, 0, false)
                                             .x);
-    size_t width = std::min(static_cast<int>(maxStrLen), static_cast<int>(max_width));
+    if (max_width == 0)
+        max_width = Width - 50;
+    int width = std::min(static_cast<int>(maxStrLen), static_cast<int>(max_width));
+    int height = dy * lines + 8;
 
     int x0 = static_cast<int>(Width / 2) - (center ? 0 : width / 2);
     int y0 = static_cast<int>(Height / 2) - height / 2 + 8;
 
-    int scrollbar_size =
-        list_size > lines ? (Height - y0) / std::min(static_cast<int>(inputs.size()), 50) : 0;
+    size_t scrollbar_size =
+        list_size > lines ? (Height - y0) / std::min(static_cast<int>(list_size), 50) : 0;
 
     while (running) {
-        int y = y0;
+        int  y = y0;
+        Vec2 prevSize;
         render_background();
         render_image(
             cfg.theme_path + "skin/background-mask.png", Width / 2, Height / 2, Width, Height);
@@ -725,14 +735,14 @@ const std::string GUI::string_selector(
             (list_size <= lines)
                 ? 0
                 : std::max(0, static_cast<int>(selected_index) - static_cast<int>(lines) / 2);
-        size_t last = std::min(first + lines, inputs.size());
+        size_t last = std::min(first + lines, list_size);
 
         if (scrollbar_size)
             render_image(std::string(APP_DIR) + "/.assets/scroll-v.svg", (Width + width) / 2 - 12,
                 y + (height - scrollbar_size / 2) * selected_index / list_size, 50, scrollbar_size,
                 IMG_NONE);
 
-        auto line = inputs.begin() + first;
+        auto line = labels.begin() + first;
         for (size_t j = first; j < last; ++j) {
             SDL_Color color = (j == selected_index) ? cfg.selected_color : cfg.unselect_color;
 
@@ -741,12 +751,11 @@ const std::string GUI::string_selector(
                 x0, y + (center ? (dy - 8) / 2 : 0), width + 4, dy - 8,
                 center ? IMG_CENTER : IMG_NONE);
 
-            if (j == selected_index && !center) {
+            if (j == selected_index && !center)
                 render_scrollable_text(*line, x0, y + 2, prevSize.x - 5, FONT_MIDDLE_SIZE, color);
-            } else {
+            else
                 render_text(*line, x0, y + 2, FONT_MIDDLE_SIZE, color, prevSize.x - 5,
                     center ? true : false);
-            }
 
             line++;
             y += dy;
@@ -778,8 +787,19 @@ const std::string GUI::string_selector(
                 break;
 
             case InputAction::B:
-            case InputAction::Quit: return "";
-            case InputAction::A: running = false; break;
+            case InputAction::Quit:
+                return {true, selected_index}; // Signal to exit menu, return current index
+            case InputAction::A: {
+                if (actions.empty())
+                    return {false, selected_index};
+                const std::string& chosen_label = labels[selected_index];
+                auto               it = actions.find(chosen_label);
+                if (it != actions.end()) {
+                    if (it->second()) { // If action returns true, exit menu
+                        return {true, selected_index};
+                    }
+                }
+            } break;
             default: break;
             }
         }
@@ -787,7 +807,68 @@ const std::string GUI::string_selector(
         if (prev_selected_index != selected_index)
             reset_scroll();
     }
-    // Not unload_background_texture
-    // Parent will handle it to allow nested string selectors to keep the same background.
-    return inputs[selected_index];
+    return {false, selected_index};
+}
+
+// TODO: Only accept a specific type of file (add vector<string> as argument with filetype accepted)
+const std::string GUI::file_selector(fs::path location, bool hide_empties)
+{
+    std::vector<std::string> content = utils::get_directory_content(location, true);
+    if (hide_empties) {
+        content.erase(std::remove_if(content.begin(), content.end(),
+                          [location](const std::string& sub) {
+                              if (sub == "..")
+                                  return false;
+                              std::string next = location.string() + "/" + sub;
+                              if (fs::status(next).type() == fs::file_type::regular)
+                                  return false;
+                              if (fs::is_empty(fs::path(next)))
+                                  return true;
+                              std::vector<std::string> sub_content =
+                                  utils::get_directory_content(next, true);
+                              return sub_content.size() < 2;
+                          }),
+            content.end());
+    }
+
+    std::pair<bool, size_t> result = _selector_core("File explorer", content, 0, false, 0, {});
+
+    if (result.first)
+        return "";
+    std::string next = location.string() + "/" + content[result.second];
+    if (fs::status(next).type() == fs::file_type::directory)
+        return file_selector(next, true);
+    return utils::shorten_file_path(next);
+}
+
+const std::string GUI::string_selector(
+    const std::string& title, const std::vector<std::string>& labels, size_t max_width, bool center)
+{
+    std::pair<bool, size_t> result = _selector_core(title, labels, max_width, center, 0, {});
+    if (result.first)
+        return "";
+    return labels[result.second];
+}
+
+void GUI::menu(std::vector<std::pair<std::string, std::function<bool()>>> menu_items)
+{
+    size_t current_selected_index = 0;
+
+    std::vector<std::string>                     labels;
+    std::map<std::string, std::function<bool()>> action_map;
+    for (const auto& item : menu_items) {
+        labels.push_back(item.first);
+        action_map[item.first] = item.second;
+    }
+
+    while (true) {
+        std::pair<bool, size_t> result =
+            _selector_core("Menu: ", labels, Width / 3, true, current_selected_index, action_map);
+
+        bool should_exit_menu = result.first;
+        current_selected_index = result.second;
+
+        if (should_exit_menu)
+            break;
+    }
 }

@@ -20,6 +20,7 @@ namespace fs = std::experimental::filesystem;
 #include <SDL_image.h>
 #include <SDL_ttf.h>
 #include <fstream>
+#include <functional>
 #include <iostream>
 #include <string>
 #include <sys/stat.h>
@@ -124,7 +125,7 @@ class GUI
     GUI();
     GUI(const GUI& copy);
     GUI& operator=(const GUI& copy);
-    
+
     const Config& cfg;
 
     SDL_Window*   window = nullptr;
@@ -145,12 +146,17 @@ class GUI
     // When true, remove /tmp/trimui_inputd/ra_hotkey while GUI is displayed
     bool keep_ra_hotkey_off = false;
 
+    std::pair<bool, size_t> _selector_core(const std::string& title,
+        const std::vector<std::string>& labels, size_t max_width, bool center,
+        size_t selected_index, const std::map<std::string, std::function<bool()>>& actions);
+
   public:
     ~GUI();
 
-    static GUI& getInstance(){
-      static GUI instance;
-      return instance;
+    static GUI& getInstance()
+    {
+        static GUI instance;
+        return instance;
     }
 
     void draw_green_dot(int x, int y, int radius = 8);
@@ -193,12 +199,21 @@ class GUI
     void delete_background_texture();
     bool confirmation_popup(const std::string& message, int font_size);
 
-    void message_popup(
-        std::string title, int title_size, std::string message, int message_size, int duration);
+    void message_popup(int duration, const std::vector<Text>& text_elements);
+    // void message_popup(
+    //     std::string title, int title_size, std::string message, int message_size, int duration);
     void infos_window(std::string title, int title_size,
         std::vector<std::pair<std::string, std::string>> content, int content_size, int x, int y,
         int width, int height);
+
     const std::string file_selector(fs::path location, bool hide_empties);
-    const std::string string_selector(
-        const std::string& title, std::vector<std::string> inputs, size_t max_width, bool center);
+
+    const std::string string_selector(const std::string& title,
+        const std::vector<std::string>& labels, size_t max_width, bool center);
+
+    std::pair<bool, size_t> menu_selector(const std::string& title,
+        const std::vector<std::string>& labels, size_t max_width, bool center,
+        size_t initial_selected_index, std::map<std::string, std::function<bool()>> actions);
+
+    void menu(std::vector<std::pair<std::string, std::function<bool()>>> menu_items);
 };

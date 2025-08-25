@@ -19,6 +19,80 @@ Timer::~Timer()
         close(fd);
 }
 
+// Daemonize the timer to avoid it being killed before it saves time.
+void Timer::daemonize(const std::string& rom_file, const std::string& program_pid)
+{
+    int pipe_fd[2];
+    if (pipe(pipe_fd) == -1) {
+        std::cerr << "Failed to create pipe" << std::endl;
+        exit(1);
+    }
+
+    // Fork to create a detached process
+    pid_t pid = fork();
+    if (pid < 0) {
+        std::cerr << "Failed to fork" << std::endl;
+        exit(1);
+    }
+
+    if (pid > 0) {
+        close(pipe_fd[1]);
+
+        // Original process just waits for the daemon to terminate
+        char buffer[1];
+        while (read(pipe_fd[0], buffer, 1) > 0) {
+        }
+        close(pipe_fd[0]);
+
+        waitpid(pid, nullptr, 0);
+        return;
+    }
+
+    close(pipe_fd[0]);
+
+    // Leave the original session
+    if (setsid() == -1) {
+        std::cerr << "Failed to start new session" << std::endl;
+        exit(1);
+    }
+
+    // Create the daemon process
+    pid = fork();
+    if (pid < 0) {
+        std::cerr << "Failed to fork again" << std::endl;
+        exit(1);
+    }
+    if (pid > 0) {
+        exit(0);
+    }
+
+    int logfile =
+        open("/mnt/SDCARD/Apps/Activities/log/timer.log", O_WRONLY | O_CREAT | O_APPEND, 0644);
+    dup2(logfile, STDOUT_FILENO);
+    dup2(logfile, STDERR_FILENO);
+    close(logfile);
+
+    int devnull = open("/dev/null", O_RDWR);
+    if (devnull != -1) {
+        dup2(devnull, STDIN_FILENO);
+        close(devnull);
+    }
+
+    long duration = -1;
+    // a negative duration mean session end with game beeing suspended.
+    Timer& timer = Timer::getInstance(program_pid);
+    while (duration < 0) {
+        duration = timer.run();
+        if (abs(duration) >= 30) {
+            DB& db = DB::getInstance();
+            db.save(rom_file, abs(duration));
+        }
+    }
+
+    // Notify the original process that saving is finished
+    close(pipe_fd[1]);
+}
+
 void Timer::timer_handler(int signum)
 {
     Timer& instance = Timer::getInstance();

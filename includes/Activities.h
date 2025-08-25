@@ -21,17 +21,21 @@ enum Sort
     Last
 };
 
+
 static const std::string sort_names[] = {"Name", "Time", "Count", "Last"};
-enum Filter
+
+enum FilterState
 {
-    All,
-    Running,
-    Favorites,
-    Completed,
-    NotCompleted
+    All = -1,  // Show only match
+    Unmatch,  // Show only unmatchs
+    Match  // Show both
 };
-static const std::string states_names[] = {
-    "All", "Running", "Favorites", "Completed", "Not Completed"};
+
+struct FiltersStates {
+  int running=FilterState::All;
+  int favorites=FilterState::All;
+  int completed=FilterState::All;
+};
 
 class Activities
 {
@@ -57,7 +61,7 @@ class Activities
 
     size_t total_time = 0;
     bool   no_list = false;
-    int    filter_state = 0;
+    FiltersStates filters_states = {FilterState::All};
 
     Sort sort_by = Sort::Last;
     bool reverse_sort = false;
@@ -82,11 +86,16 @@ class Activities
     void filter_roms();
 
     void handle_game_return(Rom* rom, std::pair<pid_t, int> wait_ending);
+    void handle_inputs();
+
     Rom* get_rom(const std::string& rom_file = "");
     void switch_completed();
     void switch_favorite();
-    void handle_inputs();
-    void menu(std::vector<Rom>::iterator rom);
+
+    void filters_menu();
+    void global_menu();
+    void game_menu (std::vector<Rom>::iterator rom);
+
     void game_list();
     void game_detail();
     void overall_stats();

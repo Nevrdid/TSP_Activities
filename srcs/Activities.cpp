@@ -15,38 +15,10 @@ Activities::~Activities()
 {
 }
 
-void Activities::switch_completed()
-{
-    // Safety check
-    if (filtered_roms_list.empty() || selected_index >= filtered_roms_list.size()) {
-        std::cerr << "Error: Invalid ROM access in switch_completed()" << std::endl;
-        return;
-    }
-
-    Rom& rom = *filtered_roms_list[selected_index];
-
-    rom.completed = rom.completed ? 0 : 1;
-    rom = db.save(rom);
-}
-
-void Activities::switch_favorite()
-{
-    // Safety check
-    if (filtered_roms_list.empty() || selected_index >= filtered_roms_list.size()) {
-        std::cerr << "Error: Invalid ROM access in switch_favorite()" << std::endl;
-        return;
-    }
-
-    Rom& rom = *filtered_roms_list[selected_index];
-
-    rom.favorite = rom.favorite ? 0 : 1;
-    rom = db.save(rom);
-}
-
 void Activities::filter_roms()
 {
     // Safety check to avoid out-of-bounds access
-    std::string current_system = "";
+    std::string current_system = "All";
     if (!systems.empty() && system_index < systems.size()) {
         current_system = systems[system_index];
     }
@@ -55,10 +27,13 @@ void Activities::filter_roms()
     total_time = 0;
     for (auto it = roms_list.begin(); it != roms_list.end(); it++) {
         if (it->system == current_system || system_index == 0) {
-            if (filter_state == 0 || (filter_state == 1 && it->pid != -1) ||
-                (filter_state == 2 && it->favorite == 1) ||
-                (filter_state == 3 && it->completed == 1) ||
-                (filter_state == 4 && it->completed == 0)) {
+            // != Unmatch mean All and Match;  < Match mean All and Unmatch
+            if (((filters_states.running != FilterState::Unmatch && it->pid != -1) ||
+                    (filters_states.running < FilterState::Match && it->pid == -1)) &&
+                ((filters_states.favorites != FilterState::Unmatch && it->favorite == 1) ||
+                    (filters_states.favorites < FilterState::Match && it->favorite == 0)) &&
+                ((filters_states.completed != FilterState::Unmatch && it->completed == 1) ||
+                    (filters_states.completed < FilterState::Match && it->completed == 0))) {
                 filtered_roms_list.push_back(it);
                 total_time += it->time;
             }
@@ -108,63 +83,144 @@ void Activities::sort_roms()
     gui.reset_scroll();
 }
 
-void Activities::menu(std::vector<Rom>::iterator rom)
+void Activities::game_menu(std::vector<Rom>::iterator rom)
 {
-    std::vector<std::string> items;
-    if (!filtered_roms_list.empty()) {
-        if (rom->pid != -1)
-            items.push_back("Save & Stop");
-        items.push_back(rom->completed ? "Uncomplete" : "Complete");
-        items.push_back(rom->favorite ? "UnFavorite" : "Favorite");
-        items.push_back("Remove");
-        items.push_back("Change Launcher");
+    std::vector<std::pair<std::string, std::function<bool()>>> menu_items;
+
+    if (filtered_roms_list.empty())
+        return;
+    if (rom->pid != -1) {
+        menu_items.push_back({"Save & Stop", [this, rom]() -> bool {
+                                  game_runner.stop(rom->file);
+                                  rom->pid = -1;
+                                  filter_roms();
+                                  return true;
+                              }});
     }
-    items.push_back("Add Game");
-    items.push_back("Global stats");
-    items.push_back("Exit");
+
+    menu_items.insert(menu_items.end(),
+        {{rom->completed ? "Uncomplete" : "Complete",
+             [this, &rom]() -> bool {
+                 rom->completed = rom->completed ? 0 : 1;
+                 *rom = db.save(*rom);
+                 filter_roms();
+                 return true;
+             }},
+            {rom->favorite ? "UnFavorite" : "Favorite",
+                [this, &rom]() -> bool {
+                    rom->favorite = rom->favorite ? 0 : 1;
+                    *rom = db.save(*rom);
+                    return true;
+                }},
+            {"Remove DB entry",
+                [this, &rom]() -> bool {
+                    if (gui.confirmation_popup("Remove game from DB?", FONT_MIDDLE_SIZE)) {
+                        db.remove(rom->file);
+                        roms_list.erase(std::remove_if(roms_list.begin(), roms_list.end(),
+                                            [&rom](const Rom& r) { return r.file == rom->file; }),
+                            roms_list.end());
+                        filter_roms();
+                    }
+                    return true;
+                }},
+            {"Change Launcher", [this, &rom]() -> bool {
+                 std::vector<std::string> launchers = utils::get_launchers(rom->system);
+                 std::string              str =
+                     gui.string_selector("Select new launcher:", launchers, gui.Width / 2, true);
+                 if (!str.empty()) {
+                     utils::set_launcher(rom->system, rom->name, str);
+                     rom->launcher = str;
+                 }
+                 return true;
+             }}});
 
     gui.save_background_texture();
-    std::string choosenAction = gui.string_selector("", items, gui.Width / 3, true);
+    gui.menu(menu_items);
+    gui.delete_background_texture();
+}
 
-    if (choosenAction == "Save & Stop") {
-        game_runner.stop(rom->file);
-        rom->pid = -1;
-        leftHolding = rightHolding = false;
-    } else if (choosenAction == "Uncomplete" || choosenAction == "Complete") {
-        switch_completed();
-        leftHolding = rightHolding = false;
-    } else if (choosenAction == "UnFavorite" || choosenAction == "Favorite") {
-        switch_favorite();
-        leftHolding = rightHolding = false;
-    } else if (choosenAction == "Remove") {
-        if (gui.confirmation_popup("Remove game from DB?", FONT_MIDDLE_SIZE)) {
-            db.remove(rom->file);
-            roms_list.erase(std::remove_if(roms_list.begin(), roms_list.end(),
-                                [&rom](const Rom& r) { return r.file == rom->file; }),
-                roms_list.end());
-            filter_roms();
+void Activities::filters_menu()
+{
+    std::vector<std::pair<std::string, std::function<bool()>>> menu_items;
+
+    std::function<bool(std::string, int&)> action_template = [this](std::string label,
+                                                                 int&           state) -> bool {
+        std::string str = gui.string_selector("Show:",
+            {std::string(state == FilterState::Match ? "*" : "") + "Only " + label,
+                std::string(state == FilterState::Unmatch ? "*" : "") + "Only not " + label,
+                std::string(state == FilterState::All ? "*" : "") + "Both"},
+            gui.Width / 2, true);
+        if (str == "Only " + label) {
+            state = FilterState::Match;
+        } else if (str == "Only not " + label) {
+            state = FilterState::Unmatch;
+        } else if (str == "Both") {
+            state = FilterState::All;
+        } else {
+            return false;
         }
-        leftHolding = rightHolding = false;
-    } else if (choosenAction == "Change Launcher") {
-        std::vector<std::string> launchers = utils::get_launchers(rom->system);
-        std::string              str =
-            gui.string_selector("Select new launcher:", launchers, gui.Width / 2, true);
-        if (!str.empty()) {
-            utils::set_launcher(rom->system, rom->name, str);
-            rom->launcher = str;
-        }
-    } else if (choosenAction == "Add Game") {
-        std::string str = gui.file_selector(fs::path("/mnt/SDCARD/Roms"), true);
-        if (!str.empty())
-            refresh_db(str); // refresh_db will save the rom as it will not find it in db
-        leftHolding = rightHolding = false;
-    } else if (choosenAction == "Global stats") {
-        overall_stats();
-        leftHolding = rightHolding = false;
-    } else if (choosenAction == "Exit") {
-        leftHolding = rightHolding = false;
-        is_running = false;
-    }
+        filter_roms();
+        return false;
+    };
+
+    menu_items = {{"System",
+                      [this]() -> bool {
+                          std::string str = gui.string_selector(
+                              "Which system to show?", systems, gui.Width / 2, true);
+
+                          system_index = str.empty()
+                                             ? 0
+                                             : std::distance(systems.begin(),
+                                                   find(systems.begin(), systems.end(), str));
+                          filter_roms();
+                          return false;
+                      }},
+        {"Running",
+            [this, action_template]() -> bool {
+                return action_template("running", filters_states.running);
+            }},
+        {"Favorites",
+            [this, action_template]() -> bool {
+                return action_template("favorites", filters_states.favorites);
+            }},
+        {"Completed", [this, action_template]() -> bool {
+             return action_template("completed", filters_states.completed);
+         }}};
+
+    gui.save_background_texture();
+    gui.menu(menu_items);
+    gui.delete_background_texture();
+}
+
+void Activities::global_menu()
+{
+    std::vector<std::pair<std::string, std::function<bool()>>> menu_items;
+
+    menu_items = {{"Add Game",
+                      [this]() -> bool {
+                          std::string str = gui.file_selector(fs::path("/mnt/SDCARD/Roms"), true);
+                          if (!str.empty())
+                              refresh_db(
+                                  str); // refresh_db will save the rom as it will not find it in db
+                          return true;
+                      }},
+        {"Filters",
+            [this]() -> bool {
+                filters_menu();
+                return true;
+            }},
+        {"Global Stats",
+            [this]() -> bool {
+                overall_stats();
+                return false;
+            }},
+        {"Exit", [this]() -> bool {
+             is_running = false;
+             return true;
+         }}};
+
+    gui.save_background_texture();
+    gui.menu(menu_items);
     gui.delete_background_texture();
 }
 
@@ -173,19 +229,16 @@ void Activities::handle_game_return(Rom* rom, std::pair<pid_t, int> wait_ending)
     switch (wait_ending.second) {
     case 1:
         sort_by = Sort::Last;
-        filter_state = Filter::Running;
-        // in_game_detail = true;
+        filters_states = {FilterState::Match, FilterState::All, FilterState::All};
         break;
     case 2:
         sort_by = Sort::Last;
-        filter_state = Filter::Favorites;
-        // in_game_detail = true;
+        filters_states = {FilterState::All, FilterState::Match, FilterState::All};
         break;
     case 0:
     case 3:
         sort_by = Sort::Last;
-        filter_state = Filter::All;
-        // in_game_detail = true;
+        filters_states = {FilterState::All};
         break;
     }
     filter_roms();
@@ -214,8 +267,9 @@ void Activities::game_list()
     if (!systems.empty() && system_index < systems.size()) {
         current_system_name = systems[system_index];
     }
-    gui.render_text(states_names[filter_state] + " " + current_system_name + " Games",
-        gui.Width / 2 - 100, 0, FONT_MIDDLE_SIZE, cfg.unselect_color);
+    // TODO once filters reworked: avoid "All - All Games" when system is set to All
+    gui.render_text(current_system_name + " games:", gui.Width / 2 - 100, 0, FONT_MIDDLE_SIZE,
+        cfg.unselect_color);
 
     // Total time to the right of the title
     gui.render_text("(" + utils::stringifyTime(total_time) + ")", gui.Width - 2 * FONT_MIDDLE_SIZE,
@@ -243,8 +297,8 @@ void Activities::game_list()
                              x + offset, y + FONT_MIDDLE_SIZE / 2, 16, 16, IMG_NONE)
                           .x;
         if (rom->favorite)
-            offset += gui.render_image(cfg.theme_path + "skin/icon-star.png",
-                             x + offset, y + FONT_MIDDLE_SIZE / 2, 16, 16, IMG_NONE)
+            offset += gui.render_image(cfg.theme_path + "skin/icon-star.png", x + offset,
+                             y + FONT_MIDDLE_SIZE / 2, 16, 16, IMG_NONE)
                           .x;
         if (rom->pid != -1)
             offset += gui.render_image(std::string(APP_DIR) + "/.assets/green_dot.svg", x + offset,
@@ -331,50 +385,60 @@ void Activities::game_list()
             upHolding = downHolding = false;
             break;
         case InputAction::L1:
-            system_index = (system_index == 0) ? systems.size() - 1 : system_index - 1;
-            filter_roms();
+
+            do {
+                system_index = (system_index == 0) ? systems.size() - 1 : system_index - 1;
+                filter_roms();
+            } while (filtered_roms_list.empty() && system_index > 0);
             upHolding = downHolding = false;
             break;
         case InputAction::R1:
-            system_index = (system_index + 1) % systems.size();
-            filter_roms();
+            do {
+                system_index = (system_index + 1) % systems.size();
+                filter_roms();
+            } while (filtered_roms_list.empty() && system_index > 0);
             upHolding = downHolding = false;
             break;
-        case InputAction::B: is_running = false; break;
         case InputAction::A:
-            if (has_rom) {
-                game_runner.start(rom->name, rom->system, rom->file);
-                handle_game_return(&(*rom), game_runner.wait(rom->file));
-            }
-            break;
-        case InputAction::X:
-            in_game_detail = true;
-            gui.reset_scroll();
-            break;
-        case InputAction::ZR:
-            if (has_rom && !rom->manual.empty())
-                game_runner.start_external(std::string(MANUAL_READER) + " \"" + rom->manual + "\"");
-            break;
-
-        case InputAction::Select:
-            filter_state = (filter_state + 1) % 4;
-            filter_roms();
-            upHolding = downHolding = false;
-            break;
-        case InputAction::Start:
-            sort_by = sort_by == Sort::Last ? Sort::Name : static_cast<Sort>(sort_by + 1);
-            sort_roms();
-            upHolding = downHolding = false;
-            break;
         case InputAction::Y: {
-            // Y runs the game (same as A)
             if (has_rom) {
+                upHolding = downHolding = false;
                 game_runner.start(rom->name, rom->system, rom->file);
                 handle_game_return(&(*rom), game_runner.wait(rom->file));
             }
             break;
         }
-        case InputAction::Menu: menu(rom); break;
+        case InputAction::B: is_running = false; break;
+        case InputAction::X:
+            upHolding = downHolding = false; // stop repeat on jump navigation
+            in_game_detail = true;
+            gui.reset_scroll();
+            break;
+        case InputAction::ZR:
+            if (has_rom && !rom->manual.empty()) {
+                upHolding = downHolding = false;
+                game_runner.start_external(std::string(MANUAL_READER) + " \"" + rom->manual + "\"");
+            }
+            break;
+        //
+        // case InputAction::Select:
+        //     filter_state = (filter_state + 1) % 4;
+        //     filter_roms();
+        //     upHolding = downHolding = false;
+        //     break;
+        // case InputAction::Start:
+        //     sort_by = sort_by == Sort::Last ? Sort::Name : static_cast<Sort>(sort_by + 1);
+        //     sort_roms();
+        //     upHolding = downHolding = false;
+        //     break;
+        case InputAction::Menu:
+            upHolding = downHolding = false;
+            global_menu();
+            break;
+        case InputAction::Select:
+            upHolding = downHolding = false;
+            game_menu(rom);
+            break;
         default: break;
         }
     }
@@ -405,11 +469,16 @@ void Activities::game_list()
 
 void Activities::game_detail()
 {
-
     // Safety check
     if (filtered_roms_list.empty() || selected_index >= filtered_roms_list.size()) {
         std::cerr << "Error: Invalid ROM access in game_detail()" << std::endl;
+        gui.message_popup(
+            3000, {{"No game to display", 28, cfg.title_color},
+                      {"Switching to all systems list window.", 24, cfg.selected_color},
+                      {"You can change filters from menu", 24, cfg.selected_color}});
         in_game_detail = false;
+        system_index = 0;
+        filter_roms();
         return;
     }
 
@@ -541,7 +610,7 @@ void Activities::game_detail()
             rightHolding = false;
         }
         switch (gui.map_input(e)) {
-        case InputAction::Quit: is_running = false; break;
+        case InputAction::Quit:
         case InputAction::B: is_running = false; break;
         case InputAction::Left:
             if (selected_index < filtered_roms_list.size() - 1) {
@@ -564,28 +633,36 @@ void Activities::game_detail()
             holdStartTime = lastRepeatTime = std::chrono::steady_clock::now();
             break;
         case InputAction::A:
-            game_runner.start(rom->name, rom->system, rom->file);
-            handle_game_return(&(*rom), game_runner.wait(rom->file));
-            break;
         case InputAction::Y:
             // Y runs the game now (same as A)
+            leftHolding = rightHolding = false;
             game_runner.start(rom->name, rom->system, rom->file);
             handle_game_return(&(*rom), game_runner.wait(rom->file));
             break;
         case InputAction::ZL:
-            if (!rom->video.empty())
+            if (!rom->video.empty()) {
+                leftHolding = rightHolding = false;
                 game_runner.start_external(std::string(VIDEO_PLAYER) + " \"" + rom->video + "\"");
+            }
             break;
         case InputAction::X:
             in_game_detail = false;
             leftHolding = rightHolding = false;
             break;
         case InputAction::ZR:
-            if (!rom->manual.empty())
+            if (!rom->manual.empty()) {
+                leftHolding = rightHolding = false;
                 game_runner.start_external(std::string(MANUAL_READER) + " \"" + rom->manual + "\"");
+            }
             break;
-        case InputAction::Menu: menu(rom); break;
-        case InputAction::Select: break;
+        case InputAction::Menu:
+            leftHolding = rightHolding = false;
+            global_menu();
+            break;
+        case InputAction::Select:
+            leftHolding = rightHolding = false;
+            game_menu(rom);
+            break;
         default: break;
         }
     }
@@ -620,7 +697,6 @@ void Activities::game_detail()
 void Activities::overall_stats()
 {
     bool running = true;
-    gui.save_background_texture();
     while (running && is_running) {
 
         int count = 0;
@@ -656,7 +732,6 @@ void Activities::overall_stats()
             }
         }
     }
-    gui.delete_background_texture();
 }
 
 void Activities::empty_db()
@@ -708,7 +783,7 @@ void Activities::refresh_db(std::string selected_rom_file)
         unique_systems.insert(rom.system);
     }
     systems.clear();
-    systems.push_back("");
+    systems.push_back("All");
     systems.insert(systems.end(), unique_systems.begin(), unique_systems.end());
     filter_roms();
     // Restore selection to the same rom if possible
@@ -798,18 +873,18 @@ int               Activities::parseArgs(int argc, char** argv)
                 system_index = std::distance(systems.begin(), sys_it);
             }
             break;
-        case 'c':
-            if (optarg == NULL)
-                break;
-            tmp_str = std::string(optarg);
-            if (tmp_str == "all") {
-                filter_state = 0;
-            } else if (tmp_str == "on") {
-                filter_state = 2;
-            } else if (tmp_str == "off") {
-                filter_state = 3;
-            }
-            break;
+        // case 'c':
+        //     if (optarg == NULL)
+        //         break;
+        //     tmp_str = std::string(optarg);
+        //     if (tmp_str == "all") {
+        //         filter_state = 0;
+        //     } else if (tmp_str == "on") {
+        //         filter_state = 2;
+        //     } else if (tmp_str == "off") {
+        //         filter_state = 3;
+        //     }
+        //     break;
         case 'f':
             if (optarg == NULL)
                 break;
@@ -824,7 +899,6 @@ int               Activities::parseArgs(int argc, char** argv)
 
 void Activities::auto_resume()
 {
-
     std::ifstream file("/mnt/SDCARD/Apps/Activities/data/autostarts.txt");
     if (file.fail())
         return;
@@ -882,7 +956,7 @@ void Activities::run(int argc, char** argv)
 
     while (is_running) {
         if (db.is_refresh_needed())
-                    refresh_db();
+            refresh_db();
         // Safety check to avoid out-of-bounds access
         std::string current_system = "";
         if (!systems.empty() && system_index < systems.size())

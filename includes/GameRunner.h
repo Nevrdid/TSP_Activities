@@ -10,6 +10,8 @@ class GameRunner
     GameRunner();
     GameRunner(const GameRunner& copy); 
     GameRunner& operator=(const GameRunner& copy);
+
+    Config& cfg;
     GUI& gui;
 
     // Track whether ra_hotkey existed when suspending a given game

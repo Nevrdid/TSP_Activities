@@ -1,31 +1,38 @@
 #include <GameRunner.h>
 
 GameRunner::GameRunner()
-    : gui(GUI::getInstance())
+    : cfg(Config::getInstance())
+    , gui(GUI::getInstance())
 {
 }
 
 GameRunner::~GameRunner()
 {
     if (childs.empty()) {
-        gui.message_popup("Leaving...", 32, "Good bye", 32, 1000);
+        gui.message_popup(
+            2000, {{"Leaving...", 32, cfg.title_color}, {"Good bye", 32, cfg.selected_color}});
         return;
     }
     int status;
-    gui.message_popup("Please wait...", 32, "We save suspended games.", 18, 15);
+    gui.message_popup(15, {{"Please wait...", 32, cfg.title_color},
+                              {"We save suspended games.", 18, cfg.title_color}});
+
     for (const std::pair<std::string, pid_t> child : childs) {
         pid_t gpid = utils::get_pgid_of_process(child.second);
         utils::resume_process_group(gpid);
         utils::kill_process_group(child.second);
-        gui.message_popup("Please wait...", 32, "We save suspended games.", 18, 15);
+        gui.message_popup(15, {{"Please wait...", 32, cfg.title_color},
+                                  {"We save suspended games.", 18, cfg.title_color}});
     }
     while (waitpid(-1, &status, WNOHANG) > -1) {
-        gui.message_popup("Please wait...", 32, "We save suspended games.", 18, 15);
+        gui.message_popup(15, {{"Please wait...", 32, cfg.title_color},
+                                  {"We save suspended games.", 18, cfg.title_color}});
     }
 
     // Fix some child keep erasing fb.
     for (int i = 0; i < 30; i++)
-        gui.message_popup("Good bye", 32, "Your games are saved.", 18, 15);
+        gui.message_popup(15,
+            {{"Good bye", 32, cfg.title_color}, {"Your games are saved.", 18, cfg.title_color}});
 }
 
 void GameRunner::stop(const std::string& romFile)
@@ -73,7 +80,8 @@ void GameRunner::start(
     } else {
         fs::path romPath = fs::path(romFile);
         if (!fs::exists(romPath)) {
-            gui.message_popup("Error", 28, "The rom file not exist", 18, 3000);
+            gui.message_popup(3000, {{"Error", 28, cfg.title_color},
+                                        {"The rom file not exist", 18, cfg.selected_color}});
             return;
         }
         pid_t pid = fork();
@@ -129,7 +137,8 @@ std::pair<pid_t, int> GameRunner::wait(const std::string& romFile)
         // Check if the process has terminated
         pid_t result = waitpid(pid, &status, WNOHANG);
         if (result == pid) {
-            // If the game was stoped by a signal, that mostly because of cmd_to_launch_killer.sh
+            // If the game was stoped by a signal, that mostly because of
+            // cmd_to_launch_killer.sh
             //    // so we not remove it from child to keep it in autostarts
             if (WIFSIGNALED(status)) {
                 return {pid, 3};
