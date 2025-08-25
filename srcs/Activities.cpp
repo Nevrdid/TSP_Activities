@@ -204,11 +204,6 @@ void Activities::global_menu()
                                   str); // refresh_db will save the rom as it will not find it in db
                           return true;
                       }},
-        {"Filters",
-            [this]() -> bool {
-                filters_menu();
-                return true;
-            }},
         {"Global Stats",
             [this]() -> bool {
                 overall_stats();
@@ -335,8 +330,8 @@ void Activities::game_list()
     gui.display_keybind("Menu", "Menu", 330);
     gui.display_keybind("L1", "R1", "Change system", gui.Width - 620);
     // gui.display_keybind("L2", "Manual", gui.Width - 500);
-    gui.display_keybind("Select", "State filter", gui.Width - 350);
-    gui.display_keybind("Start", "Sort by (" + sort_names[sort_by] + ")", gui.Width - 180);
+    gui.display_keybind("Select", "Filters Menu", gui.Width - 350);
+    gui.display_keybind("Start", "Game Menu", gui.Width - 180);
 
     gui.render();
 
@@ -436,6 +431,10 @@ void Activities::game_list()
             global_menu();
             break;
         case InputAction::Select:
+            upHolding = downHolding = false;
+            filters_menu();
+            break;
+        case InputAction::Start:
             upHolding = downHolding = false;
             game_menu(rom);
             break;
@@ -573,6 +572,8 @@ void Activities::game_detail()
     gui.display_keybind("B", "Exit", 145);
     gui.display_keybind("X", "List", 230);
     gui.display_keybind("Menu", "Menu", 300);
+    gui.display_keybind("Select", "Filters Menu", gui.Width - 350);
+    gui.display_keybind("Start", "Game Menu", gui.Width - 180);
     // gui.display_keybind("L2", "Manual", gui.Width / 2 - 80);
     // gui.display_keybind("Select", rom.completed ? "Uncomplete" : "Complete", gui.Width / 2);
 
@@ -589,7 +590,7 @@ void Activities::game_detail()
                 cfg.theme_path + "skin/ic-left-arrow-n.png", 10, gui.Height / 2, 40, 40);
         }
 
-        int nav_x = gui.Width - 320;
+        int nav_x = gui.Width / 2;
         gui.render_image(
             cfg.theme_path + "skin/ic-left-arrow-n.png", nav_x, gui.Height - 20, 30, 30);
         gui.render_image(
@@ -660,6 +661,10 @@ void Activities::game_detail()
             global_menu();
             break;
         case InputAction::Select:
+            leftHolding = rightHolding = false;
+            filters_menu();
+            break;
+        case InputAction::Start:
             leftHolding = rightHolding = false;
             game_menu(rom);
             break;
