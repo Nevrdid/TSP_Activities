@@ -50,7 +50,6 @@ class Activities
     DB&         db;
 
     bool   is_running = false;
-    bool   interupted = false;
     bool   in_game_detail = false;
     bool   auto_resume_enabled = true;
     size_t selected_index = 0;
@@ -60,7 +59,6 @@ class Activities
     size_t                                  list_size = 0;
 
     size_t        total_time = 0;
-    bool          no_list = false;
     FiltersStates filters_states = {FilterState::All};
 
     Sort sort_by = Sort::Last;
@@ -91,8 +89,9 @@ class Activities
     void sort_roms();
     void filter_roms();
 
-    bool switch_filter(const std::string& label, int& state);
-    void filters_menu();
+    MenuResult switch_filter(const std::string& label, int& state);
+    MenuResult sort_menu();
+    MenuResult filters_menu();
     void global_menu();
     void game_menu(std::vector<Rom>::iterator rom);
 
@@ -100,6 +99,9 @@ class Activities
     void game_detail();
     void overall_stats();
     void empty_db();
+
+    void refresh_db(std::string selected_rom_file = "");
+    void auto_resume();
 
   public:
     ~Activities();
@@ -110,7 +112,5 @@ class Activities
         return instance;
     }
 
-    void refresh_db(std::string selected_rom_file = "");
-    void auto_resume();
     void run(int argc, char** argv);
 };

@@ -203,6 +203,19 @@ TTF_Font* GUI::get_font(int size)
     return fonts[size];
 }
 
+/**
+ * @brief Maps SDL events to our custom InputAction enum.
+ *
+ * @details This function translates various SDL events (joystick, keyboard, quit)
+ * into a more abstract representation of user input actions. It handles
+ * joystick axis motion for triggers, hat switches for directional input,
+ * button presses for actions, and keyboard presses (if enabled) for
+ * similar actions.
+ *
+ * @param e The SDL_Event to be mapped.
+ * @return The corresponding InputAction enum value. Returns InputAction::None
+ *         if the event does not map to a recognized action.
+ */
 InputAction GUI::map_input(const SDL_Event& e)
 {
     // Handle triggers as axes for ZL (lefttrigger, a2) and ZR (righttrigger, a5)
@@ -264,11 +277,38 @@ InputAction GUI::map_input(const SDL_Event& e)
     return InputAction::None;
 }
 
+/**
+ * @brief Fullfill renderer with black and SDL_RenderClear
+ */
+void GUI::clear()
+{
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+    SDL_RenderClear(renderer);
+}
+
+/**
+ * @brief Call SDL_RenderPresent
+ */
 void GUI::render()
 {
     SDL_RenderPresent(renderer);
 }
 
+/**
+ * @brief Renders an image to the screen.
+ *
+ * @details This function loads an image from the given path, caches it for future use,
+ * and then draws it onto the SDL renderer. It supports various scaling and
+ * alignment options.
+ *
+ * @param image_path The path to the image file.
+ * @param x The x-coordinate of the image's top-left corner (or center if IMG_CENTER is set).
+ * @param y The y-coordinate of the image's top-left corner (or center if IMG_CENTER is set).
+ * @param w The desired width of the image. If 0, the aspect ratio is maintained based on height.
+ * @param h The desired height of the image. If 0, the aspect ratio is maintained based on width.
+ * @param flags Optional flags to control scaling (IMG_FIT) and alignment (IMG_CENTER).
+ * @return A Vec2 struct containing the actual rendered width and height of the image.
+ */
 Vec2 GUI::render_image(const std::string& image_path, int x, int y, int w, int h, int flags)
 {
     if (image_path.empty() || !fs::exists(image_path))
@@ -307,6 +347,17 @@ Vec2 GUI::render_image(const std::string& image_path, int x, int y, int w, int h
     return {width, height};
 }
 
+/**
+ * @brief Renders a cached text element.
+ *
+ * @details This function retrieves a pre-rendered text texture from the cache or creates
+ * it if it doesn't exist. It then draws the texture onto the SDL renderer at the
+ * specified position. It handles text clipping if the rendered text exceeds a
+ * given width.
+ *
+ * @param text The Text object containing the string, size, and color.
+ * @return A reference to the CachedText object (either existing or newly created).
+ */
 CachedText& GUI::getCachedText(const Text& text)
 {
     for (auto& cached : cached_text) {
@@ -335,6 +386,19 @@ CachedText& GUI::getCachedText(const Text& text)
     return cached_text.back();
 }
 
+/**
+ * @brief Renders a text string with multiple colors.
+ *
+ * @details This function takes a vector of text segments, each with its own string and color,
+ * and renders them sequentially. It's useful for creating titles or labels where
+ * different parts need distinct colors. The function uses `getCachedText` to efficiently
+ * handle text rendering and caching.
+ *
+ * @param colored_texts A vector of pairs, where each pair contains a text string and its SDL_Color.
+ * @param x The x-coordinate for the start of the text.
+ * @param y The y-coordinate for the text.
+ * @param font_size The size of the font to use for rendering the text.
+ */
 void GUI::render_multicolor_text(
     const std::vector<std::pair<std::string, SDL_Color>>& colored_texts, int x, int y,
     int font_size)
@@ -359,6 +423,26 @@ void GUI::render_multicolor_text(
     }
 }
 
+/**
+ * @brief Renders text on the GUI, with optional centering and width clipping.
+ *
+ * @details This function takes a string and various rendering parameters to display text
+ * on the screen. It utilizes a caching mechanism for text textures to improve
+ * performance. If the text width exceeds the specified `width`, it will be clipped.
+ *
+ * @param text The string of text to be rendered.
+ * @param x The x-coordinate (horizontal position) where the text will be rendered.
+ * @param y The y-coordinate (vertical position) where the text will be rendered.
+ * @param font_size The size of the font to use for rendering the text.
+ * @param color The SDL_Color struct specifying the color of the text.
+ * @param width An optional maximum width for the text. If non-zero and the
+ *              cached text's width exceeds this value, the text will be clipped.
+ * @param center A boolean flag. If true, the text will be horizontally centered
+ *               around the given `x` coordinate.
+ * @return A Vec2 object containing the actual width and height of the rendered
+ *         text. Returns an empty Vec2 ({0,0}) if there's an error retrieving
+ *         or caching the text texture.
+ */
 Vec2 GUI::render_text(
     const std::string& text, int x, int y, int font_size, SDL_Color color, int width, bool center)
 {
@@ -383,6 +467,22 @@ Vec2 GUI::render_text(
     return {cached.width, cached.height};
 }
 
+/**
+ * @brief Renders a scrollable text string within a specified width.
+ *
+ * @details This function displays a given text string. If the text's width exceeds the
+ * provided `width`, it will automatically scroll horizontally. The scrolling
+ * includes an initial delay, a continuous scroll, and a pause at the end
+ * before resetting. Text rendering is cached for performance.
+ *
+ * @param text The string to be rendered.
+ * @param x The x-coordinate for rendering the text.
+ * @param y The y-coordinate for rendering the text.
+ * @param width The maximum width available for rendering the text. If the text
+ *              exceeds this width, it will scroll.
+ * @param font_size The size of the font to use for the text.
+ * @param color The color of the text.
+ */
 void GUI::render_scrollable_text(
     const std::string& text, int x, int y, int width, int font_size, SDL_Color color)
 {
@@ -430,14 +530,21 @@ void GUI::reset_scroll()
     scroll_reset = true;
 }
 
-void GUI::clear_renderer() {
-    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-    SDL_RenderClear(renderer);
-}
-
+/**
+ * @brief Renders the background image for the GUI.
+ *
+ * @details This function is responsible for displaying the correct background image
+ * based on the current system and user configuration. It first attempts to render a
+ * pre-loaded background texture if one exists. If not, it checks for a system-specific
+ * background image. If that doesn't exist, it falls back to the default theme background.
+ * The function clears the previous frame before rendering the new background.
+ *
+ * @param system A constant reference to a string containing the name of the
+ * system for which the background is to be rendered.
+ */
 void GUI::render_background(const std::string& system)
 {
-    clear_renderer();
+    clear();
     if (background_texture) {
         SDL_RenderCopy(renderer, background_texture, nullptr, nullptr);
         return;
@@ -459,6 +566,22 @@ void GUI::render_background(const std::string& system)
     render_image(bg, Width / 2, Height / 2, Width, Height);
 }
 
+/**
+ * @brief Displays a keybind icon and its associated text on the GUI.
+ *
+ * @details This function renders a specific button icon and its corresponding text
+ * label at a designated horizontal position on the screen. It is used to show
+ * keybinds or control hints at the bottom of the interface.
+ * The button icon is rendered first, and its position is used to correctly align
+ * the subsequent text.
+ *
+ * @param btn A constant reference to a string containing the key for the button's
+ * icon in the `buttons_icons` map.
+ * @param text A constant reference to a string containing the text to be displayed
+ * next to the icon.
+ * @param x An integer representing the horizontal (x) coordinate for the keybind's
+ * position on the screen.
+ */
 void GUI::display_keybind(const std::string& btn, const std::string& text, int x)
 {
     int prevX =
@@ -467,6 +590,23 @@ void GUI::display_keybind(const std::string& btn, const std::string& text, int x
     render_text(text, x + prevX / 2 + 4, Height - 32, FONT_MINI_SIZE, cfg.info_color);
 };
 
+/**
+ * @brief Displays two keybind icons and their associated text on the GUI.
+ *
+ * @details This function renders a sequence of two button icons followed by a text label
+ * at a specified horizontal position on the screen. It's useful for showing key combinations
+ * or a pair of controls with a single descriptive label. The icons are rendered sequentially,
+ * and their positions are used to correctly align the subsequent text.
+ *
+ * @param btn1 A constant reference to a string containing the key for the first
+ * button's icon in the `buttons_icons` map.
+ * @param btn2 A constant reference to a string containing the key for the second
+ * button's icon in the `buttons_icons` map.
+ * @param text A constant reference to a string containing the text to be displayed
+ * next to the icons.
+ * @param x An integer representing the horizontal (x) coordinate for the keybind's
+ * position on the screen.
+ */
 void GUI::display_keybind(const std::string& btn1, const std::string& btn2, const std::string& text,
 
     int x)
@@ -480,6 +620,20 @@ void GUI::display_keybind(const std::string& btn1, const std::string& btn2, cons
     render_text(text, x + 4 * prevX / 2, Height - 32, FONT_MINI_SIZE, cfg.info_color);
 };
 
+/**
+ * @brief Captures a screenshot of the current framebuffer and returns it as an SDL_Texture.
+ *
+ * @details This function captures the current display by directly reading from the
+ * Linux framebuffer device (`/dev/fb0`). It first opens the device, gets its screen
+ * information, and maps it into memory. It then copies the raw pixel data into a new
+ * SDL_Surface, converts the surface to an SDL_Texture, and cleans up the allocated resources.
+ * This method is a low-level way to capture the entire screen content, including UI
+ * elements not managed by SDL itself.
+ *
+ * @return A pointer to the newly created SDL_Texture containing the screenshot. Returns
+ * `nullptr` if any step of the process (opening the device, mapping memory, or
+ * creating the surface/texture) fails.
+ */
 SDL_Texture* GUI::take_screenshot()
 {
 
@@ -535,6 +689,19 @@ SDL_Texture* GUI::take_screenshot()
     return texture;
 }
 
+/**
+ * @brief Saves a background texture for future use.
+ *
+ * @details This function manages the GUI's background texture. It first releases any existing
+ * background texture to prevent memory leaks. If a `required_texture` is provided, it is
+ * directly assigned as the new background. If `required_texture` is `nullptr`, the function
+ * captures the current contents of the renderer's backbuffer, creates a new texture from it,
+ * and saves it for subsequent rendering cycles. This is useful for caching a static background
+ * to avoid re-rendering it every frame.
+ *
+ * @param required_texture A pointer to an `SDL_Texture` to be saved as the background.
+ * If `nullptr`, the function will capture the current screen contents instead.
+ */
 void GUI::save_background_texture(SDL_Texture* required_texture)
 {
     delete_background_texture();
@@ -571,6 +738,21 @@ void GUI::delete_background_texture()
     }
 }
 
+/**
+ * @brief Displays a modal confirmation popup and handles user input.
+ *
+ * @details This function creates a blocking popup window with a message and "Yes/No" options.
+ * It enters a loop that continuously renders the popup and waits for user input. The user
+ * can navigate between "Yes" and "No" using left/right inputs and confirm their choice
+ * with the A or B button. The function returns a boolean value indicating the user's
+ * final choice. The popup includes a background mask and styled buttons to fit the GUI's theme.
+ *
+ * @param message A constant reference to a string containing the message to be
+ * displayed in the popup.
+ * @param font_size An integer specifying the font size for the message and button text.
+ * @return `true` if the user selects "Yes" (confirms), `false` if the user selects "No"
+ * or quits the popup.
+ */
 bool GUI::confirmation_popup(const std::string& message, int font_size)
 {
     bool confirmed = false;
@@ -607,6 +789,21 @@ bool GUI::confirmation_popup(const std::string& message, int font_size)
     return confirmed;
 }
 
+/**
+ * @brief Displays a non-blocking message popup for a specified duration.
+ *
+ * @details This function creates and displays a popup window with one or more lines of text.
+ * The popup's size is dynamically calculated based on the content to ensure it fits the text
+ * properly. It renders a themed background, the text lines, and then enters a timed loop.
+ * During this loop, the popup remains visible, but the user can dismiss it early by pressing
+ * a specific action button (A, B, or Quit). The function is non-blocking in the sense that
+ * it doesn't require a specific user action to proceed after the duration expires.
+ *
+ * @param duration An integer representing the minimum number of milliseconds the popup
+ * should be displayed.
+ * @param lines A constant reference to a vector of `Text` objects, where each object
+ * contains a string, font size, and color for a line of text in the popup.
+ */
 void GUI::message_popup(int duration, const std::vector<Text>& lines)
 {
 
@@ -653,6 +850,27 @@ void GUI::message_popup(int duration, const std::vector<Text>& lines)
     }
 }
 
+/**
+ * @brief Renders a customizable information window with a title and content.
+ *
+ * @details This function draws a pop-up style information window at a specified position
+ * and size. It begins by rendering a background image for the window. It then displays a
+ * title at the top, centered horizontally. Below the title, it iterates through a vector of
+ * key-value pairs (the content) and renders each pair as two-colored text. This allows for
+ * clear distinction between a label (e.g., "Version:") and its corresponding value
+ * (e.g., "1.2.3"). The spacing and positioning of the content are dynamically calculated
+ * to fit within the specified dimensions of the window.
+ *
+ * @param title A string containing the window's title.
+ * @param title_size An integer representing the font size for the title.
+ * @param content A vector of `std::pair<std::string, std::string>` where each pair
+ * represents a line of content with a key and a value.
+ * @param content_size An integer representing the font size for the content text.
+ * @param x An integer for the horizontal (x) coordinate of the window's center.
+ * @param y An integer for the vertical (y) coordinate of the window's center.
+ * @param width An integer specifying the width of the window.
+ * @param height An integer specifying the height of the window.
+ */
 void GUI::infos_window(std::string title, int title_size,
     std::vector<std::pair<std::string, std::string>> content, int content_size, int x, int y,
     int width, int height)
@@ -672,9 +890,39 @@ void GUI::infos_window(std::string title, int title_size,
     }
 }
 
-std::pair<bool, size_t> GUI::_selector_core(const std::string& title,
+/**
+ * @brief Core function for rendering and managing a scrollable selector menu.
+ *
+ * @details This is a comprehensive function that handles the full lifecycle of a
+ * selector-style menu, from rendering to user input management. It dynamically
+ * calculates the window's size based on the content and provides features such as a
+ * title, scrollable list of labels, a visual scrollbar, and dynamic highlighting of
+ * the currently selected item. The function supports both centered and left-aligned
+ * layouts. It continuously polls for user input (Up, Down, Left, Right, A, B, Quit)
+ * to navigate the list. Pressing 'A' can trigger a corresponding action from a
+ * provided map of functions, while 'B' or 'Quit' will exit the selector.
+ *
+ * @param title A constant reference to a string for the menu's title. An empty string
+ * means no title is displayed.
+ * @param labels A constant reference to a vector of strings, where each string is
+ * a selectable item in the menu.
+ * @param max_width The maximum allowed width for the menu in pixels. A value of 0
+ * will automatically adjust the width based on content.
+ * @param center A boolean flag. If `true`, the menu's content is centered; otherwise,
+ * it is left-aligned.
+ * @param initial_selected_index The initial index of the item that should be selected.
+ * @param actions A constant reference to a map of strings to functions. The string
+ * key must match a label in the `labels` vector. The corresponding function is
+ * executed when the 'A' button is pressed on that label. The function should return
+ * `true` to exit the menu or `false` to stay in the menu.
+ * @return A `std::pair<bool, size_t>`. The boolean is `true` if the user wants to
+ * exit the menu (by pressing B or Quit) or if an action returns `true`. The `size_t`
+ * is the index of the last selected item.
+ */
+std::pair<MenuResult, size_t> GUI::_selector_core(const std::string& title,
     const std::vector<std::string>& labels, size_t max_width, bool center,
-    size_t initial_selected_index, const std::map<std::string, std::function<bool()>>& actions)
+    size_t                                                    initial_selected_index,
+    const std::map<std::string, std::function<MenuResult()>>& actions)
 {
     bool   running = true;
     size_t selected_index = initial_selected_index;
@@ -774,17 +1022,20 @@ std::pair<bool, size_t> GUI::_selector_core(const std::string& title,
                 break;
 
             case InputAction::B:
+                return {MenuResult::ExitCurrent,
+                    selected_index};
             case InputAction::Quit:
-                return {true, selected_index}; // Signal to exit menu, return current index
+                return {MenuResult::ExitAll,
+                    selected_index};
             case InputAction::A: {
                 if (actions.empty())
-                    return {false, selected_index};
+                    return {MenuResult::Continue, selected_index};
                 const std::string& chosen_label = labels[selected_index];
                 auto               it = actions.find(chosen_label);
                 if (it != actions.end()) {
-                    if (it->second()) { // If action returns true, exit menu
-                        return {true, selected_index};
-                    }
+                    MenuResult result = it->second();
+                    if (result != MenuResult::Continue)
+                        return {result, selected_index};
                 }
             } break;
             default: break;
@@ -794,10 +1045,28 @@ std::pair<bool, size_t> GUI::_selector_core(const std::string& title,
         if (prev_selected_index != selected_index)
             reset_scroll();
     }
-    return {false, selected_index};
+    return {MenuResult::Continue, selected_index};
 }
 
-// TODO: Only accept a specific type of file (add vector<string> as argument with filetype accepted)
+/**
+ * @brief Displays an interactive file selector menu for a given directory.
+ *
+ * @details This function provides a recursive file and directory selection interface.
+ * It populates a list with the contents of the specified `location` and uses the
+ * `_selector_core` function to display a selectable menu to the user. If `hide_empties` is
+ * true, it filters out directories that are empty or contain only a parent directory entry.
+ * When the user selects a directory, the function recursively calls itself to navigate
+ * into the new directory. When a file is selected, it returns the shortened path to that file.
+ * The function returns an empty string if the user exits the selector without making a
+ * file selection.
+ * TODO: Only accept a specific type of file (add vector<string> as argument with filetype accepted)
+ *
+ * @param location The `fs::path` representing the directory to display.
+ * @param hide_empties A boolean flag indicating whether to hide empty directories from the
+ * list.
+ * @return A `std::string` containing the shortened path of the selected file, or an
+ * empty string if no file was selected.
+ */
 const std::string GUI::file_selector(fs::path location, bool hide_empties)
 {
     std::vector<std::string> content = utils::get_directory_content(location, true);
@@ -818,9 +1087,10 @@ const std::string GUI::file_selector(fs::path location, bool hide_empties)
             content.end());
     }
 
-    std::pair<bool, size_t> result = _selector_core("File explorer", content, 0, false, 0, {});
+    std::pair<MenuResult, size_t> result =
+        _selector_core("File explorer", content, 0, false, 0, {});
 
-    if (result.first)
+    if (result.first != MenuResult::Continue)
         return "";
     std::string next = location.string() + "/" + content[result.second];
     if (fs::status(next).type() == fs::file_type::directory)
@@ -828,34 +1098,71 @@ const std::string GUI::file_selector(fs::path location, bool hide_empties)
     return utils::shorten_file_path(next);
 }
 
+/**
+ * @brief Displays a selectable menu to choose a string from a list.
+ *
+ * @details This function presents a user with a menu to select one string from a
+ * provided list. It is a wrapper around the `_selector_core` function, simplifying
+ * its use for string selection. It displays the menu with a given title, a list of
+ * labels, and options for maximum width and centering. The function returns the
+ * selected string upon confirmation or an empty string if the user exits the menu
+ * without making a selection.
+ *
+ * @param title A constant reference to a string for the menu's title.
+ * @param labels A constant reference to a vector of strings representing the selectable
+ * options.
+ * @param max_width The maximum allowed width for the menu in pixels. A value of 0
+ * will automatically adjust the width based on content.
+ * @param center A boolean flag. If `true`, the menu's content is centered; otherwise,
+ * it is left-aligned.
+ * @return A `const std::string&` of the selected label, or an empty string if the
+ * selection was canceled.
+ */
 const std::string GUI::string_selector(
     const std::string& title, const std::vector<std::string>& labels, size_t max_width, bool center)
 {
-    std::pair<bool, size_t> result = _selector_core(title, labels, max_width, center, 0, {});
-    if (result.first)
+    std::pair<MenuResult, size_t> result = _selector_core(title, labels, max_width, center, 0, {});
+    if (result.first != MenuResult::Continue)
         return "";
     return labels[result.second];
 }
 
-void GUI::menu(std::vector<std::pair<std::string, std::function<bool()>>> menu_items)
+/**
+ * @brief Displays and manages a standard menu with selectable items.
+ *
+ * @details This function creates a full-featured, interactive menu using a vector of
+ * string-function pairs. It maps these pairs into separate data structures (`labels` and
+ * `action_map`) to be used by the underlying `_selector_core` function. The function
+ * enters a loop that continuously calls `_selector_core` to render the menu and handle
+ * user input. When the user selects an item (by pressing 'A'), the corresponding function
+ * is executed. The menu will persist until an action function returns `true`, or the user
+ * presses 'B' or a quit button, signaling the menu to close and the function to return.
+ * The `current_selected_index` is preserved across redraws to maintain the user's position.
+ *
+ * @param menu_items A `std::vector` of `std::pair<std::string, std::function<bool()>>`.
+ * Each pair consists of a string to be used as a menu item label and a function to be
+ * executed when that item is selected. The function should return `true` to exit the menu
+ * or `false` to remain in it.
+ */
+MenuResult GUI::menu(const std::string&                              title,
+    std::vector<std::pair<std::string, std::function<MenuResult()>>> menu_items)
 {
     size_t current_selected_index = 0;
 
     std::vector<std::string>                     labels;
-    std::map<std::string, std::function<bool()>> action_map;
+    std::map<std::string, std::function<MenuResult()>> action_map;
     for (const auto& item : menu_items) {
         labels.push_back(item.first);
         action_map[item.first] = item.second;
     }
 
     while (true) {
-        std::pair<bool, size_t> result =
-            _selector_core("Menu: ", labels, Width / 3, true, current_selected_index, action_map);
+        std::pair<MenuResult, size_t> result =
+            _selector_core(title, labels, Width / 3, true, current_selected_index, action_map);
 
-        bool should_exit_menu = result.first;
         current_selected_index = result.second;
 
-        if (should_exit_menu)
-            break;
+        if (result.first == MenuResult::ExitCurrent) return MenuResult::Continue;
+        if (result.first == MenuResult::ExitAll) return MenuResult::ExitAll;
     }
 }

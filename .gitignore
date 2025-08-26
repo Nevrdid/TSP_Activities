@@ -1,4 +1,6 @@
 .cache/
+doc/
+
 build/trimui-smart-pro-toolchain/
 build/bin/*
 build/objs/*

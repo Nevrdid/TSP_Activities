@@ -82,7 +82,7 @@ void Activities::sort_roms()
     gui.reset_scroll();
 }
 
-bool Activities::switch_filter(const std::string& label, int& state)
+MenuResult Activities::switch_filter(const std::string& label, int& state)
 {
     std::string str = gui.string_selector("Show:",
         {std::string(state == FilterState::Match ? "*" : "") + "Only " + label,
@@ -96,45 +96,39 @@ bool Activities::switch_filter(const std::string& label, int& state)
     } else if (str == "Both") {
         state = FilterState::All;
     } else {
-        return false;
+        return MenuResult::ExitCurrent;
     }
     filter_roms();
-    return false;
+    return MenuResult::ExitAll;
 }
 
 void Activities::game_menu(std::vector<Rom>::iterator rom)
 {
-    std::vector<std::pair<std::string, std::function<bool()>>> menu_items;
+    std::vector<std::pair<std::string, MenuAction>> menu_items;
 
     if (filtered_roms_list.empty())
         return;
-    menu_items = {{rom->pid == -1 ? "Start" : "Stop",
-                      [this, rom]() -> bool {
-                          if (rom->pid == -1) {
-                              game_runner.start(rom->name, rom->system, rom->file);
-                              handle_game_return(&(*rom), game_runner.wait(rom->file));
-                          } else {
-                              game_runner.stop(rom->file);
-                              rom->pid = -1;
-                              filter_roms();
-                          }
-                          return true;
+    menu_items = {{rom->pid == -1 ? "Start" : "Resume",
+                      [this, rom]() -> MenuResult {
+                          game_runner.start(rom->name, rom->system, rom->file);
+                          handle_game_return(&(*rom), game_runner.wait(rom->file));
+                          return MenuResult::ExitAll;
                       }},
         {rom->completed ? "Uncomplete" : "Complete",
-            [this, &rom]() -> bool {
+            [this, &rom]() -> MenuResult {
                 rom->completed = rom->completed ? 0 : 1;
                 *rom = db.save(*rom);
                 filter_roms();
-                return true;
+                return MenuResult::ExitAll;
             }},
         {rom->favorite ? "UnFavorite" : "Favorite",
-            [this, &rom]() -> bool {
+            [this, &rom]() -> MenuResult {
                 rom->favorite = rom->favorite ? 0 : 1;
                 *rom = db.save(*rom);
-                return true;
+                return MenuResult::ExitAll;
             }},
         {"Remove DB entry",
-            [this, &rom]() -> bool {
+            [this, &rom]() -> MenuResult {
                 if (gui.confirmation_popup("Remove game from DB?", FONT_MIDDLE_SIZE)) {
                     db.remove(rom->file);
                     roms_list.erase(std::remove_if(roms_list.begin(), roms_list.end(),
@@ -142,80 +136,131 @@ void Activities::game_menu(std::vector<Rom>::iterator rom)
                         roms_list.end());
                     filter_roms();
                 }
-                return true;
+                return MenuResult::ExitAll;
             }},
-        {"Change Launcher", [this, &rom]() -> bool {
+        {"Change Launcher", [this, &rom]() -> MenuResult {
              std::vector<std::string> launchers = utils::get_launchers(rom->system);
              std::string              str =
                  gui.string_selector("Select new launcher:", launchers, gui.Width / 2, true);
              if (!str.empty()) {
                  utils::set_launcher(rom->system, rom->name, str);
                  rom->launcher = str;
+                 return MenuResult::ExitAll;
              }
-             return true;
+             return MenuResult::Continue;
          }}};
 
+    if (rom->pid != -1)
+        menu_items.insert(menu_items.begin() + 1, {"Stop", [this, rom]() -> MenuResult {
+                                                       game_runner.stop(rom->file);
+                                                       rom->pid = -1;
+                                                       filter_roms();
+                                                       return MenuResult::ExitAll;
+                                                   }});
     gui.save_background_texture();
-    gui.menu(menu_items);
+    gui.menu("Game menu", menu_items);
     gui.delete_background_texture();
 }
 
-void Activities::filters_menu()
+MenuResult Activities::sort_menu()
 {
-    std::vector<std::pair<std::string, std::function<bool()>>> menu_items;
+    std::vector<std::pair<std::string, MenuAction>> menu_items;
+
+    menu_items = {{"Sort by...",
+                      [this]() -> MenuResult {
+                          std::string str = gui.string_selector("Sort by...",
+                              {std::string(sort_by == Sort::Last ? "*" : "") + "Last",
+                                  std::string(sort_by == Sort::Name ? "*" : "") + "Name",
+                                  std::string(sort_by == Sort::Count ? "*" : "") + "Count",
+                                  std::string(sort_by == Sort::Time ? "*" : "") + "Time"},
+                              gui.Width / 2, true);
+                          if (str == "Last") {
+                              sort_by = Sort::Last;
+                          } else if (str == "Name") {
+                              sort_by = Sort::Name;
+                          } else if (str == "Count") {
+                              sort_by = Sort::Count;
+                          } else if (str == "Time") {
+                              sort_by = Sort::Time;
+                          } else {
+                              return MenuResult::Continue;
+                          }
+                          sort_roms();
+                          return MenuResult::ExitAll;
+                      }},
+        {"Reverse Sort", [this]() -> MenuResult {
+             reverse_sort = !reverse_sort;
+             sort_roms();
+             return MenuResult::ExitAll;
+         }}};
+
+    return gui.menu("Sorting...", menu_items);
+}
+
+MenuResult Activities::filters_menu()
+{
+    std::vector<std::pair<std::string, MenuAction>> menu_items;
 
     menu_items = {{"System",
-                      [this]() -> bool {
+                      [this]() -> MenuResult {
                           std::string str = gui.string_selector(
                               "Which system to show?", systems, gui.Width / 2, true);
-
-                          system_index = str.empty()
-                                             ? 0
-                                             : std::distance(systems.begin(),
-                                                   find(systems.begin(), systems.end(), str));
+                          if (str.empty()) {
+                              return MenuResult::Continue;
+                          } else if (str == "All") {
+                              system_index = 0;
+                          } else {
+                              system_index = std::distance(
+                                  systems.begin(), find(systems.begin(), systems.end(), str));
+                          }
                           filter_roms();
-                          return false;
+                          return MenuResult::ExitAll;
                       }},
-        {"Running", [this]() -> bool { return switch_filter("running", filters_states.running); }},
+        {"Running",
+            [this]() -> MenuResult { return switch_filter("running", filters_states.running); }},
         {"Favorites",
-            [this]() -> bool { return switch_filter("favorites", filters_states.favorites); }},
-        {"Completed",
-            [this]() -> bool { return switch_filter("completed", filters_states.completed); }}};
+            [this]() -> MenuResult {
+                return switch_filter("favorites", filters_states.favorites);
+            }},
+        {"Completed", [this]() -> MenuResult {
+             return switch_filter("completed", filters_states.completed);
+         }}};
 
-    gui.save_background_texture();
-    gui.menu(menu_items);
-    gui.delete_background_texture();
+    return gui.menu("Filters...", menu_items);
 }
 
 void Activities::global_menu()
 {
-    std::vector<std::pair<std::string, std::function<bool()>>> menu_items;
+    std::vector<std::pair<std::string, MenuAction>> menu_items;
 
-    menu_items = {{"Add Game",
-                      [this]() -> bool {
-                          std::string str = gui.file_selector(fs::path("/mnt/SDCARD/Roms"), true);
-                          if (!str.empty())
-                              refresh_db(
-                                  str); // refresh_db will save the rom as it will not find it in db
-                          return true;
-                      }},
-        {"Global Stats",
-            [this]() -> bool {
-                overall_stats();
-                return false;
+    menu_items = {{"Filters", [this]() -> MenuResult { return filters_menu(); }},
+        {"Sort", [this]() -> MenuResult { return sort_menu(); }},
+        {"Add Game",
+            [this]() -> MenuResult {
+                std::string str = gui.file_selector(fs::path("/mnt/SDCARD/Roms"), true);
+                if (str.empty())
+                    return MenuResult::Continue;
+                refresh_db(str); // refresh_db will save the rom as it will not find it in db
+                return MenuResult::ExitAll;
             }},
-        {"Exit", [this]() -> bool {
+        {"Global Stats",
+            [this]() -> MenuResult {
+                overall_stats();
+                return MenuResult::Continue;
+            }},
+        {"Exit", [this]() -> MenuResult {
              is_running = false;
-             return true;
+             return MenuResult::ExitAll;
          }}};
 
     gui.save_background_texture();
-    gui.menu(menu_items);
+    gui.menu("", menu_items);
     gui.delete_background_texture();
 }
 
 void Activities::handle_game_return(Rom* rom, std::pair<pid_t, int> wait_ending)
 {
+    rom->pid = wait_ending.first;
     switch (wait_ending.second) {
     case 1:
         sort_by = Sort::Last;
@@ -232,7 +277,6 @@ void Activities::handle_game_return(Rom* rom, std::pair<pid_t, int> wait_ending)
         break;
     }
     filter_roms();
-    rom->pid = wait_ending.first;
 }
 
 void Activities::game_list()
@@ -425,10 +469,7 @@ void Activities::game_list()
             upHolding = downHolding = false;
             global_menu();
             break;
-        case InputAction::Select:
-            upHolding = downHolding = false;
-            filters_menu();
-            break;
+        case InputAction::Select: upHolding = downHolding = false; break;
         case InputAction::Start:
             upHolding = downHolding = false;
             game_menu(rom);
@@ -466,14 +507,17 @@ void Activities::game_detail()
     // Safety check
     if (filtered_roms_list.empty() || selected_index >= filtered_roms_list.size()) {
         std::cerr << "Error: Invalid ROM access in game_detail()" << std::endl;
-        gui.message_popup(
-            3000, {{"No game to display", 28, cfg.title_color},
-                      {"Switching to all systems list window.", 24, cfg.selected_color},
-                      {"You can change filters from menu", 24, cfg.selected_color}});
-        in_game_detail = false;
+        gui.save_background_texture();
+        gui.message_popup(3000, {{"No game to display", 28, cfg.title_color},
+                                    {"Reseting filters.", 24, cfg.selected_color}});
+        gui.delete_background_texture();
+        filters_states = {FilterState::All, FilterState::All, FilterState::All};
         system_index = 0;
         filter_roms();
-        return;
+        if (filtered_roms_list.empty()) {
+            in_game_detail = false;
+            return;
+        }
     }
 
     std::vector<Rom>::iterator rom = filtered_roms_list[selected_index];
@@ -655,10 +699,7 @@ void Activities::game_detail()
             leftHolding = rightHolding = false;
             global_menu();
             break;
-        case InputAction::Select:
-            leftHolding = rightHolding = false;
-            filters_menu();
-            break;
+        case InputAction::Select: leftHolding = rightHolding = false; break;
         case InputAction::Start:
             leftHolding = rightHolding = false;
             game_menu(rom);

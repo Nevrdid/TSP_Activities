@@ -64,6 +64,14 @@ enum class InputAction
     Quit,
 };
 
+enum MenuResult {
+  Continue,
+  ExitCurrent,
+  ExitAll
+};
+
+typedef std::function<MenuResult()> MenuAction;
+
 enum
 {
     IMG_NONE = 0,
@@ -146,9 +154,9 @@ class GUI
     // When true, remove /tmp/trimui_inputd/ra_hotkey while GUI is displayed
     bool keep_ra_hotkey_off = false;
 
-    std::pair<bool, size_t> _selector_core(const std::string& title,
+    std::pair<MenuResult, size_t> _selector_core(const std::string& title,
         const std::vector<std::string>& labels, size_t max_width, bool center,
-        size_t selected_index, const std::map<std::string, std::function<bool()>>& actions);
+        size_t selected_index, const std::map<std::string, MenuAction>& actions);
 
   public:
     ~GUI();
@@ -172,7 +180,7 @@ class GUI
     int Height;
 
     InputAction map_input(const SDL_Event& e);
-    void        clear_screen();
+    void        clear();
     void        render();
 
     SDL_Texture* take_screenshot();
@@ -189,7 +197,6 @@ class GUI
         const std::string& text, int x, int y, int width, int font_size, SDL_Color color);
     void reset_scroll();
 
-    void clear_renderer();
     void render_background(const std::string& system = "");
     void display_keybind(const std::string& btn, const std::string& text, int x);
     void display_keybind(
@@ -212,9 +219,9 @@ class GUI
     const std::string string_selector(const std::string& title,
         const std::vector<std::string>& labels, size_t max_width, bool center);
 
-    std::pair<bool, size_t> menu_selector(const std::string& title,
+    std::pair<MenuResult, size_t> menu_selector(const std::string& title,
         const std::vector<std::string>& labels, size_t max_width, bool center,
-        size_t initial_selected_index, std::map<std::string, std::function<bool()>> actions);
+        size_t initial_selected_index, std::map<std::string, MenuAction> actions);
 
-    void menu(std::vector<std::pair<std::string, std::function<bool()>>> menu_items);
+    MenuResult menu(const std::string& title, std::vector<std::pair<std::string, MenuAction>> menu_items);
 };
