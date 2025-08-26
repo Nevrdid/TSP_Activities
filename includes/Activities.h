@@ -21,20 +21,20 @@ enum Sort
     Last
 };
 
-
 static const std::string sort_names[] = {"Name", "Time", "Count", "Last"};
 
 enum FilterState
 {
-    All = -1,  // Show only match
+    All = -1, // Show only match
     Unmatch,  // Show only unmatchs
-    Match  // Show both
+    Match     // Show both
 };
 
-struct FiltersStates {
-  int running=FilterState::All;
-  int favorites=FilterState::All;
-  int completed=FilterState::All;
+struct FiltersStates
+{
+    int running = FilterState::All;
+    int favorites = FilterState::All;
+    int completed = FilterState::All;
 };
 
 class Activities
@@ -47,7 +47,7 @@ class Activities
     Config&     cfg;
     GUI&        gui;
     GameRunner& game_runner;
-    DB& db;
+    DB&         db;
 
     bool   is_running = false;
     bool   interupted = false;
@@ -59,8 +59,8 @@ class Activities
     std::vector<std::vector<Rom>::iterator> filtered_roms_list;
     size_t                                  list_size = 0;
 
-    size_t total_time = 0;
-    bool   no_list = false;
+    size_t        total_time = 0;
+    bool          no_list = false;
     FiltersStates filters_states = {FilterState::All};
 
     Sort sort_by = Sort::Last;
@@ -81,20 +81,20 @@ class Activities
     const int listRepeatIntervalMs = 80;                  // interval for list scrolling (faster)
     const int detailRepeatIntervalMs = 200;               // interval for detail navigation (slower)
 
-    int  parseArgs(int argc, char** argv);
-    void sort_roms();
-    void filter_roms();
+    int parseArgs(int argc, char** argv);
 
     void handle_game_return(Rom* rom, std::pair<pid_t, int> wait_ending);
     void handle_inputs();
 
     Rom* get_rom(const std::string& rom_file = "");
-    void switch_completed();
-    void switch_favorite();
 
+    void sort_roms();
+    void filter_roms();
+
+    bool switch_filter(const std::string& label, int& state);
     void filters_menu();
     void global_menu();
-    void game_menu (std::vector<Rom>::iterator rom);
+    void game_menu(std::vector<Rom>::iterator rom);
 
     void game_list();
     void game_detail();

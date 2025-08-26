@@ -82,56 +82,78 @@ void Activities::sort_roms()
     gui.reset_scroll();
 }
 
+bool Activities::switch_filter(const std::string& label, int& state)
+{
+    std::string str = gui.string_selector("Show:",
+        {std::string(state == FilterState::Match ? "*" : "") + "Only " + label,
+            std::string(state == FilterState::Unmatch ? "*" : "") + "Only not " + label,
+            std::string(state == FilterState::All ? "*" : "") + "Both"},
+        gui.Width / 2, true);
+    if (str == "Only " + label) {
+        state = FilterState::Match;
+    } else if (str == "Only not " + label) {
+        state = FilterState::Unmatch;
+    } else if (str == "Both") {
+        state = FilterState::All;
+    } else {
+        return false;
+    }
+    filter_roms();
+    return false;
+}
+
 void Activities::game_menu(std::vector<Rom>::iterator rom)
 {
     std::vector<std::pair<std::string, std::function<bool()>>> menu_items;
 
     if (filtered_roms_list.empty())
         return;
-    if (rom->pid != -1) {
-        menu_items.push_back({"Save & Stop", [this, rom]() -> bool {
-                                  game_runner.stop(rom->file);
-                                  rom->pid = -1;
-                                  filter_roms();
-                                  return true;
-                              }});
-    }
-
-    menu_items.insert(menu_items.end(),
-        {{rom->completed ? "Uncomplete" : "Complete",
-             [this, &rom]() -> bool {
-                 rom->completed = rom->completed ? 0 : 1;
-                 *rom = db.save(*rom);
-                 filter_roms();
-                 return true;
-             }},
-            {rom->favorite ? "UnFavorite" : "Favorite",
-                [this, &rom]() -> bool {
-                    rom->favorite = rom->favorite ? 0 : 1;
-                    *rom = db.save(*rom);
-                    return true;
-                }},
-            {"Remove DB entry",
-                [this, &rom]() -> bool {
-                    if (gui.confirmation_popup("Remove game from DB?", FONT_MIDDLE_SIZE)) {
-                        db.remove(rom->file);
-                        roms_list.erase(std::remove_if(roms_list.begin(), roms_list.end(),
-                                            [&rom](const Rom& r) { return r.file == rom->file; }),
-                            roms_list.end());
-                        filter_roms();
-                    }
-                    return true;
-                }},
-            {"Change Launcher", [this, &rom]() -> bool {
-                 std::vector<std::string> launchers = utils::get_launchers(rom->system);
-                 std::string              str =
-                     gui.string_selector("Select new launcher:", launchers, gui.Width / 2, true);
-                 if (!str.empty()) {
-                     utils::set_launcher(rom->system, rom->name, str);
-                     rom->launcher = str;
-                 }
-                 return true;
-             }}});
+    menu_items = {{rom->pid == -1 ? "Start" : "Stop",
+                      [this, rom]() -> bool {
+                          if (rom->pid == -1) {
+                              game_runner.start(rom->name, rom->system, rom->file);
+                              handle_game_return(&(*rom), game_runner.wait(rom->file));
+                          } else {
+                              game_runner.stop(rom->file);
+                              rom->pid = -1;
+                              filter_roms();
+                          }
+                          return true;
+                      }},
+        {rom->completed ? "Uncomplete" : "Complete",
+            [this, &rom]() -> bool {
+                rom->completed = rom->completed ? 0 : 1;
+                *rom = db.save(*rom);
+                filter_roms();
+                return true;
+            }},
+        {rom->favorite ? "UnFavorite" : "Favorite",
+            [this, &rom]() -> bool {
+                rom->favorite = rom->favorite ? 0 : 1;
+                *rom = db.save(*rom);
+                return true;
+            }},
+        {"Remove DB entry",
+            [this, &rom]() -> bool {
+                if (gui.confirmation_popup("Remove game from DB?", FONT_MIDDLE_SIZE)) {
+                    db.remove(rom->file);
+                    roms_list.erase(std::remove_if(roms_list.begin(), roms_list.end(),
+                                        [&rom](const Rom& r) { return r.file == rom->file; }),
+                        roms_list.end());
+                    filter_roms();
+                }
+                return true;
+            }},
+        {"Change Launcher", [this, &rom]() -> bool {
+             std::vector<std::string> launchers = utils::get_launchers(rom->system);
+             std::string              str =
+                 gui.string_selector("Select new launcher:", launchers, gui.Width / 2, true);
+             if (!str.empty()) {
+                 utils::set_launcher(rom->system, rom->name, str);
+                 rom->launcher = str;
+             }
+             return true;
+         }}};
 
     gui.save_background_texture();
     gui.menu(menu_items);
@@ -141,26 +163,6 @@ void Activities::game_menu(std::vector<Rom>::iterator rom)
 void Activities::filters_menu()
 {
     std::vector<std::pair<std::string, std::function<bool()>>> menu_items;
-
-    std::function<bool(std::string, int&)> action_template = [this](std::string label,
-                                                                 int&           state) -> bool {
-        std::string str = gui.string_selector("Show:",
-            {std::string(state == FilterState::Match ? "*" : "") + "Only " + label,
-                std::string(state == FilterState::Unmatch ? "*" : "") + "Only not " + label,
-                std::string(state == FilterState::All ? "*" : "") + "Both"},
-            gui.Width / 2, true);
-        if (str == "Only " + label) {
-            state = FilterState::Match;
-        } else if (str == "Only not " + label) {
-            state = FilterState::Unmatch;
-        } else if (str == "Both") {
-            state = FilterState::All;
-        } else {
-            return false;
-        }
-        filter_roms();
-        return false;
-    };
 
     menu_items = {{"System",
                       [this]() -> bool {
@@ -174,17 +176,11 @@ void Activities::filters_menu()
                           filter_roms();
                           return false;
                       }},
-        {"Running",
-            [this, action_template]() -> bool {
-                return action_template("running", filters_states.running);
-            }},
+        {"Running", [this]() -> bool { return switch_filter("running", filters_states.running); }},
         {"Favorites",
-            [this, action_template]() -> bool {
-                return action_template("favorites", filters_states.favorites);
-            }},
-        {"Completed", [this, action_template]() -> bool {
-             return action_template("completed", filters_states.completed);
-         }}};
+            [this]() -> bool { return switch_filter("favorites", filters_states.favorites); }},
+        {"Completed",
+            [this]() -> bool { return switch_filter("completed", filters_states.completed); }}};
 
     gui.save_background_texture();
     gui.menu(menu_items);
