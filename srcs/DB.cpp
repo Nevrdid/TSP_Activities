@@ -63,7 +63,7 @@ bool DB::is_refresh_needed()
             data_version = current_data_version;
             is_needed = true;
         } else {
-            std::cout << "Data version is still " << data_version << ". No refresh needed." << std::endl;
+            // std::cout << "Data version is still " << data_version << ". No refresh needed." << std::endl;
         }
     } else {
         std::cerr << "Error executing PRAGMA query or no row returned: " << sqlite3_errmsg(db) << std::endl;

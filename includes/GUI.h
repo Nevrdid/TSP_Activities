@@ -189,6 +189,7 @@ class GUI
         const std::string& text, int x, int y, int width, int font_size, SDL_Color color);
     void reset_scroll();
 
+    void clear_renderer();
     void render_background(const std::string& system = "");
     void display_keybind(const std::string& btn, const std::string& text, int x);
     void display_keybind(

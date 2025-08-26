@@ -19,9 +19,8 @@ void Activities::filter_roms()
 {
     // Safety check to avoid out-of-bounds access
     std::string current_system = "All";
-    if (!systems.empty() && system_index < systems.size()) {
+    if (!systems.empty() && system_index < systems.size())
         current_system = systems[system_index];
-    }
 
     filtered_roms_list.clear();
     total_time = 0;
@@ -963,7 +962,7 @@ void Activities::run(int argc, char** argv)
         if (db.is_refresh_needed())
             refresh_db();
         // Safety check to avoid out-of-bounds access
-        std::string current_system = "";
+        std::string current_system = "All";
         if (!systems.empty() && system_index < systems.size())
             current_system = systems[system_index];
         gui.render_background(current_system);

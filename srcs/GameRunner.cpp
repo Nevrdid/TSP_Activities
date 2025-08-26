@@ -36,7 +36,7 @@ GameRunner::~GameRunner()
         gui.message_popup(15,
             {{"Good bye", 32, cfg.title_color}, {"Your games are saved.", 18, cfg.title_color}});
 
-    gui.delete_background_texture();
+    // gui.delete_background_texture();
 }
 
 void GameRunner::stop(const std::string& romFile)
@@ -88,6 +88,7 @@ void GameRunner::start(
                                         {"The rom file not exist", 18, cfg.selected_color}});
             return;
         }
+
         pid_t pid = fork();
         if (pid == 0) {
             setsid();

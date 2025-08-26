@@ -67,8 +67,10 @@ GUI::~GUI()
     for (auto& entry : cached_text)
         if (entry.texture)
             SDL_DestroyTexture(entry.texture);
-
     cached_text.clear();
+
+    delete_background_texture();
+
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
 
@@ -76,61 +78,6 @@ GUI::~GUI()
         TTF_CloseFont(font.second);
 
     SDL_Quit();
-}
-
-SDL_Texture* GUI::take_screenshot()
-{
-
-    int                      fb_fd = -1;
-    struct fb_fix_screeninfo finfo;
-    void*                    fb_ptr = NULL;
-    SDL_Surface*             surface = NULL;
-    SDL_Texture*             texture = NULL;
-
-    fb_fd = open("/dev/fb0", O_RDONLY);
-    if (fb_fd == -1)
-        std::cerr << "Error: Could not open framebuffer device." << std::endl;
-
-    if (ioctl(fb_fd, FBIOGET_FSCREENINFO, &finfo) == -1) {
-        std::cerr << "Error: Could not get fixed screen info from framebuffer." << std::endl;
-        close(fb_fd);
-        return nullptr;
-    }
-    fb_ptr = mmap(0, finfo.smem_len, PROT_READ, MAP_SHARED, fb_fd, 0);
-    if (fb_ptr == MAP_FAILED) {
-        std::cerr << "Error: Could not mmap framebuffer device." << std::endl;
-        close(fb_fd);
-        return nullptr;
-    }
-
-    close(fb_fd);
-
-    Uint32 sdl_pixel_format = SDL_PIXELFORMAT_ARGB8888;
-    surface = SDL_CreateRGBSurfaceWithFormat(0, 1280, 720, 32, sdl_pixel_format);
-    if (!surface) {
-        std::cerr << "Error: Could not create SDL_Surface." << std::endl;
-        munmap(fb_ptr, finfo.smem_len);
-        return nullptr;
-    }
-    Uint8* src_row = (Uint8*) fb_ptr;
-    Uint8* dst_row = (Uint8*) surface->pixels;
-
-    for (int y = 0; y < 720; ++y) {
-        memcpy(dst_row, src_row, finfo.line_length);
-        src_row += finfo.line_length;
-        dst_row += surface->pitch;
-    }
-
-    texture = SDL_CreateTextureFromSurface(renderer, surface);
-    if (!texture) {
-        std::cerr << "Error: Could not create SDL_Texture from surface." << std::endl;
-        return nullptr;
-    }
-
-    munmap(fb_ptr, finfo.smem_len);
-    SDL_FreeSurface(surface);
-
-    return texture;
 }
 
 void GUI::draw_green_dot(int x, int y, int radius)
@@ -482,22 +429,22 @@ void GUI::reset_scroll()
 {
     scroll_reset = true;
 }
-void GUI::render_background(const std::string& system)
-{
+
+void GUI::clear_renderer() {
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderClear(renderer);
+}
 
+void GUI::render_background(const std::string& system)
+{
+    clear_renderer();
     if (background_texture) {
         SDL_RenderCopy(renderer, background_texture, nullptr, nullptr);
         return;
     }
 
-    auto render_bg_image = [this](const std::string& path) {
-        render_image(path, Width / 2, Height / 2, Width, Height);
-    };
-
     std::string bg = "";
-    if (system != "") {
+    if (system != "All") {
         bg = "/mnt/SDCARD/Backgrounds/" + cfg.backgrounds_theme + "/" + system + ".png";
         if (!fs::exists(bg))
             bg = "";
@@ -508,7 +455,8 @@ void GUI::render_background(const std::string& system)
             return;
         }
     }
-    render_bg_image(bg);
+
+    render_image(bg, Width / 2, Height / 2, Width, Height);
 }
 
 void GUI::display_keybind(const std::string& btn, const std::string& text, int x)
@@ -518,6 +466,7 @@ void GUI::display_keybind(const std::string& btn, const std::string& text, int x
 
     render_text(text, x + prevX / 2 + 4, Height - 32, FONT_MINI_SIZE, cfg.info_color);
 };
+
 void GUI::display_keybind(const std::string& btn1, const std::string& btn2, const std::string& text,
 
     int x)
@@ -531,15 +480,68 @@ void GUI::display_keybind(const std::string& btn1, const std::string& btn2, cons
     render_text(text, x + 4 * prevX / 2, Height - 32, FONT_MINI_SIZE, cfg.info_color);
 };
 
+SDL_Texture* GUI::take_screenshot()
+{
+
+    int                      fb_fd = -1;
+    struct fb_fix_screeninfo finfo;
+    void*                    fb_ptr = NULL;
+    SDL_Surface*             surface = NULL;
+    SDL_Texture*             texture = NULL;
+
+    fb_fd = open("/dev/fb0", O_RDONLY);
+    if (fb_fd == -1)
+        std::cerr << "Error: Could not open framebuffer device." << std::endl;
+
+    if (ioctl(fb_fd, FBIOGET_FSCREENINFO, &finfo) == -1) {
+        std::cerr << "Error: Could not get fixed screen info from framebuffer." << std::endl;
+        close(fb_fd);
+        return nullptr;
+    }
+    fb_ptr = mmap(0, finfo.smem_len, PROT_READ, MAP_SHARED, fb_fd, 0);
+    if (fb_ptr == MAP_FAILED) {
+        std::cerr << "Error: Could not mmap framebuffer device." << std::endl;
+        close(fb_fd);
+        return nullptr;
+    }
+
+    close(fb_fd);
+
+    Uint32 sdl_pixel_format = SDL_PIXELFORMAT_ARGB8888;
+    surface = SDL_CreateRGBSurfaceWithFormat(0, 1280, 720, 32, sdl_pixel_format);
+    if (!surface) {
+        std::cerr << "Error: Could not create SDL_Surface." << std::endl;
+        munmap(fb_ptr, finfo.smem_len);
+        return nullptr;
+    }
+    Uint8* src_row = (Uint8*) fb_ptr;
+    Uint8* dst_row = (Uint8*) surface->pixels;
+
+    for (int y = 0; y < 720; ++y) {
+        memcpy(dst_row, src_row, finfo.line_length);
+        src_row += finfo.line_length;
+        dst_row += surface->pitch;
+    }
+
+    texture = SDL_CreateTextureFromSurface(renderer, surface);
+    if (!texture) {
+        std::cerr << "Error: Could not create SDL_Texture from surface." << std::endl;
+        return nullptr;
+    }
+
+    munmap(fb_ptr, finfo.smem_len);
+    SDL_FreeSurface(surface);
+
+    return texture;
+}
+
 void GUI::save_background_texture(SDL_Texture* required_texture)
 {
-    if (background_texture) {
-        std::cerr << "Unload previous background first." << std::endl;
+    delete_background_texture();
+    if (required_texture) {
+        background_texture = required_texture;
         return;
-        // delete_background_texture();
     }
-    if (required_texture)
-        SDL_RenderCopy(renderer, required_texture, nullptr, nullptr);
 
     SDL_Surface* screen_surface =
         SDL_CreateRGBSurfaceWithFormat(0, Width, Height, 32, SDL_PIXELFORMAT_RGBA8888);
@@ -558,12 +560,6 @@ void GUI::save_background_texture(SDL_Texture* required_texture)
 
     background_texture = SDL_CreateTextureFromSurface(renderer, screen_surface);
     SDL_FreeSurface(screen_surface); // Free the surface since it's no longer needed
-
-    if (!background_texture) {
-        std::cerr << "Failed to create background texture: " << SDL_GetError() << std::endl;
-        return;
-    }
-    SDL_RenderCopy(renderer, background_texture, nullptr, nullptr);
 }
 
 void GUI::delete_background_texture()
@@ -601,8 +597,8 @@ bool GUI::confirmation_popup(const std::string& message, int font_size)
             switch (map_input(e)) {
             case InputAction::Left: confirmed = true; break;
             case InputAction::Right: confirmed = false; break;
-            case InputAction::B: running = false; break;
-            case InputAction::A: running = false; break;
+            case InputAction::B:
+            case InputAction::A:
             case InputAction::Quit: running = false; break;
             default: break;
             }
@@ -618,27 +614,29 @@ void GUI::message_popup(int duration, const std::vector<Text>& lines)
         SDL_Delay(duration);
         return;
     }
+    render_background();
+    int  margin = 20;
+    Vec2 win = {0, 2 * margin};
+
+    Vec2 prevSize;
+    for (const Text& line : lines) {
+
+        prevSize = render_text(line.str, 0, -2 * line.size, line.size, line.color, 0, false);
+        win.x = std::max(win.x, prevSize.x);
+        win.y += prevSize.y * 1.2;
+    }
+    win.x += margin;
+    render_image(cfg.theme_path + "skin/bg-menu-05.png", Width / 2, Height / 2, win.x, win.y);
+
+    int current_y = (Height / 2) - win.y / 2 + margin;
+
+    for (const Text& line : lines)
+        current_y +=
+            1.2 * render_text(line.str, Width * 0.5, current_y, line.size, line.color, 0, true).y;
+
+    // TODO: test this or move start of loop back to start.
+    //  goal: avoid recreate identical rendering.
     while (duration > 0) {
-        render_background();
-        int  margin = 20;
-        Vec2 win = {0, 2 * margin};
-
-        Vec2 prevSize;
-        for (const Text& line : lines) {
-
-            prevSize = render_text(line.str, 0, -2 * line.size, line.size, line.color, 0, false);
-            win.x = std::max(win.x, prevSize.x);
-            win.y += prevSize.y * 1.2;
-        }
-        win.x += margin;
-        render_image(cfg.theme_path + "skin/bg-menu-05.png", Width / 2, Height / 2, win.x, win.y);
-
-        int current_y = (Height / 2) - win.y / 2 + margin;
-
-        for (const Text& line : lines)
-            current_y +=
-                1.2 *
-                render_text(line.str, Width * 0.5, current_y, line.size, line.color, 0, true).y;
         render();
 
         SDL_Event e;
@@ -654,16 +652,6 @@ void GUI::message_popup(int duration, const std::vector<Text>& lines)
         duration -= 15;
     }
 }
-// void GUI::message_popup(
-//     std::string title, int title_size, std::string message, int message_size, int duration)
-// {
-//     render_image(cfg.theme_path + "skin/pop-bg.png", Width / 2, Height / 2, Width / 3, Height /
-//     3); render_text(
-//         title, Width / 2, Height / 3 + 2 * title_size, title_size, cfg.title_color, 0, true);
-//     render_text(message, Width / 2, Height / 2, message_size, cfg.selected_color, 0, true);
-//     render();
-//     SDL_Delay(duration);
-// }
 
 void GUI::infos_window(std::string title, int title_size,
     std::vector<std::pair<std::string, std::string>> content, int content_size, int x, int y,
