@@ -12,6 +12,7 @@ class Rom
     static Config& cfg;
     static DB&     db;
 
+    static std::vector<Rom>                list;
     static std::unordered_set<std::string> ra_hotkey_roms;
     static std::unordered_set<std::string> childs;
 
@@ -43,12 +44,16 @@ class Rom
     pid_t       pid = -1;
     std::string launcher;
 
-    void save();
+    Rom* save();
+    void remove();
+
     void start();
     void stop();
     void suspend();
     int  wait();
 
-    static void             export_childs_list();
-    static std::vector<Rom> getAll(std::vector<Rom> previous_roms);
+    static void              export_childs_list();
+    static void              refresh();
+    static std::vector<Rom>& get();
+    static Rom*              get(const std::string& rom_file);
 };

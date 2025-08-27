@@ -53,7 +53,7 @@ void Activities::filter_roms()
 
 void Activities::sort_roms()
 {
-    bool rev = reverse_sort;
+    bool              rev = reverse_sort;
     switch (sort_by) {
     case Sort::Name:
         std::sort(filtered_roms_list.begin(), filtered_roms_list.end(),
@@ -135,10 +135,7 @@ void Activities::game_menu(std::vector<Rom>::iterator rom)
         {"Remove DB entry",
             [this, &rom]() -> MenuResult {
                 if (gui.confirmation_popup("Remove game from DB?", FONT_MIDDLE_SIZE)) {
-                    db.remove(rom->file);
-                    roms_list.erase(std::remove_if(roms_list.begin(), roms_list.end(),
-                                        [&rom](const Rom& r) { return r.file == rom->file; }),
-                        roms_list.end());
+                    rom->remove();
                     filter_roms();
                 }
                 return MenuResult::ExitAll;
@@ -778,9 +775,9 @@ void Activities::overall_stats()
     bool running = true;
     while (running && is_running) {
 
-        int count = 0;
-        int completed = 0;
-        int time = 0;
+        int              count = 0;
+        int              completed = 0;
+        int              time = 0;
         for (const auto& rom : roms_list) {
             count += rom.count;
             time += rom.time;
@@ -821,21 +818,6 @@ void Activities::empty_db()
     gui.render();
 }
 
-Rom* Activities::get_rom(const std::string& rom_file)
-{
-    auto it = roms_list.begin();
-    do {
-        if (it->file == rom_file || fs::path(it->file).filename() == fs::path(rom_file)) {
-            std::cout << "ROM " << it->name << "found in database." << std::endl;
-
-            return &(*it);
-            // in_game_detail = true;
-            // Is it needed out of gui init?
-        }
-    } while (++it != roms_list.end());
-    return nullptr;
-}
-
 void Activities::refresh_db(std::string selected_rom_file)
 {
     // Save the current selected rom file (if any)
@@ -846,14 +828,14 @@ void Activities::refresh_db(std::string selected_rom_file)
             selected_rom_file = filtered_roms_list[selected_index]->file;
     } else {
         selected_rom_file = utils::shorten_file_path(selected_rom_file);
-        if (!get_rom(selected_rom_file)) {
+        if (!Rom::get(selected_rom_file)) {
             std::cout << "ROM not found in database, creating new entry for: " << selected_rom_file
                       << std::endl;
             Rom(selected_rom_file).save();
         }
     }
 
-    roms_list = Rom::getAll(roms_list);
+    Rom::refresh();
 
     std::set<std::string> unique_systems;
     for (const auto& rom : roms_list) {
@@ -986,15 +968,13 @@ void Activities::auto_resume()
         // Check if the ROM file exists before attempting to start it
 
         if (fs::exists(romFile)) {
-            Rom* rom_ptr = get_rom(romFile);
+            Rom* rom_ptr = Rom::get(romFile);
 
             if (!rom_ptr) {
                 std::cout << "ROM " << romFile << " not found in DB, creating new entry."
                           << std::endl;
                 Rom rom(romFile);
-                rom.save(); // Save the new ROM entry
-                roms_list.push_back(rom);
-                rom_ptr = &roms_list.back();
+                rom_ptr = rom.save(); // Save the new ROM entry
             } else {
                 std::cout << "Found rom: " << rom_ptr->name << std::endl;
             }

@@ -41,16 +41,16 @@ class Activities
     Activities(const Activities& copy);
     Activities& operator=(const Activities& copy);
 
-    Config&     cfg;
-    GUI&        gui;
-    DB&         db;
+    Config& cfg;
+    GUI&    gui;
+    DB&     db;
 
     bool   is_running = false;
     bool   in_game_detail = false;
     bool   auto_resume_enabled = true;
     size_t selected_index = 0;
 
-    std::vector<Rom>                        roms_list;
+    std::vector<Rom>&                       roms_list = Rom::get();
     std::vector<std::vector<Rom>::iterator> filtered_roms_list;
     size_t                                  list_size = 0;
 
@@ -88,8 +88,8 @@ class Activities
     MenuResult switch_filter(const std::string& label, int& state);
     MenuResult sort_menu();
     MenuResult filters_menu();
-    void global_menu();
-    void game_menu(std::vector<Rom>::iterator rom);
+    void       global_menu();
+    void       game_menu(std::vector<Rom>::iterator rom);
 
     void start_external(const std::string& command);
     void game_list();

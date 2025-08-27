@@ -10,35 +10,52 @@ static std::regex img_pattern = std::regex(R"(\/Roms\/([^\/]+).*)"); // Matches 
 static std::regex sys_pattern =
     std::regex(R"(.*\/Roms\/([^\/]+).*)"); // Matches "/Roms/<subfolder>"
 // Matches "/Best/<subfolder>" (for alternate library root)
-static std::regex best_pattern = std::regex(R"(\/Best\/([^\/]+).*)");
-
+static std::regex               best_pattern = std::regex(R"(\/Best\/([^\/]+).*)");
+std::vector<Rom>                Rom::list;
 std::unordered_set<std::string> Rom::ra_hotkey_roms;
 std::unordered_set<std::string> Rom::childs;
 GUI&                            Rom::gui = GUI::getInstance();
 Config&                         Rom::cfg = Config::getInstance();
 DB&                             Rom::db = DB::getInstance();
 
-std::vector<Rom> Rom::getAll(std::vector<Rom> previous_roms)
+std::vector<Rom>& Rom::get()
 {
-    std::vector<Rom>    roms;
+    return list;
+}
+
+Rom* Rom::get(const std::string& rom_file)
+{
+    auto it = list.begin();
+    do {
+        if (it->file == rom_file || fs::path(it->file).filename() == fs::path(rom_file)) {
+            std::cout << "ROM " << it->name << "found in database." << std::endl;
+
+            return &(*it);
+        }
+    } while (++it != list.end());
+    return nullptr;
+}
+
+void Rom::refresh()
+{
+    std::vector<Rom> previous_roms = list;
+    list.clear();
     std::vector<DB_row> table = db.load();
     for (DB_row row : table) {
         std::vector<Rom>::iterator previous_rom = std::find_if(
             previous_roms.begin(), previous_roms.end(), [&](Rom& r) { return r.file == row.file; });
         if (previous_rom != previous_roms.end()) {
             previous_rom->update(row);
-            roms.push_back(*previous_rom);
+            list.push_back(*previous_rom);
         } else {
             Rom rom(row);
-            roms.push_back(rom);
+            list.push_back(rom);
         }
     }
 
-    std::cout << "Loaded " << roms.size() << " roms." << std::endl;
-    for (const auto& rom : roms) {
+    std::cout << "Loaded " << list.size() << " roms." << std::endl;
+    for (const auto& rom : list)
         std::cout << "  - " << rom.name << " (" << rom.file << ")" << std::endl;
-    }
-    return roms;
 }
 
 DB_row Rom::get_DB_row()
@@ -54,9 +71,22 @@ void Rom::update(DB_row row)
     last = row.last;
 }
 
-void Rom::save()
+Rom* Rom::save()
 {
     db.save(get_DB_row());
+    auto it = std::find_if(list.begin(), list.end(), [&](const Rom& r) { return r.file == file; });
+    if (it != list.end())
+        return &(*it);
+    list.push_back(*this);
+    return &list.back();
+}
+
+void Rom::remove()
+{
+    db.remove(file);
+    list.erase(
+        std::remove_if(list.begin(), list.end(), [this](const Rom& r) { return file == r.file; }),
+        list.end());
 }
 
 void Rom::fill_opts()
@@ -352,7 +382,7 @@ int Rom::wait()
 void Rom::export_childs_list()
 {
     if (childs.empty()) {
-        remove("/mnt/SDCARD/Apps/Activities/data/autostarts.txt");
+        std::remove("/mnt/SDCARD/Apps/Activities/data/autostarts.txt");
         return;
     }
     std::ofstream file("/mnt/SDCARD/Apps/Activities/data/autostarts.txt", std::ios::trunc);
