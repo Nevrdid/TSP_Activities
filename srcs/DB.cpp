@@ -65,7 +65,9 @@ bool DB::is_refresh_needed()
 
 void DB::save(DB_row entry)
 {
-    DB_row previous_entry = load(entry.file);
+    DB_row      previous_entry = load(entry.file);
+    std::string query;
+
     if (!previous_entry.file.empty()) {
         if (entry.time == 0) {
             entry.count = previous_entry.count;
@@ -82,32 +84,38 @@ void DB::save(DB_row entry)
             entry.completed = previous_entry.completed;
         if (entry.favorite == -1)
             entry.favorite = previous_entry.completed;
-    }
 
-    std::string update_query =
-        "UPDATE games_datas SET name = ?, count = ?, time = ?, "
-        " lastsessiontime = ?, last = ?, completed = ?, favorite = ? WHERE file = ?";
-    sqlite3_stmt* update_stmt;
-    if (sqlite3_prepare_v2(db, update_query.c_str(), -1, &update_stmt, nullptr) != SQLITE_OK) {
+        query = "UPDATE games_datas SET name = ?, count = ?, time = ?, "
+                " lastsessiontime = ?, last = ?, completed = ?, favorite = ? WHERE file = ?";
+    } else {
+        if (entry.completed == -1)
+            entry.completed = 0;
+        if (entry.favorite == -1)
+            entry.favorite = 0;
+        query = "INSERT INTO games_datas (name, count, time, "
+                "lastsessiontime, last, completed, favorite, file) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+    }
+    sqlite3_stmt* stmt;
+    if (sqlite3_prepare_v2(db, query.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
         std::cerr << "Error preparing UPDATE query: " << sqlite3_errmsg(db) << std::endl;
         return;
     }
 
-    sqlite3_bind_text(update_stmt, 1, entry.name.c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_int(update_stmt, 2, entry.count);
-    sqlite3_bind_int(update_stmt, 3, entry.time);
-    sqlite3_bind_int(update_stmt, 4, entry.lastsessiontime);
-    sqlite3_bind_text(update_stmt, 5, entry.last.c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_int(update_stmt, 6, entry.completed);
-    sqlite3_bind_int(update_stmt, 7, entry.favorite);
-    sqlite3_bind_text(update_stmt, 8, entry.file.c_str(), -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 1, entry.name.c_str(), -1, SQLITE_STATIC);
+    sqlite3_bind_int(stmt, 2, entry.count);
+    sqlite3_bind_int(stmt, 3, entry.time);
+    sqlite3_bind_int(stmt, 4, entry.lastsessiontime);
+    sqlite3_bind_text(stmt, 5, entry.last.c_str(), -1, SQLITE_STATIC);
+    sqlite3_bind_int(stmt, 6, entry.completed);
+    sqlite3_bind_int(stmt, 7, entry.favorite);
+    sqlite3_bind_text(stmt, 8, entry.file.c_str(), -1, SQLITE_STATIC);
 
-    if (sqlite3_step(update_stmt) != SQLITE_DONE)
+    if (sqlite3_step(stmt) != SQLITE_DONE)
         std::cerr << "Error updating record: " << sqlite3_errmsg(db) << std::endl;
     else
         std::cout << "Record updated for rom: " << entry.name << std::endl;
 
-    sqlite3_finalize(update_stmt);
+    sqlite3_finalize(stmt);
 }
 
 DB_row DB::load(const std::string& file)

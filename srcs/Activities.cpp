@@ -846,7 +846,6 @@ void Activities::refresh_db(std::string selected_rom_file)
             selected_rom_file = filtered_roms_list[selected_index]->file;
     } else {
         selected_rom_file = utils::shorten_file_path(selected_rom_file);
-        // TODO: Check if still required.
         if (!get_rom(selected_rom_file)) {
             std::cout << "ROM not found in database, creating new entry for: " << selected_rom_file
                       << std::endl;
