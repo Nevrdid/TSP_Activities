@@ -1,6 +1,9 @@
 #include "GUI.h"
+#include "utils.h"
 
 #include <SDL.h>
+#include <fcntl.h>
+#include <iostream>
 #include <linux/fb.h>
 #include <map>
 #include <sys/ioctl.h>
@@ -1021,12 +1024,8 @@ std::pair<MenuResult, size_t> GUI::_selector_core(const std::string& title,
                                      : static_cast<int>(list_size) - 1;
                 break;
 
-            case InputAction::B:
-                return {MenuResult::ExitCurrent,
-                    selected_index};
-            case InputAction::Quit:
-                return {MenuResult::ExitAll,
-                    selected_index};
+            case InputAction::B: return {MenuResult::ExitCurrent, selected_index};
+            case InputAction::Quit: return {MenuResult::ExitAll, selected_index};
             case InputAction::A: {
                 if (actions.empty())
                     return {MenuResult::Continue, selected_index};
@@ -1149,7 +1148,7 @@ MenuResult GUI::menu(const std::string&                              title,
 {
     size_t current_selected_index = 0;
 
-    std::vector<std::string>                     labels;
+    std::vector<std::string>                           labels;
     std::map<std::string, std::function<MenuResult()>> action_map;
     for (const auto& item : menu_items) {
         labels.push_back(item.first);
@@ -1162,7 +1161,9 @@ MenuResult GUI::menu(const std::string&                              title,
 
         current_selected_index = result.second;
 
-        if (result.first == MenuResult::ExitCurrent) return MenuResult::Continue;
-        if (result.first == MenuResult::ExitAll) return MenuResult::ExitAll;
+        if (result.first == MenuResult::ExitCurrent)
+            return MenuResult::Continue;
+        if (result.first == MenuResult::ExitAll)
+            return MenuResult::ExitAll;
     }
 }

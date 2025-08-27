@@ -1,6 +1,18 @@
 #pragma once
-// Dessine une pastille verte à l'écran
-void draw_green_dot(int x, int y, int radius = 8);
+
+#include "Config.h"
+
+#include <SDL.h>
+#include <SDL_image.h>
+#include <SDL_ttf.h>
+#include <functional>
+#include <string>
+#include <sys/stat.h>
+#include <sys/wait.h>
+#include <unistd.h>
+#include <unordered_map>
+#include <unordered_set>
+#include <vector>
 
 #if __has_include(<filesystem>)
 #    include <filesystem>
@@ -11,24 +23,6 @@ namespace fs = std::experimental::filesystem;
 #else
 #    error "No filesystem support"
 #endif
-
-#include "Config.h"
-#include "DB.h"
-#include "utils.h"
-
-#include <SDL.h>
-#include <SDL_image.h>
-#include <SDL_ttf.h>
-#include <fstream>
-#include <functional>
-#include <iostream>
-#include <string>
-#include <sys/stat.h>
-#include <sys/wait.h>
-#include <unistd.h>
-#include <unordered_map>
-#include <unordered_set>
-#include <vector>
 
 #define LIST_OVERLAY APP_DIR "assets/list_overlay.png"
 #define DETAILS_OVERLAY APP_DIR "assets/details_overlay.png"
@@ -64,10 +58,11 @@ enum class InputAction
     Quit,
 };
 
-enum MenuResult {
-  Continue,
-  ExitCurrent,
-  ExitAll
+enum MenuResult
+{
+    Continue,
+    ExitCurrent,
+    ExitAll
 };
 
 typedef std::function<MenuResult()> MenuAction;
@@ -223,5 +218,6 @@ class GUI
         const std::vector<std::string>& labels, size_t max_width, bool center,
         size_t initial_selected_index, std::map<std::string, MenuAction> actions);
 
-    MenuResult menu(const std::string& title, std::vector<std::pair<std::string, MenuAction>> menu_items);
+    MenuResult menu(
+        const std::string& title, std::vector<std::pair<std::string, MenuAction>> menu_items);
 };

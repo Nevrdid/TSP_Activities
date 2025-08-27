@@ -2,13 +2,7 @@
 #include "json.hpp"
 using json = nlohmann::json;
 
-#include <chrono>
 #include <fcntl.h>
-#include <fstream>
-#include <iomanip>
-#include <iostream>
-#include <signal.h>
-#include <sstream>
 #include <string>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -24,7 +18,6 @@ namespace fs = std::experimental::filesystem;
 #endif
 
 #define __STDC_WANT_LIB_EXT1__ 1
-#include <time.h>
 
 namespace utils
 {

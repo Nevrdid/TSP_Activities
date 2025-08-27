@@ -1,28 +1,12 @@
 #pragma once
-#include "DB.h"
-#include "utils.h"
 
 #include <fcntl.h>
-#include <fstream>
-#include <iostream>
-#include <signal.h>
-#include <sstream>
 #include <string>
 #include <sys/inotify.h>
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/wait.h>
 #include <unistd.h>
-
-#if __has_include(<filesystem>)
-#    include <filesystem>
-namespace fs = std::filesystem;
-#elif __has_include(<experimental/filesystem>)
-#    include <experimental/filesystem>
-namespace fs = std::experimental::filesystem;
-#else
-#    error "No filesystem support"
-#endif
 
 class Timer
 {

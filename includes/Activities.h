@@ -2,13 +2,10 @@
 
 #include "DB.h"
 #include "GUI.h"
-#include "GameRunner.h"
-#include "utils.h"
+#include "Rom.h"
 
-#include <algorithm>
 #include <chrono>
 #include <cstdio>
-#include <set>
 #include <string>
 #include <unistd.h>
 #include <vector>
@@ -46,7 +43,6 @@ class Activities
 
     Config&     cfg;
     GUI&        gui;
-    GameRunner& game_runner;
     DB&         db;
 
     bool   is_running = false;
@@ -81,7 +77,7 @@ class Activities
 
     int parseArgs(int argc, char** argv);
 
-    void handle_game_return(Rom* rom, std::pair<pid_t, int> wait_ending);
+    void handle_game_return(int wait_status);
     void handle_inputs();
 
     Rom* get_rom(const std::string& rom_file = "");
@@ -95,6 +91,7 @@ class Activities
     void global_menu();
     void game_menu(std::vector<Rom>::iterator rom);
 
+    void start_external(const std::string& command);
     void game_list();
     void game_detail();
     void overall_stats();

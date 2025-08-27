@@ -160,12 +160,12 @@
       "-I../includes/",
       "-c",
       "-o",
-      "objs/GameRunner.o",
-      "../srcs/GameRunner.cpp"
+      "objs/Rom.o",
+      "../srcs/Rom.cpp"
     ],
     "directory": "/media/Datas/github/TSP_Activities/build",
-    "file": "/media/Datas/github/TSP_Activities/srcs/GameRunner.cpp",
-    "output": "/media/Datas/github/TSP_Activities/build/objs/GameRunner.o"
+    "file": "/media/Datas/github/TSP_Activities/srcs/Rom.cpp",
+    "output": "/media/Datas/github/TSP_Activities/build/objs/Rom.o"
   },
   {
     "arguments": [

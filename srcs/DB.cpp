@@ -2,6 +2,7 @@
 
 #include "utils.h"
 
+#include <iostream>
 #include <regex>
 
 static std::regex img_pattern = std::regex(R"(\/Roms\/([^\/]+).*)"); // Matches "/Roms/<subfolder>"
@@ -46,7 +47,7 @@ bool DB::is_refresh_needed()
 
     bool is_needed = false;
 
-    std::string query = "PRAGMA data_version";
+    std::string   query = "PRAGMA data_version";
     sqlite3_stmt* stmt;
 
     if (sqlite3_prepare_v2(db, query.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
@@ -59,14 +60,17 @@ bool DB::is_refresh_needed()
         // std::cout << "Current data_version: " << current_data_version << std::endl;
 
         if (current_data_version != data_version) {
-            // std::cout << "Data version changed from " << data_version << " to " << current_data_version << ". Refresh needed!" << std::endl;
+            // std::cout << "Data version changed from " << data_version << " to " <<
+            // current_data_version << ". Refresh needed!" << std::endl;
             data_version = current_data_version;
             is_needed = true;
         } else {
-            // std::cout << "Data version is still " << data_version << ". No refresh needed." << std::endl;
+            // std::cout << "Data version is still " << data_version << ". No refresh needed." <<
+            // std::endl;
         }
     } else {
-        std::cerr << "Error executing PRAGMA query or no row returned: " << sqlite3_errmsg(db) << std::endl;
+        std::cerr << "Error executing PRAGMA query or no row returned: " << sqlite3_errmsg(db)
+                  << std::endl;
     }
 
     sqlite3_finalize(stmt);
@@ -74,18 +78,18 @@ bool DB::is_refresh_needed()
     return is_needed;
 }
 
-Rom DB::save(Rom& rom, int time)
+void DB::save(Rom& rom)
 {
     if (!db) {
         std::cerr << "No connection to SQLite database." << std::endl;
-        return rom;
+        return;
     }
 
     std::string   query = "SELECT * FROM games_datas WHERE file = ?";
     sqlite3_stmt* stmt;
     if (sqlite3_prepare_v2(db, query.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
         std::cerr << "Error preparing SELECT query: " << sqlite3_errmsg(db) << std::endl;
-        return rom;
+        return;
     }
     sqlite3_bind_text(stmt, 1, rom.file.c_str(), -1, SQLITE_STATIC);
     int result = sqlite3_step(stmt);
@@ -100,7 +104,7 @@ Rom DB::save(Rom& rom, int time)
 
         // If time == 0, we're likely toggling "completed" without adding a session.
         // Preserve existing counters and last if no session length is provided.
-        if (time == 0) {
+        if (rom.time == 0) {
             rom.count = db_count;
             rom.time = db_time;
             rom.lastsessiontime = 0;
@@ -125,7 +129,7 @@ Rom DB::save(Rom& rom, int time)
             sqlite3_finalize(stmt);
             rom.total_time = utils::stringifyTime(rom.time);
             rom.average_time = utils::stringifyTime(rom.count ? rom.time / rom.count : 0);
-            return rom;
+            return;
         }
 
         sqlite3_bind_text(update_stmt, 1, rom.name.c_str(), -1, SQLITE_STATIC);
@@ -201,7 +205,7 @@ Rom DB::save(Rom& rom, int time)
             sqlite3_finalize(stmt);
             rom.total_time = utils::stringifyTime(rom.time);
             rom.average_time = utils::stringifyTime(rom.count ? rom.time / rom.count : 0);
-            return rom;
+            return;
         }
 
         sqlite3_bind_text(insert_stmt, 1, rom.file.c_str(), -1, SQLITE_STATIC);
@@ -209,7 +213,7 @@ Rom DB::save(Rom& rom, int time)
         sqlite3_bind_int(insert_stmt, 3, rom.count);
         sqlite3_bind_int(insert_stmt, 4, rom.time);
         sqlite3_bind_int(insert_stmt, 5, rom.lastsessiontime);
-        sqlite3_bind_text(insert_stmt, 6, (time == 0 ? std::string("-") : rom.last).c_str(), -1,
+        sqlite3_bind_text(insert_stmt, 6, (rom.time == 0 ? std::string("-") : rom.last).c_str(), -1,
             SQLITE_TRANSIENT);
         sqlite3_bind_int(insert_stmt, 7, (rom.completed == -1 ? 0 : rom.completed));
         sqlite3_bind_int(insert_stmt, 8, (rom.favorite == -1 ? 0 : rom.favorite));
@@ -226,29 +230,11 @@ Rom DB::save(Rom& rom, int time)
 
     rom.total_time = utils::stringifyTime(rom.time);
     rom.average_time = utils::stringifyTime(rom.count ? rom.time / rom.count : 0);
-    return rom;
-}
-
-Rom DB::save(const std::string& file, int time)
-{
-    Rom rom;
-    rom.file = utils::shorten_file_path(file);
-
-    fs::path filepath(file);
-    rom.name = filepath.stem();
-    rom.count = time ? 1 : 0;
-    rom.time = time;
-    rom.last = time ? utils::getCurrentDateTime() : "-";
-    rom.completed = -1;
-    rom.favorite = -1;
-    rom.lastsessiontime = time;
-    rom.pid = -1;
-    return save(rom, time);
 }
 
 Rom DB::load(const std::string& file)
 {
-    Rom rom;
+    Rom rom(file);
     std::cout << "DB: Loading " << file << " details." << std::endl;
 
     if (!db) {
@@ -304,7 +290,7 @@ Rom DB::load(const std::string& file)
         rom.pid = -1;
     } else if (result == SQLITE_DONE) {
         std::cerr << "No record found for rom: " << file << std::endl;
-        rom = save(file);
+        save(rom);
     }
 
     sqlite3_finalize(stmt);
@@ -330,8 +316,7 @@ std::vector<Rom> DB::load(std::vector<Rom> previous_roms)
     std::vector<Rom> roms;
     bool             is_reload = !previous_roms.empty();
     while (sqlite3_step(stmt) == SQLITE_ROW) {
-        Rom rom;
-        rom.file = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0)));
+        Rom rom(std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0))));
         rom.name = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1)));
         rom.count = sqlite3_column_int(stmt, 2);
         rom.time = sqlite3_column_int(stmt, 3);

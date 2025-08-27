@@ -1,9 +1,12 @@
 #include "Activities.h"
+#include "utils.h"
+#include <iostream>
+#include <set>
+#include <fstream>
 
 Activities::Activities()
     : cfg(Config::getInstance())
     , gui(GUI::getInstance())
-    , game_runner(GameRunner::getInstance())
     , db(DB::getInstance())
 {
     gui.init();
@@ -110,21 +113,21 @@ void Activities::game_menu(std::vector<Rom>::iterator rom)
         return;
     menu_items = {{rom->pid == -1 ? "Start" : "Resume",
                       [this, rom]() -> MenuResult {
-                          game_runner.start(rom->name, rom->system, rom->file);
-                          handle_game_return(&(*rom), game_runner.wait(rom->file));
+                          rom->start();
+                          handle_game_return(rom->wait());
                           return MenuResult::ExitAll;
                       }},
         {rom->completed ? "Uncomplete" : "Complete",
             [this, &rom]() -> MenuResult {
                 rom->completed = rom->completed ? 0 : 1;
-                *rom = db.save(*rom);
+                db.save(*rom);
                 filter_roms();
                 return MenuResult::ExitAll;
             }},
         {rom->favorite ? "UnFavorite" : "Favorite",
             [this, &rom]() -> MenuResult {
                 rom->favorite = rom->favorite ? 0 : 1;
-                *rom = db.save(*rom);
+                db.save(*rom);
                 return MenuResult::ExitAll;
             }},
         {"Remove DB entry",
@@ -152,8 +155,7 @@ void Activities::game_menu(std::vector<Rom>::iterator rom)
 
     if (rom->pid != -1)
         menu_items.insert(menu_items.begin() + 1, {"Stop", [this, rom]() -> MenuResult {
-                                                       game_runner.stop(rom->file);
-                                                       rom->pid = -1;
+                                                       rom->stop();
                                                        filter_roms();
                                                        return MenuResult::ExitAll;
                                                    }});
@@ -258,10 +260,9 @@ void Activities::global_menu()
     gui.delete_background_texture();
 }
 
-void Activities::handle_game_return(Rom* rom, std::pair<pid_t, int> wait_ending)
+void Activities::handle_game_return(int wait_status)
 {
-    rom->pid = wait_ending.first;
-    switch (wait_ending.second) {
+    switch (wait_status) {
     case 1:
         sort_by = Sort::Last;
         filters_states = {FilterState::Match, FilterState::All, FilterState::All};
@@ -277,6 +278,38 @@ void Activities::handle_game_return(Rom* rom, std::pair<pid_t, int> wait_ending)
         break;
     }
     filter_roms();
+}
+
+/**
+ * @brief Starts an external application by executing a shell command.
+ *
+ * @details This function is designed to launch an external process, such as tool. It temporarily
+ * disables SDL joystick button events to prevent unwanted input from being processed
+ * while the external command is running. The command is executed using `system()`,
+ * which is a blocking call, meaning the function will not return until the external
+ * process has completed. After the command finishes, it re-enables the joystick events
+ * and waits for an event to clear the event queue, ensuring the GUI is ready to
+ * receive input again.
+ *
+ * @param command A constant reference to a string containing the shell command to
+ * be executed.
+ */
+void Activities::start_external(const std::string& command)
+{
+    SDL_EventState(SDL_JOYBUTTONDOWN, SDL_DISABLE);
+    SDL_EventState(SDL_JOYBUTTONUP, SDL_DISABLE);
+
+    std::cout << "ActivitiesApp: Launching " << command << std::endl;
+
+    system(command.c_str());
+
+    SDL_EventState(SDL_JOYBUTTONDOWN, SDL_ENABLE);
+    SDL_EventState(SDL_JOYBUTTONUP, SDL_ENABLE);
+
+    while (SDL_WaitEvent(NULL) < 0) {
+    }
+
+    SDL_FlushEvents(SDL_JOYBUTTONDOWN, SDL_JOYBUTTONUP);
 }
 
 void Activities::game_list()
@@ -437,8 +470,8 @@ void Activities::game_list()
         case InputAction::Y: {
             if (has_rom) {
                 upHolding = downHolding = false;
-                game_runner.start(rom->name, rom->system, rom->file);
-                handle_game_return(&(*rom), game_runner.wait(rom->file));
+                rom->start();
+                handle_game_return(rom->wait());
             }
             break;
         }
@@ -451,7 +484,7 @@ void Activities::game_list()
         case InputAction::ZR:
             if (has_rom && !rom->manual.empty()) {
                 upHolding = downHolding = false;
-                game_runner.start_external(std::string(MANUAL_READER) + " \"" + rom->manual + "\"");
+                // game_runner.start_external(std::string(MANUAL_READER) + " \"" + rom->manual + "\"");
             }
             break;
         //
@@ -676,13 +709,13 @@ void Activities::game_detail()
         case InputAction::Y:
             // Y runs the game now (same as A)
             leftHolding = rightHolding = false;
-            game_runner.start(rom->name, rom->system, rom->file);
-            handle_game_return(&(*rom), game_runner.wait(rom->file));
+            rom->start();
+            handle_game_return(rom->wait());
             break;
         case InputAction::ZL:
             if (!rom->video.empty()) {
                 leftHolding = rightHolding = false;
-                game_runner.start_external(std::string(VIDEO_PLAYER) + " \"" + rom->video + "\"");
+                // game_runner.start_external(std::string(VIDEO_PLAYER) + " \"" + rom->video + "\"");
             }
             break;
         case InputAction::X:
@@ -692,7 +725,7 @@ void Activities::game_detail()
         case InputAction::ZR:
             if (!rom->manual.empty()) {
                 leftHolding = rightHolding = false;
-                game_runner.start_external(std::string(MANUAL_READER) + " \"" + rom->manual + "\"");
+                // game_runner.start_external(std::string(MANUAL_READER) + " \"" + rom->manual + "\"");
             }
             break;
         case InputAction::Menu:
@@ -812,7 +845,8 @@ void Activities::refresh_db(std::string selected_rom_file)
         if (!get_rom(selected_rom_file)) {
             std::cout << "ROM not found in database, creating new entry for: " << selected_rom_file
                       << std::endl;
-            db.save(selected_rom_file);
+            Rom rom(selected_rom_file);
+            db.save(rom);
         }
     }
 
@@ -950,16 +984,19 @@ void Activities::auto_resume()
         // Check if the ROM file exists before attempting to start it
 
         if (fs::exists(romFile)) {
-            Rom* rom = get_rom(romFile);
-            if (!rom) {
+            Rom* rom_ptr = get_rom(romFile);
+            
+            if (!rom_ptr) {
                 std::cout << "ROM " << romFile << " not found in DB, creating new entry."
                           << std::endl;
-                roms_list.push_back(db.save(romFile)); // Save the new ROM entry
-                rom = &roms_list.back();
+                Rom rom(romFile);
+                db.save(rom); // Save the new ROM entry
+                roms_list.push_back(rom);
+                rom_ptr = &roms_list.back(); 
             } else {
-                std::cout << "Found rom: " << rom->name << std::endl;
+                std::cout << "Found rom: " << rom_ptr->name << std::endl;
             }
-            ordered_roms.push_back(rom);
+            ordered_roms.push_back(rom_ptr);
         } else {
             std::cerr << "Autostart ROM file not found: " << romFile << std::endl;
         }
@@ -969,15 +1006,14 @@ void Activities::auto_resume()
 
     // sort games by last session date and stay on most recent one.
     for (auto rom_it = ordered_roms.begin(); rom_it < ordered_roms.end() - 1; rom_it++) {
-        game_runner.start((*rom_it)->name, (*rom_it)->system, (*rom_it)->file);
+        (*rom_it)->start();
         // Wait for the game to finish loading and update its PID
         sleep(2);
-        (*rom_it)->pid = game_runner.suspend((*rom_it)->file);
+        (*rom_it)->pid = (*rom_it)->suspend();
     }
     // Keep latest played game active.
-    game_runner.start(
-        ordered_roms.back()->name, ordered_roms.back()->system, ordered_roms.back()->file);
-    handle_game_return(&(*ordered_roms.back()), game_runner.wait(ordered_roms.back()->file));
+    ordered_roms.back()->start();
+    handle_game_return(ordered_roms.back()->wait());
 }
 
 void Activities::run(int argc, char** argv)

@@ -1,5 +1,8 @@
 #include "Timer.h"
+#include "DB.h"
 
+#include <iostream>
+#include <ostream>
 #include <sys/select.h>
 
 Timer::Timer(const std::string& pid)
@@ -83,9 +86,10 @@ void Timer::daemonize(const std::string& rom_file, const std::string& program_pi
     Timer& timer = Timer::getInstance(program_pid);
     while (duration < 0) {
         duration = timer.run();
-        if (abs(duration) >= 30) {
+        if (std::abs(duration) >= 30) {
             DB& db = DB::getInstance();
-            db.save(rom_file, abs(duration));
+            Rom rom(rom_file, abs(duration));
+            db.save(rom);
         }
     }
 
