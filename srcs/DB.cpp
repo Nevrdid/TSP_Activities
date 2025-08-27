@@ -35,7 +35,7 @@ DB::~DB()
 
 bool DB::is_refresh_needed()
 {
-    static int data_version = -1;
+    static int data_version = 1;
 
     bool is_needed = false;
 
