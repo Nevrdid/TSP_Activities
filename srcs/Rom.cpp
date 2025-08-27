@@ -69,6 +69,8 @@ void Rom::update(DB_row row)
     time = row.time;
     lastsessiontime = row.lastsessiontime;
     last = row.last;
+    total_time = utils::stringifyTime(time);
+    average_time = utils::stringifyTime(count ? time / count : 0);
 }
 
 Rom* Rom::save()
