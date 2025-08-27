@@ -12,7 +12,7 @@ static std::regex sys_pattern =
 // Matches "/Best/<subfolder>" (for alternate library root)
 static std::regex best_pattern = std::regex(R"(\/Best\/([^\/]+).*)");
 
-std::unordered_set<Rom*>        Rom::ra_hotkey_roms;
+std::unordered_set<std::string> Rom::ra_hotkey_roms;
 std::unordered_set<std::string> Rom::childs;
 GUI&                            Rom::gui = GUI::getInstance();
 Config&                         Rom::cfg = Config::getInstance();
@@ -149,7 +149,7 @@ void Rom::start()
         utils::resume_process_group(pid);
         std::cout << "Resuming process group: " << name << std::endl;
         // Restore ra_hotkey only if it existed when we suspended this game
-        auto it = ra_hotkey_roms.find(this);
+        auto it = ra_hotkey_roms.find(file);
         if (it != ra_hotkey_roms.end()) {
             utils::restore_ra_hotkey();
             ra_hotkey_roms.erase(it);
@@ -211,7 +211,7 @@ void Rom::stop()
 void Rom::suspend()
 {
     if (utils::ra_hotkey_exists())
-        ra_hotkey_roms.insert(this);
+        ra_hotkey_roms.insert(file);
     utils::suspend_process_group(pid);
     utils::remove_ra_hotkey();
 }
@@ -311,7 +311,7 @@ int Rom::wait()
                     gui.delete_background_texture();
                 } else {
                     if (utils::ra_hotkey_exists()) {
-                        ra_hotkey_roms.insert(this);
+                        ra_hotkey_roms.insert(file);
                         utils::remove_ra_hotkey();
                     }
                     std::cout << "ActivitiesApp: Game " << file << " suspended" << std::endl;
@@ -330,7 +330,7 @@ int Rom::wait()
     }
     pid = -1;
     utils::remove_ra_hotkey();
-    ra_hotkey_roms.erase(this);
+    ra_hotkey_roms.erase(file);
     childs.erase(file);
     export_childs_list();
     return 0;

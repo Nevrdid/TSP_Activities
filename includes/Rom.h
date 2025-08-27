@@ -12,7 +12,7 @@ class Rom
     static Config& cfg;
     static DB&     db;
 
-    static std::unordered_set<Rom*>     ra_hotkey_roms;
+    static std::unordered_set<std::string> ra_hotkey_roms;
     static std::unordered_set<std::string> childs;
 
     void   fill_opts();
@@ -42,7 +42,6 @@ class Rom
     std::string manual;
     pid_t       pid = -1;
     std::string launcher;
-
 
     void save();
     void start();
