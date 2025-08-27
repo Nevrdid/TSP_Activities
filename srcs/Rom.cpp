@@ -171,7 +171,6 @@ void Rom::start()
             std::cerr << "Failed to launch " << name << std::endl;
             exit(1);
         } else {
-            pid = utils::get_pgid_of_process(pid);
             childs.insert(file);
             export_childs_list();
         }

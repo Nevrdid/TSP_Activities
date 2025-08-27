@@ -44,6 +44,7 @@ Config::Config()
         backgrounds_theme = j.value("BACKGROUNDS", "");
         file.close();
     } else {
+        std::cerr << "Error: Could no open /mnt/SDCARD/System/etc/crossmix.json" << std::endl;
         exit(1);
     }
 }
