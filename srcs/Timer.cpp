@@ -1,5 +1,6 @@
 #include "Timer.h"
-#include "DB.h"
+
+#include "Rom.h"
 
 #include <iostream>
 #include <ostream>
@@ -87,9 +88,8 @@ void Timer::daemonize(const std::string& rom_file, const std::string& program_pi
     while (duration < 0) {
         duration = timer.run();
         if (std::abs(duration) >= 30) {
-            DB& db = DB::getInstance();
-            Rom rom(rom_file, abs(duration));
-            db.save(rom);
+            Rom rom(rom_file, std::abs(duration));
+            rom.save();
         }
     }
 

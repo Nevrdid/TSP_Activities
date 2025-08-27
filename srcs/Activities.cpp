@@ -120,14 +120,14 @@ void Activities::game_menu(std::vector<Rom>::iterator rom)
         {rom->completed ? "Uncomplete" : "Complete",
             [this, &rom]() -> MenuResult {
                 rom->completed = rom->completed ? 0 : 1;
-                db.save(*rom);
+                rom->save();
                 filter_roms();
                 return MenuResult::ExitAll;
             }},
         {rom->favorite ? "UnFavorite" : "Favorite",
-            [this, &rom]() -> MenuResult {
+            [&rom]() -> MenuResult {
                 rom->favorite = rom->favorite ? 0 : 1;
-                db.save(*rom);
+                rom->save();
                 return MenuResult::ExitAll;
             }},
         {"Remove DB entry",
@@ -846,12 +846,11 @@ void Activities::refresh_db(std::string selected_rom_file)
             std::cout << "ROM not found in database, creating new entry for: " << selected_rom_file
                       << std::endl;
             Rom rom(selected_rom_file);
-            db.save(rom);
+            rom.save();
         }
     }
 
-    // TODO: change DB as an instance
-    roms_list = db.load(roms_list);
+    roms_list = Rom::getAll(roms_list);
 
     std::set<std::string> unique_systems;
     for (const auto& rom : roms_list) {
@@ -990,7 +989,7 @@ void Activities::auto_resume()
                 std::cout << "ROM " << romFile << " not found in DB, creating new entry."
                           << std::endl;
                 Rom rom(romFile);
-                db.save(rom); // Save the new ROM entry
+                rom.save(); // Save the new ROM entry
                 roms_list.push_back(rom);
                 rom_ptr = &roms_list.back(); 
             } else {

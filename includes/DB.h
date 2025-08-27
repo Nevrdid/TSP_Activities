@@ -1,12 +1,24 @@
 #pragma once
-#include "Rom.h"
 
-#include <Rom.h>
 #include <sqlite3.h>
 #include <string>
 #include <vector>
 
 #define DB_FILE APP_DIR "data/games.db"
+
+class Rom;
+
+struct DB_row
+{
+    std::string file;
+    std::string name;
+    int         count;
+    int         time;
+    int         lastsessiontime;
+    std::string last;
+    int         completed;
+    int         favorite;
+};
 
 class DB
 {
@@ -27,9 +39,11 @@ class DB
         return instance;
     }
 
-    bool             is_refresh_needed();
-    void             save(Rom& rom);
-    Rom              load(const std::string& rom_file);
-    std::vector<Rom> load(std::vector<Rom> roms);
-    void             remove(const std::string& file);
+    bool is_refresh_needed();
+
+    void                save(DB_row entry);
+    std::vector<DB_row> load();
+    DB_row              load(const std::string& file);
+
+    void remove(const std::string& file);
 };

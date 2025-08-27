@@ -4,11 +4,99 @@
 
 #include <fstream>
 #include <iostream>
+#include <regex>
+
+static std::regex img_pattern = std::regex(R"(\/Roms\/([^\/]+).*)"); // Matches "/Roms/<subfolder>"
+static std::regex sys_pattern =
+    std::regex(R"(.*\/Roms\/([^\/]+).*)"); // Matches "/Roms/<subfolder>"
+// Matches "/Best/<subfolder>" (for alternate library root)
+static std::regex best_pattern = std::regex(R"(\/Best\/([^\/]+).*)");
 
 std::unordered_set<Rom*>     Rom::ra_hotkey_roms;
 std::map<std::string, pid_t> Rom::childs;
 GUI&                         Rom::gui = GUI::getInstance();
 Config&                      Rom::cfg = Config::getInstance();
+DB&                          Rom::db = DB::getInstance();
+
+std::vector<Rom> Rom::getAll(std::vector<Rom> previous_roms)
+{
+    std::vector<Rom>    roms;
+    std::vector<DB_row> table = db.load();
+    for (DB_row row : table) {
+        std::vector<Rom>::iterator previous_rom = std::find_if(
+            previous_roms.begin(), previous_roms.end(), [&](Rom& r) { return r.file == row.file; });
+        if (previous_rom != previous_roms.end()) {
+            previous_rom->update(row);
+            roms.push_back(*previous_rom);
+        } else {
+            Rom rom(row);
+            roms.push_back(rom);
+        }
+    }
+
+    std::cout << "Loaded " << roms.size() << " roms." << std::endl;
+    for (const auto& rom : roms) {
+        std::cout << "  - " << rom.name << " (" << rom.file << ")" << std::endl;
+    }
+    return roms;
+}
+
+DB_row Rom::get_DB_row()
+{
+    return {file, name, count, time, lastsessiontime, last, completed, favorite};
+}
+
+void Rom::update(DB_row row)
+{
+    count = row.count;
+    time = row.time;
+    lastsessiontime = row.lastsessiontime;
+    last = row.last;
+}
+
+void Rom::save()
+{
+    db.save(get_DB_row());
+}
+
+void Rom::fill_opts()
+{
+    std::string imgBase;
+    if (std::regex_search(file, best_pattern))
+        imgBase = std::regex_replace(file, best_pattern, R"(/Best/$1/Imgs)");
+    else
+        imgBase = std::regex_replace(file, img_pattern, R"(/Imgs/$1)");
+
+    image = imgBase + "/" + name + ".png";
+    if (!fs::exists(image))
+        image = "";
+
+    video = std::regex_replace(file, img_pattern, R"(/Videos/$1)") + "/" + name + ".mp4";
+    if (!fs::exists(video))
+        video = "";
+
+    manual = std::regex_replace(file, img_pattern, R"(/Manuals/$1)") + "/" + name + ".pdf";
+    if (!fs::exists(manual))
+        manual = "";
+
+    system = std::regex_replace(file, sys_pattern, R"($1)");
+    total_time = utils::stringifyTime(time);
+    average_time = utils::stringifyTime(count ? time / count : 0);
+    launcher = utils::get_launcher(system, name);
+}
+
+Rom::Rom(DB_row row)
+    : file(row.file)
+    , name(row.name)
+    , count(row.count)
+    , time(row.time)
+    , lastsessiontime(row.lastsessiontime)
+    , last(row.last)
+    , completed(row.completed)
+    , favorite(row.favorite)
+{
+    fill_opts();
+}
 
 Rom::Rom(const std::string& _file, int _time)
     : time(_time)
@@ -18,10 +106,11 @@ Rom::Rom(const std::string& _file, int _time)
 
     file = utils::shorten_file_path(_file);
     name = filepath.stem();
-    if (_time) {
+    if (time) {
         count = 1;
         last = utils::getCurrentDateTime();
     }
+    fill_opts();
 }
 
 Rom::Rom(const std::string& _file)
