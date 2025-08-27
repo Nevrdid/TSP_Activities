@@ -80,18 +80,9 @@ void DB::save(DB_row entry)
             entry.time += previous_entry.time;
         }
 
-        if (entry.completed == -1)
-            entry.completed = previous_entry.completed;
-        if (entry.favorite == -1)
-            entry.favorite = previous_entry.completed;
-
         query = "UPDATE games_datas SET name = ?, count = ?, time = ?, "
                 " lastsessiontime = ?, last = ?, completed = ?, favorite = ? WHERE file = ?";
     } else {
-        if (entry.completed == -1)
-            entry.completed = 0;
-        if (entry.favorite == -1)
-            entry.favorite = 0;
         query = "INSERT INTO games_datas (name, count, time, "
                 "lastsessiontime, last, completed, favorite, file) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
     }

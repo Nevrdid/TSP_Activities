@@ -30,10 +30,10 @@ class Rom
     std::string name;            // #1 in games_datas
     int         count = 0;       // #2 in games_datas
     int         time = 0;        // #3 in games_datas
-    int         lastsessiontime; // #4 in games_datas (duration in seconds)
+    int         lastsessiontime = 0; // #4 in games_datas (duration in seconds)
     std::string last = "-";      // #5 in games_datas
-    int         completed = -1;  // #6 in games_datas
-    int         favorite = -1;   // #7 in games_datas
+    int         completed = 0;  // #6 in games_datas
+    int         favorite = 0;   // #7 in games_datas
 
     std::string total_time;
     std::string average_time;
