@@ -14,7 +14,7 @@ DB::DB()
                         "name TEXT NOT NULL,"
                         "count INTEGER NOT NULL,"
                         "time INTEGER NOT NULL,"
-                        "lastsessiontime INTEGER NOT NULL DEFAULT 0,"
+                        "lastsessiontime INTEGER NOT NULL,"
                         "last TEXT NOT NULL,"
                         "completed INTEGER NOT NULL,"
                         "favorite INTEGER NOT NULL"
@@ -49,20 +49,13 @@ bool DB::is_refresh_needed()
 
     if (sqlite3_step(stmt) == SQLITE_ROW) {
         int current_data_version = sqlite3_column_int(stmt, 0);
-        // std::cout << "Current data_version: " << current_data_version << std::endl;
 
         if (current_data_version != data_version) {
-            // std::cout << "Data version changed from " << data_version << " to " <<
-            // current_data_version << ". Refresh needed!" << std::endl;
             data_version = current_data_version;
             is_needed = true;
-        } else {
-            // std::cout << "Data version is still " << data_version << ". No refresh needed." <<
-            // std::endl;
         }
     } else {
-        std::cerr << "Error executing PRAGMA query or no row returned: " << sqlite3_errmsg(db)
-                  << std::endl;
+        std::cerr << "Error executing PRAGMA query" << sqlite3_errmsg(db) << std::endl;
     }
 
     sqlite3_finalize(stmt);
@@ -109,11 +102,10 @@ void DB::save(DB_row entry)
     sqlite3_bind_int(update_stmt, 7, entry.favorite);
     sqlite3_bind_text(update_stmt, 8, entry.file.c_str(), -1, SQLITE_STATIC);
 
-    if (sqlite3_step(update_stmt) != SQLITE_DONE) {
+    if (sqlite3_step(update_stmt) != SQLITE_DONE)
         std::cerr << "Error updating record: " << sqlite3_errmsg(db) << std::endl;
-    } else {
+    else
         std::cout << "Record updated for rom: " << entry.name << std::endl;
-    }
 
     sqlite3_finalize(update_stmt);
 }
@@ -207,11 +199,10 @@ void DB::remove(const std::string& file)
 
     sqlite3_bind_text(stmt, 1, file.c_str(), -1, SQLITE_STATIC);
 
-    if (sqlite3_step(stmt) != SQLITE_DONE) {
+    if (sqlite3_step(stmt) != SQLITE_DONE)
         std::cerr << "Error deleting record: " << sqlite3_errmsg(db) << std::endl;
-    } else {
+    else
         std::cout << "Record deleted for rom: " << file << std::endl;
-    }
 
     sqlite3_finalize(stmt);
 }

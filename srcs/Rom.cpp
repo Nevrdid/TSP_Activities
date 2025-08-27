@@ -12,11 +12,11 @@ static std::regex sys_pattern =
 // Matches "/Best/<subfolder>" (for alternate library root)
 static std::regex best_pattern = std::regex(R"(\/Best\/([^\/]+).*)");
 
-std::unordered_set<Rom*>     Rom::ra_hotkey_roms;
-std::map<std::string, pid_t> Rom::childs;
-GUI&                         Rom::gui = GUI::getInstance();
-Config&                      Rom::cfg = Config::getInstance();
-DB&                          Rom::db = DB::getInstance();
+std::unordered_set<Rom*>        Rom::ra_hotkey_roms;
+std::unordered_set<std::string> Rom::childs;
+GUI&                            Rom::gui = GUI::getInstance();
+Config&                         Rom::cfg = Config::getInstance();
+DB&                             Rom::db = DB::getInstance();
 
 std::vector<Rom> Rom::getAll(std::vector<Rom> previous_roms)
 {
@@ -121,9 +121,8 @@ Rom::Rom(const std::string& _file)
 Rom::~Rom()
 {
     if (pid != -1) {
-        pid_t gpid = utils::get_pgid_of_process(pid);
-        utils::resume_process_group(gpid);
-        utils::kill_process_group(gpid);
+        utils::resume_process_group(pid);
+        utils::kill_process_group(pid);
         gui.message_popup(15, {{"Please wait...", 32, cfg.title_color},
                                   {"We save suspended games.", 18, cfg.title_color}});
     }
@@ -146,9 +145,8 @@ void Rom::start()
 {
     std::cout << "ActivitiesApp: Launching " << name << std::endl;
 
-    if (childs.find(file) != childs.end()) {
-        pid_t gpid = utils::get_pgid_of_process(pid);
-        utils::resume_process_group(gpid);
+    if (pid != -1) {
+        utils::resume_process_group(pid);
         std::cout << "Resuming process group: " << name << std::endl;
         // Restore ra_hotkey only if it existed when we suspended this game
         auto it = ra_hotkey_roms.find(this);
@@ -173,7 +171,8 @@ void Rom::start()
             std::cerr << "Failed to launch " << name << std::endl;
             exit(1);
         } else {
-            childs[file] = pid;
+            pid = utils::get_pgid_of_process(pid);
+            childs.insert(file);
             export_childs_list();
         }
     }
@@ -191,8 +190,7 @@ void Rom::start()
  */
 void Rom::stop()
 {
-    pid_t gpid = utils::get_pgid_of_process(pid);
-    utils::resume_process_group(gpid);
+    utils::resume_process_group(pid);
     utils::kill_process_group(pid);
     childs.erase(file);
     pid = -1;
@@ -210,15 +208,13 @@ void Rom::stop()
  * the entire process group. Finally, it removes the hotkey file to prevent conflicts while the GUI
  * is active and returns the PID of the suspended process.
  *
- * @return The process ID (`pid_t`) of the suspended child process.
  */
-pid_t Rom::suspend()
+void Rom::suspend()
 {
     if (utils::ra_hotkey_exists())
         ra_hotkey_roms.insert(this);
-    utils::suspend_process_group(utils::get_pgid_of_process(pid));
+    utils::suspend_process_group(pid);
     utils::remove_ra_hotkey();
-    return pid;
 }
 
 /**
@@ -302,7 +298,7 @@ int Rom::wait()
             }
             if (combo == 3) {
                 combo = 0;
-                utils::suspend_process_group(utils::get_pgid_of_process(pid));
+                utils::suspend_process_group(pid);
                 gui.save_background_texture(gui.take_screenshot());
 
                 std::vector<std::string> choices;
@@ -312,7 +308,7 @@ int Rom::wait()
                 std::string choice =
                     gui.string_selector("Switch to: ", choices, gui.Width / 3, true);
                 if (choice == "") {
-                    utils::resume_process_group(utils::get_pgid_of_process(pid));
+                    utils::resume_process_group(pid);
                     gui.delete_background_texture();
                 } else {
                     if (utils::ra_hotkey_exists()) {
@@ -363,8 +359,8 @@ void Rom::export_childs_list()
     std::ofstream file("/mnt/SDCARD/Apps/Activities/data/autostarts.txt", std::ios::trunc);
 
     if (!file.fail()) {
-        for (const auto& pair : childs)
-            file << pair.first << std::endl;
+        for (const std::string& romFile : childs)
+            file << romFile << std::endl;
         file.flush();
         file.close();
     }

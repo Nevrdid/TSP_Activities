@@ -13,9 +13,12 @@ class Rom
     static DB&     db;
 
     static std::unordered_set<Rom*>     ra_hotkey_roms;
-    static std::map<std::string, pid_t> childs;
+    static std::unordered_set<std::string> childs;
 
-    void fill_opts();
+    void   fill_opts();
+    void   update(DB_row row);
+    DB_row get_DB_row();
+
   public:
     Rom(DB_row row);
     Rom(const std::string& file);
@@ -40,14 +43,12 @@ class Rom
     pid_t       pid = -1;
     std::string launcher;
 
-    void update(DB_row row);
-    DB_row get_DB_row();
-    void   save();
 
-    void  start();
-    void  stop();
-    int   wait();
-    pid_t suspend();
+    void save();
+    void start();
+    void stop();
+    void suspend();
+    int  wait();
 
     static void             export_childs_list();
     static std::vector<Rom> getAll(std::vector<Rom> previous_roms);

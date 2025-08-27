@@ -1,8 +1,8 @@
 #include "utils.h"
 
 #include <csignal>
-#include <iostream>
 #include <fstream>
+#include <iostream>
 
 namespace utils
 {
@@ -138,7 +138,7 @@ std::vector<std::string> get_launchers(const std::string& system)
         sys_cfg2 >> j;
         sys_cfg2.close();
         if (j.contains("launchlist")) {
-            for (const auto& [key, value] : j["launchlist"].items()) {
+            for (const auto& value : j["launchlist"]) {
                 if (value["launch"].get<std::string>().size() > 1)
                     launchers.push_back(value["name"].get<std::string>());
             }
@@ -174,7 +174,7 @@ std::string get_launcher(const std::string& system, const std::string& romName)
                 sys_cfg2.close();
 
                 if (j.contains("launchlist")) {
-                    for (const auto& [key, value] : j["launchlist"].items()) {
+                    for (const auto& value : j["launchlist"]) {
                         if (value["launch"].get<std::string>().size() > 1) {
                             ret = value["name"].get<std::string>();
                             break;

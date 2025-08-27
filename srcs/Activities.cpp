@@ -1,8 +1,10 @@
 #include "Activities.h"
+
 #include "utils.h"
+
+#include <fstream>
 #include <iostream>
 #include <set>
-#include <fstream>
 
 Activities::Activities()
     : cfg(Config::getInstance())
@@ -484,7 +486,8 @@ void Activities::game_list()
         case InputAction::ZR:
             if (has_rom && !rom->manual.empty()) {
                 upHolding = downHolding = false;
-                // game_runner.start_external(std::string(MANUAL_READER) + " \"" + rom->manual + "\"");
+                // game_runner.start_external(std::string(MANUAL_READER) + " \"" + rom->manual +
+                // "\"");
             }
             break;
         //
@@ -715,7 +718,8 @@ void Activities::game_detail()
         case InputAction::ZL:
             if (!rom->video.empty()) {
                 leftHolding = rightHolding = false;
-                // game_runner.start_external(std::string(VIDEO_PLAYER) + " \"" + rom->video + "\"");
+                // game_runner.start_external(std::string(VIDEO_PLAYER) + " \"" + rom->video +
+                // "\"");
             }
             break;
         case InputAction::X:
@@ -725,7 +729,8 @@ void Activities::game_detail()
         case InputAction::ZR:
             if (!rom->manual.empty()) {
                 leftHolding = rightHolding = false;
-                // game_runner.start_external(std::string(MANUAL_READER) + " \"" + rom->manual + "\"");
+                // game_runner.start_external(std::string(MANUAL_READER) + " \"" + rom->manual +
+                // "\"");
             }
             break;
         case InputAction::Menu:
@@ -841,12 +846,11 @@ void Activities::refresh_db(std::string selected_rom_file)
             selected_rom_file = filtered_roms_list[selected_index]->file;
     } else {
         selected_rom_file = utils::shorten_file_path(selected_rom_file);
-
+        // TODO: Check if still required.
         if (!get_rom(selected_rom_file)) {
             std::cout << "ROM not found in database, creating new entry for: " << selected_rom_file
                       << std::endl;
-            Rom rom(selected_rom_file);
-            rom.save();
+            Rom(selected_rom_file).save();
         }
     }
 
@@ -984,14 +988,14 @@ void Activities::auto_resume()
 
         if (fs::exists(romFile)) {
             Rom* rom_ptr = get_rom(romFile);
-            
+
             if (!rom_ptr) {
                 std::cout << "ROM " << romFile << " not found in DB, creating new entry."
                           << std::endl;
                 Rom rom(romFile);
                 rom.save(); // Save the new ROM entry
                 roms_list.push_back(rom);
-                rom_ptr = &roms_list.back(); 
+                rom_ptr = &roms_list.back();
             } else {
                 std::cout << "Found rom: " << rom_ptr->name << std::endl;
             }
@@ -1000,15 +1004,15 @@ void Activities::auto_resume()
             std::cerr << "Autostart ROM file not found: " << romFile << std::endl;
         }
     }
-    std::sort(
-        ordered_roms.begin(), ordered_roms.end(), [](Rom* a, Rom* b) { return a->last < b->last; });
 
     // sort games by last session date and stay on most recent one.
+    std::sort(
+        ordered_roms.begin(), ordered_roms.end(), [](Rom* a, Rom* b) { return a->last < b->last; });
     for (auto rom_it = ordered_roms.begin(); rom_it < ordered_roms.end() - 1; rom_it++) {
         (*rom_it)->start();
         // Wait for the game to finish loading and update its PID
         sleep(2);
-        (*rom_it)->pid = (*rom_it)->suspend();
+        (*rom_it)->suspend();
     }
     // Keep latest played game active.
     ordered_roms.back()->start();
