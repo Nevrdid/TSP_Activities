@@ -881,6 +881,7 @@ static const char gui_help[] = {
     "Options:\n"
     "  -h\tDisplay help text\n"
     "  -D\tStart the gui in details mode instead of list\n"
+    "  -R\tDisable auto-resume games"
     "  -s\tSet the initial sort method. Default: (name,time,count,\e[0mlast\e[1m)\n"
     "  -r\tReverse the initial sort order. "
     "  -S\tSet the initial system to filter. (\e[1mall\e[0m,gba,psp,fc...)\n"

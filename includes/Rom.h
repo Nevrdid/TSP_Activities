@@ -34,6 +34,7 @@ class Rom
     std::string last = "-";      // #5 in games_datas
     int         completed = 0;  // #6 in games_datas
     int         favorite = 0;   // #7 in games_datas
+    std::string labels = "";    // #8 in games_datas
 
     std::string total_time;
     std::string average_time;
