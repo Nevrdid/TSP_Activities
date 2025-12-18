@@ -17,7 +17,8 @@ DB::DB()
                         "lastsessiontime INTEGER NOT NULL,"
                         "last TEXT NOT NULL,"
                         "completed INTEGER NOT NULL,"
-                        "favorite INTEGER NOT NULL"
+                        "favorite INTEGER NOT NULL,"
+                        "labels TEXT NOT NULL"
                         ")";
     char*       err_msg = nullptr;
     if (sqlite3_exec(db, query.c_str(), nullptr, nullptr, &err_msg) != SQLITE_OK) {
@@ -81,10 +82,10 @@ void DB::save(DB_row entry)
         }
 
         query = "UPDATE games_datas SET name = ?, count = ?, time = ?, "
-                " lastsessiontime = ?, last = ?, completed = ?, favorite = ? WHERE file = ?";
+                " lastsessiontime = ?, last = ?, completed = ?, favorite = ?, labels = ? WHERE file = ?";
     } else {
         query = "INSERT INTO games_datas (name, count, time, "
-                "lastsessiontime, last, completed, favorite, file) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+                "lastsessiontime, last, completed, favorite, labels, file) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
     }
     sqlite3_stmt* stmt;
     if (sqlite3_prepare_v2(db, query.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
@@ -99,7 +100,8 @@ void DB::save(DB_row entry)
     sqlite3_bind_text(stmt, 5, entry.last.c_str(), -1, SQLITE_STATIC);
     sqlite3_bind_int(stmt, 6, entry.completed);
     sqlite3_bind_int(stmt, 7, entry.favorite);
-    sqlite3_bind_text(stmt, 8, entry.file.c_str(), -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 8, entry.labels.c_str(), -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 9, entry.file.c_str(), -1, SQLITE_STATIC);
 
     if (sqlite3_step(stmt) != SQLITE_DONE)
         std::cerr << "Error updating record: " << sqlite3_errmsg(db) << std::endl;
@@ -139,6 +141,7 @@ DB_row DB::load(const std::string& file)
         ret.last = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 5)));
         ret.completed = sqlite3_column_int(stmt, 6);
         ret.favorite = sqlite3_column_int(stmt, 7);
+        ret.labels = sqlite3_column_int(stmt, 8);
         std::cout << "Entry loaded." << std::endl;
     } else {
         std::cerr << "No record found for rom: " << file << std::endl;
@@ -176,6 +179,7 @@ std::vector<DB_row> DB::load()
         row.last = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 5)));
         row.completed = sqlite3_column_int(stmt, 6);
         row.favorite = sqlite3_column_int(stmt, 7);
+        row.labels = sqlite3_column_int(stmt, 8);
         table.push_back(row);
     }
     sqlite3_finalize(stmt);

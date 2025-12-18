@@ -26,11 +26,15 @@ void Activities::filter_roms()
     std::string current_system = "All";
     if (!systems.empty() && system_index < systems.size())
         current_system = systems[system_index];
+    std::string current_label = "All";
+    if (!labels.empty() && label_index < labels.size())
+        current_labels = labels[label_index];
 
     filtered_roms_list.clear();
     total_time = 0;
     for (auto it = roms_list.begin(); it != roms_list.end(); it++) {
-        if (it->system == current_system || system_index == 0) {
+        if ((it->system == current_system || system_index == 0) &&
+			(label_index == 0 || it->labels.find(current_label) != std::string::npos)) {
             // != Unmatch mean All and Match;  < Match mean All and Unmatch
             if (((filters_states.running != FilterState::Unmatch && it->pid != -1) ||
                     (filters_states.running < FilterState::Match && it->pid == -1)) &&
@@ -213,6 +217,21 @@ MenuResult Activities::filters_menu()
                           } else {
                               system_index = std::distance(
                                   systems.begin(), find(systems.begin(), systems.end(), str));
+                          }
+                          filter_roms();
+                          return MenuResult::ExitAll;
+                      }},
+		{"Labels",
+                      [this]() -> MenuResult {
+                          std::string str = gui.string_selector(
+                              "Which label to show?", labels, gui.Width / 2, true);
+                          if (str.empty()) {
+                              return MenuResult::Continue;
+                          } else if (str == "All") {
+                              label_index = 0;
+                          } else {
+                              label_index = std::distance(
+                                  labels.begin(), find(labels.begin(), labels.end(), str));
                           }
                           filter_roms();
                           return MenuResult::ExitAll;
@@ -838,12 +857,28 @@ void Activities::refresh_db(std::string selected_rom_file)
     Rom::refresh();
 
     std::set<std::string> unique_systems;
+    std::set<std::string> unique_labels;
+
+    std::string label;
+    char del = ' ';
+
     for (const auto& rom : roms_list) {
         unique_systems.insert(rom.system);
+
+    	std::stringstream ss(rom.labels);
+	while (getline(ss, label, del))
+            unique_labels.insert(label);
     }
+
     systems.clear();
     systems.push_back("All");
     systems.insert(systems.end(), unique_systems.begin(), unique_systems.end());
+
+    labels.clear();
+    labels.push_back("All");
+    labels.insert(labels.end(), unique_labels.begin(), unique_labels.end());
+
+
     filter_roms();
     // Restore selection to the same rom if possible
     for (size_t i = 0; i < filtered_roms_list.size(); i++) {
@@ -881,6 +916,7 @@ static const char gui_help[] = {
     "Options:\n"
     "  -h\tDisplay help text\n"
     "  -D\tStart the gui in details mode instead of list\n"
+    "  -R\tDisable auto-resume games"
     "  -s\tSet the initial sort method. Default: (name,time,count,\e[0mlast\e[1m)\n"
     "  -r\tReverse the initial sort order. "
     "  -S\tSet the initial system to filter. (\e[1mall\e[0m,gba,psp,fc...)\n"

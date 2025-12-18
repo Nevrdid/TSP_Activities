@@ -18,6 +18,7 @@ struct DB_row
     std::string last;
     int         completed;
     int         favorite;
+    std::string labels;
 };
 
 class DB

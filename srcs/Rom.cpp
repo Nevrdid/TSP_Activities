@@ -60,7 +60,7 @@ void Rom::refresh()
 
 DB_row Rom::get_DB_row()
 {
-    return {file, name, count, time, lastsessiontime, last, completed, favorite};
+    return {file, name, count, time, lastsessiontime, last, completed, favorite, labels};
 }
 
 void Rom::update(DB_row row)
@@ -126,6 +126,7 @@ Rom::Rom(DB_row row)
     , last(row.last)
     , completed(row.completed)
     , favorite(row.favorite)
+    , labels(row.labels)
 {
     fill_opts();
 }
