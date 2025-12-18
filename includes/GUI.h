@@ -12,6 +12,7 @@
 #include <unistd.h>
 #include <unordered_map>
 #include <unordered_set>
+#include <set>
 #include <vector>
 
 #if __has_include(<filesystem>)
@@ -211,8 +212,10 @@ class GUI
 
     const std::string file_selector(fs::path location, bool hide_empties);
 
-    const std::string string_selector(const std::string& title,
-        const std::vector<std::string>& labels, size_t max_width, bool center);
+    std::set<int> checkbox_menu(const std::string& title, 
+		    const std::vector<std::string>& labels, size_t max_width, bool center);
+    const int string_selector(const std::string& title, 
+		    const std::vector<std::string>& labels, size_t max_width, bool center);
 
     std::pair<MenuResult, size_t> menu_selector(const std::string& title,
         const std::vector<std::string>& labels, size_t max_width, bool center,
