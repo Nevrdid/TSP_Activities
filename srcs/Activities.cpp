@@ -87,22 +87,25 @@ void Activities::sort_roms()
     gui.reset_scroll();
 }
 
-MenuResult Activities::switch_filter(const std::string& label, int& state)
+MenuResult Activities::switch_filter(const std::string& switch_title, int& switch_state)
 {
-    std::string str = gui.string_selector("Show:",
-        {std::string(state == FilterState::Match ? "*" : "") + "Only " + label,
-            std::string(state == FilterState::Unmatch ? "*" : "") + "Only not " + label,
-            std::string(state == FilterState::All ? "*" : "") + "Both"},
-        gui.Width / 2, true);
-    if (str == "Only " + label) {
-        state = FilterState::Match;
-    } else if (str == "Only not " + label) {
-        state = FilterState::Unmatch;
+    std::vector<std::string> menu_labels = (std::vector<std::string>){std::string(switch_state == FilterState::Match ? "*" : "") + "Only " + switch_title,
+            std::string(switch_state == FilterState::Unmatch ? "*" : "") + "Only not " + switch_title,
+            std::string(switch_state == FilterState::All ? "*" : "") + "Both"};
+
+    const int selected = gui.string_selector("Show:", menu_labels,gui.Width / 2, true);
+    if (selected == -1) return MenuResult::ExitCurrent; 
+
+    std::string str = menu_labels[selected];
+
+    if (str == "Only " + switch_title) {
+        switch_state = FilterState::Match;
+    } else if (str == "Only not " + switch_title) {
+        switch_state = FilterState::Unmatch;
     } else if (str == "Both") {
-        state = FilterState::All;
-    } else {
-        return MenuResult::ExitCurrent;
+        switch_state = FilterState::All;
     }
+
     filter_roms();
     return MenuResult::ExitAll;
 }
@@ -142,14 +145,12 @@ void Activities::game_menu(std::vector<Rom>::iterator rom)
             }},
         {"Change Launcher", [this, &rom]() -> MenuResult {
              std::vector<std::string> launchers = utils::get_launchers(rom->system);
-             std::string              str =
-                 gui.string_selector("Select new launcher:", launchers, gui.Width / 2, true);
-             if (!str.empty()) {
-                 utils::set_launcher(rom->system, rom->name, str);
-                 rom->launcher = str;
-                 return MenuResult::ExitAll;
-             }
-             return MenuResult::Continue;
+             const int selected = gui.string_selector("Select new launcher:", launchers, gui.Width / 2, true);
+             if (selected == -1) return MenuResult::Continue;
+
+	     utils::set_launcher(rom->system, rom->name, launchers[selected]);
+	     rom->launcher = launchers[selected];
+	     return MenuResult::ExitAll;
          }}};
 
     if (rom->pid != -1)
@@ -169,12 +170,16 @@ MenuResult Activities::sort_menu()
 
     menu_items = {{"Sort by...",
                       [this]() -> MenuResult {
-                          std::string str = gui.string_selector("Sort by...",
-                              {std::string(sort_by == Sort::Last ? "*" : "") + "Last",
-                                  std::string(sort_by == Sort::Name ? "*" : "") + "Name",
-                                  std::string(sort_by == Sort::Count ? "*" : "") + "Count",
-                                  std::string(sort_by == Sort::Time ? "*" : "") + "Time"},
-                              gui.Width / 2, true);
+			  std::vector<std::string> menu_labels = {std::string(sort_by == Sort::Last ? "*" : "") + "Last",
+			  std::string(sort_by == Sort::Name ? "*" : "") + "Name",
+			  std::string(sort_by == Sort::Count ? "*" : "") + "Count",
+			  std::string(sort_by == Sort::Time ? "*" : "") + "Time"};
+
+                          const int selected = gui.string_selector("Sort by...", menu_labels, gui.Width / 2, true);
+			  if (selected == -1) return MenuResult::Continue;
+
+			  std::string str = menu_labels[selected];
+
                           if (str == "Last") {
                               sort_by = Sort::Last;
                           } else if (str == "Name") {
@@ -183,8 +188,6 @@ MenuResult Activities::sort_menu()
                               sort_by = Sort::Count;
                           } else if (str == "Time") {
                               sort_by = Sort::Time;
-                          } else {
-                              return MenuResult::Continue;
                           }
                           sort_roms();
                           return MenuResult::ExitAll;
@@ -204,16 +207,11 @@ MenuResult Activities::filters_menu()
 
     menu_items = {{"System",
                       [this]() -> MenuResult {
-                          std::string str = gui.string_selector(
+                          const int selected = gui.string_selector(
                               "Which system to show?", systems, gui.Width / 2, true);
-                          if (str.empty()) {
-                              return MenuResult::Continue;
-                          } else if (str == "All") {
-                              system_index = 0;
-                          } else {
-                              system_index = std::distance(
-                                  systems.begin(), find(systems.begin(), systems.end(), str));
-                          }
+                          if (selected == -1) return MenuResult::Continue;
+
+                          system_index = selected;
                           filter_roms();
                           return MenuResult::ExitAll;
                       }},

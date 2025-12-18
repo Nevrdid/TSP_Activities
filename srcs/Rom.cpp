@@ -336,9 +336,9 @@ int Rom::wait()
                 choices.push_back("Running");
                 choices.push_back("Favorites");
                 choices.push_back("Any");
-                std::string choice =
+                const int selected =
                     gui.string_selector("Switch to: ", choices, gui.Width / 3, true);
-                if (choice == "") {
+                if (selected == -1) {
                     utils::resume_process_group(pid);
                     gui.delete_background_texture();
                 } else {
@@ -348,12 +348,7 @@ int Rom::wait()
                     }
                     std::cout << "ActivitiesApp: Game " << file << " suspended" << std::endl;
                     gui.delete_background_texture();
-                    if (choice == "Running")
-                        return 1;
-                    if (choice == "Favorites")
-                        return 2;
-                    if (choice == "Any")
-                        return 3;
+		    return (selected + 1);
                 }
             }
         }

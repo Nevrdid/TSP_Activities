@@ -1098,6 +1098,47 @@ const std::string GUI::file_selector(fs::path location, bool hide_empties)
 }
 
 /**
+ * @brief Display and manages a checkbox menu with selectable items.
+ *
+ * @param title A constant reference to a string for the menu's title.
+ * @param labels A constant reference to a vector of strings representing the selectable
+ * options.
+ * @param max_width The maximum allowed width for the menu in pixels. A value of 0
+ * will automatically adjust the width based on content.
+ * @param center A boolean flag. If `true`, the menu's content is centered; otherwise,
+ * it is left-aligned.
+ *
+ * @return A `std::vector<int>` of the selected labels, or an empty vector if the
+ * selection was empty.
+ *
+ */
+std::set<int> GUI::checkbox_menu(
+    const std::string& title, const std::vector<std::string>& labels, size_t max_width, bool center) {
+
+    std::set<int> selected;
+    std::vector<std::string> menu_labels(labels);
+    for (std::vector<std::string>::iterator it; it < menu_labels.end(); it++)
+        *it = "☐ " + *it;
+
+    while (true) {
+    	std::pair<MenuResult, size_t> result = _selector_core(title, menu_labels, max_width, center, 0, {});
+	if (result.second == MenuResult::Continue) break;
+
+	std::set<int>::iterator found = selected.find(result.second);
+    	if (found != selected.end()) {
+		selected.insert(result.second);
+		menu_labels[result.second][0] = '☑';
+	} else {
+		selected.erase(result.second);
+		menu_labels[result.second][0] = '☐';
+	}
+    }
+
+    return selected;
+}
+
+
+/**
  * @brief Displays a selectable menu to choose a string from a list.
  *
  * @details This function presents a user with a menu to select one string from a
@@ -1114,17 +1155,18 @@ const std::string GUI::file_selector(fs::path location, bool hide_empties)
  * will automatically adjust the width based on content.
  * @param center A boolean flag. If `true`, the menu's content is centered; otherwise,
  * it is left-aligned.
- * @return A `const std::string&` of the selected label, or an empty string if the
+ * @return A `const int` of the selected label index, or -1 if the
  * selection was canceled.
  */
-const std::string GUI::string_selector(
+const int GUI::string_selector(
     const std::string& title, const std::vector<std::string>& labels, size_t max_width, bool center)
 {
     std::pair<MenuResult, size_t> result = _selector_core(title, labels, max_width, center, 0, {});
     if (result.first != MenuResult::Continue)
-        return "";
-    return labels[result.second];
+        return -1;
+    return result.second;
 }
+
 
 /**
  * @brief Displays and manages a standard menu with selectable items.
