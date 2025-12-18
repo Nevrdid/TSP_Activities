@@ -62,6 +62,8 @@ class Activities
 
     std::vector<std::string> systems;
     size_t                   system_index = 0;
+    std::vector<std::string> labels;
+    size_t                   labels_index = 0;
 
     // Auto-scroll (key repeat) management for Up/Down in the list
     bool upHolding = false;   // true while UP is held
