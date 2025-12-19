@@ -1,4 +1,4 @@
-#include "DB.h"
+#include "DB.hpp"
 
 #include <iostream>
 
@@ -13,7 +13,7 @@ DB::DB()
                         "file TEXT PRIMARY KEY NOT NULL,"
                         "name TEXT NOT NULL,"
                         "count INTEGER NOT NULL,"
-                        "time INTEGER NOT NULL,"
+                        "totaltime INTEGER NOT NULL,"
                         "lastsessiontime INTEGER NOT NULL,"
                         "last TEXT NOT NULL,"
                         "completed INTEGER NOT NULL,"
@@ -69,21 +69,11 @@ void DB::save(DB_row entry)
     std::string query;
 
     if (!previous_entry.file.empty()) {
-        if (entry.time == 0) {
-            entry.count = previous_entry.count;
-            entry.time = previous_entry.time;
-            entry.lastsessiontime = 0;
-            entry.last = previous_entry.last;
-        } else {
-            entry.count += previous_entry.count;
-            entry.lastsessiontime = entry.time; // duration of the last session
-            entry.time += previous_entry.time;
-        }
 
-        query = "UPDATE games_datas SET name = ?, count = ?, time = ?, "
+        query = "UPDATE games_datas SET name = ?, count = ?, totaltime = ?, "
                 " lastsessiontime = ?, last = ?, completed = ?, favorite = ? WHERE file = ?";
     } else {
-        query = "INSERT INTO games_datas (name, count, time, "
+        query = "INSERT INTO games_datas (name, count, totaltime, "
                 "lastsessiontime, last, completed, favorite, file) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
     }
     sqlite3_stmt* stmt;
@@ -94,7 +84,7 @@ void DB::save(DB_row entry)
 
     sqlite3_bind_text(stmt, 1, entry.name.c_str(), -1, SQLITE_STATIC);
     sqlite3_bind_int(stmt, 2, entry.count);
-    sqlite3_bind_int(stmt, 3, entry.time);
+    sqlite3_bind_int(stmt, 3, entry.totaltime);
     sqlite3_bind_int(stmt, 4, entry.lastsessiontime);
     sqlite3_bind_text(stmt, 5, entry.last.c_str(), -1, SQLITE_STATIC);
     sqlite3_bind_int(stmt, 6, entry.completed);
@@ -134,7 +124,7 @@ DB_row DB::load(const std::string& file)
         ret.file = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0)));
         ret.name = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1)));
         ret.count = sqlite3_column_int(stmt, 2);
-        ret.time = sqlite3_column_int(stmt, 3);
+        ret.totaltime = sqlite3_column_int(stmt, 3);
         ret.lastsessiontime = sqlite3_column_int(stmt, 4);
         ret.last = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 5)));
         ret.completed = sqlite3_column_int(stmt, 6);
@@ -171,7 +161,7 @@ std::vector<DB_row> DB::load()
         row.file = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0)));
         row.name = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1)));
         row.count = sqlite3_column_int(stmt, 2);
-        row.time = sqlite3_column_int(stmt, 3);
+        row.totaltime = sqlite3_column_int(stmt, 3);
         row.lastsessiontime = sqlite3_column_int(stmt, 4);
         row.last = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 5)));
         row.completed = sqlite3_column_int(stmt, 6);

@@ -1,6 +1,6 @@
-#include "Timer.h"
-
-#include "Rom.h"
+#include "Timer.hpp"
+#include "DB.hpp"
+#include "utils.hpp"
 
 #include <iostream>
 #include <ostream>
@@ -88,8 +88,22 @@ void Timer::daemonize(const std::string& rom_file, const std::string& program_pi
     while (duration < 0) {
         duration = timer.run();
         if (std::abs(duration) >= 30) {
-            Rom rom(rom_file, std::abs(duration));
-            rom.save();
+
+
+	    std::string file = utils::shorten_file_path(rom_file);
+	    DB& db = DB::getInstance();
+
+	    DB_row rows = db.load(file);
+
+    	    fs::path filepath(rom_file);
+    	    rows.name = filepath.stem();
+
+	    rows.lastsessiontime = std::abs(duration);
+	    rows.totaltime += rows.lastsessiontime;
+	    rows.count += 1;
+            rows.last = utils::getCurrentDateTime();
+
+            db.save(rows);
         }
     }
 

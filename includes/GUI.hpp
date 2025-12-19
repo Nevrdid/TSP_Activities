@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Config.h"
+#include "Config.hpp"
 
 #include <SDL.h>
 #include <SDL_image.h>
@@ -129,7 +129,7 @@ class GUI
     GUI(const GUI& copy);
     GUI& operator=(const GUI& copy);
 
-    const Config& cfg;
+    Config& cfg;
 
     SDL_Window*   window = nullptr;
     SDL_Renderer* renderer = nullptr;

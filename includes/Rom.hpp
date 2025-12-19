@@ -1,7 +1,7 @@
 #pragma once
 
-#include "DB.h"
-#include "GUI.h"
+#include "DB.hpp"
+#include "GUI.hpp"
 
 #include <string>
 
@@ -23,20 +23,19 @@ class Rom
   public:
     Rom(DB_row row);
     Rom(const std::string& file);
-    Rom(const std::string& file, int time);
     ~Rom();
 
     std::string file;            // #0 in games_datas
     std::string name;            // #1 in games_datas
     int         count = 0;       // #2 in games_datas
-    int         time = 0;        // #3 in games_datas
+    int         totaltime = 0;        // #3 in games_datas
     int         lastsessiontime = 0; // #4 in games_datas (duration in seconds)
     std::string last = "-";      // #5 in games_datas
     int         completed = 0;  // #6 in games_datas
     int         favorite = 0;   // #7 in games_datas
 
-    std::string total_time;
-    std::string average_time;
+    std::string total_time_str;
+    std::string average_time_str;
     std::string system;
     std::string image;
     std::string video;

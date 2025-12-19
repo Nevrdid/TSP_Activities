@@ -1,4 +1,4 @@
-NAME := activities
+EXT := 
 CROSS_COMPILE := /opt/aarch64-linux-gnu-7.5.0-linaro/bin/aarch64-linux-gnu-
 SYSROOT := /opt/aarch64-linux-gnu-7.5.0-linaro/sysroot
 TSP_LIB_PATH := /root/workspace/minui-presenter/platform/tg5040/lib

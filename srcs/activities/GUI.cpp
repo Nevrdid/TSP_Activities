@@ -1,5 +1,5 @@
-#include "GUI.h"
-#include "utils.h"
+#include "GUI.hpp"
+#include "utils.hpp"
 
 #include <SDL.h>
 #include <fcntl.h>

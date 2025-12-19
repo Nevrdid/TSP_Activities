@@ -13,7 +13,7 @@ struct DB_row
     std::string file;
     std::string name;
     int         count;
-    int         time;
+    int         totaltime;
     int         lastsessiontime;
     std::string last;
     int         completed;

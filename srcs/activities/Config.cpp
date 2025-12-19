@@ -1,4 +1,4 @@
-#include "Config.h"
+#include "Config.hpp"
 
 #include <fstream>
 #include <iostream>
@@ -35,6 +35,7 @@ Config::Config()
         title_color = theme.fontColor["nav_color1"];
         info_color = theme.fontColor["stat_color1"];
     } else {
+        std::cerr << "Error: Could no open /mnt/UDISK/system.json" << std::endl;
         exit(1);
     }
 

@@ -1,6 +1,5 @@
-#include "Activities.h"
-
-#include "utils.h"
+#include "Activities.hpp"
+#include "utils.hpp"
 
 #include <fstream>
 #include <iostream>
@@ -39,7 +38,7 @@ void Activities::filter_roms()
                 ((filters_states.completed != FilterState::Unmatch && it->completed == 1) ||
                     (filters_states.completed < FilterState::Match && it->completed == 0))) {
                 filtered_roms_list.push_back(it);
-                total_time += it->time;
+                total_time += it->totaltime;
             }
         }
     }
@@ -65,7 +64,7 @@ void Activities::sort_roms()
     case Sort::Time:
         std::sort(filtered_roms_list.begin(), filtered_roms_list.end(),
             [rev](std::vector<Rom>::iterator a, std::vector<Rom>::iterator b) {
-                bool ret = a->total_time > b->total_time;
+                bool ret = a->total_time_str > b->total_time_str;
                 return rev ? !ret : ret;
             });
         break;
@@ -381,7 +380,7 @@ void Activities::game_list()
         }
 
         gui.render_multicolor_text(
-            {{"Time: ", cfg.unselect_color}, {rom->total_time, color},
+            {{"Time: ", cfg.unselect_color}, {rom->total_time_str, color},
                 {"  Count: ", cfg.unselect_color}, {std::to_string(rom->count), color},
                 {"  Last: ", cfg.unselect_color}, {rom->last, color}},
             x + 15, y + prevSize.y / 2 + 6, FONT_TINY_SIZE);
@@ -619,8 +618,8 @@ void Activities::game_detail()
 
     // Right side: Game details
     std::vector<std::pair<std::string, std::string>> details = {
-        {"Total Time: ", rom->total_time.empty() ? "N/A" : rom->total_time},
-        {"Average Time: ", rom->average_time.empty() ? "N/A" : rom->average_time},
+        {"Total Time: ", rom->total_time_str.empty() ? "N/A" : rom->total_time_str},
+        {"Average Time: ", rom->average_time_str.empty() ? "N/A" : rom->average_time_str},
         {"Last played: ", rom->last.empty() ? "N/A" : rom->last},
         {"Last session: ", utils::stringifyTime(rom->lastsessiontime)},
         {"Play count: ", std::to_string(rom->count)},
@@ -780,7 +779,7 @@ void Activities::overall_stats()
         int              time = 0;
         for (const auto& rom : roms_list) {
             count += rom.count;
-            time += rom.time;
+            time += rom.totaltime;
             completed += rom.completed;
         }
         std::vector<std::pair<std::string, std::string>> content = {
@@ -863,9 +862,9 @@ void Activities::refresh_db(std::string selected_rom_file)
         std::cout << "  Name: " << loaded_rom->name << std::endl;
         std::cout << "  File: " << loaded_rom->file << std::endl;
         std::cout << "  Count: " << loaded_rom->count << std::endl;
-        std::cout << "  Time: " << loaded_rom->time << std::endl;
-        std::cout << "  Total time: '" << loaded_rom->total_time << "'" << std::endl;
-        std::cout << "  Average time: '" << loaded_rom->average_time << "'" << std::endl;
+        std::cout << "  Time: " << loaded_rom->totaltime << std::endl;
+        std::cout << "  Total time: '" << loaded_rom->total_time_str << "'" << std::endl;
+        std::cout << "  Average time: '" << loaded_rom->average_time_str << "'" << std::endl;
         std::cout << "  System: '" << loaded_rom->system << "'" << std::endl;
         std::cout << "  Launcher: '" << loaded_rom->launcher << "'" << std::endl;
         std::cout << "  Last: '" << loaded_rom->last << "'" << std::endl;
@@ -874,19 +873,6 @@ void Activities::refresh_db(std::string selected_rom_file)
         std::cout << "  Filtered ROMs: " << filtered_roms_list.size() << std::endl;
     }
 }
-
-static const char gui_help[] = {
-    "activities GUI usage:\n"
-    "\tactivities gui [option...]*\n"
-    "Options:\n"
-    "  -h\tDisplay help text\n"
-    "  -D\tStart the gui in details mode instead of list\n"
-    "  -s\tSet the initial sort method. Default: (name,time,count,\e[0mlast\e[1m)\n"
-    "  -r\tReverse the initial sort order. "
-    "  -S\tSet the initial system to filter. (\e[1mall\e[0m,gba,psp,fc...)\n"
-    "  -c\tSet the initial completed filter (\e[1mall\e[1m,on,off)\n"
-    "  -f\tSet the initial romFile to display. default: first of the filtered and sorted list. "
-    "\n"};
 
 extern char* optarg;
 extern int   optind;
@@ -902,7 +888,7 @@ int               Activities::parseArgs(int argc, char** argv)
     while ((option = getopt(argc, argv, options)) != -1) {
         switch (option) {
         case 'h':
-            puts(gui_help);
+            puts(help);
             status = 1;
             break;
         case 'D': in_game_detail = true; break;
@@ -1001,7 +987,7 @@ void Activities::auto_resume()
 void Activities::run(int argc, char** argv)
 {
     if (parseArgs(argc, argv)) {
-        puts(gui_help);
+        puts(help);
         exit(1);
     }
 

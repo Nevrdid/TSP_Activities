@@ -5,6 +5,12 @@
 SRCS := $(wildcard ../srcs/*.cpp)
 OBJS := $(patsubst ../srcs/%, objs/%,$(SRCS:.cpp=.o))
 
+ACT_SRCS := $(wildcard ../srcs/activities/*.cpp)
+ACT_OBJS := $(patsubst ../srcs/%, objs/%,$(ACT_SRCS:.cpp=.o))
+
+TIM_SRCS := $(wildcard ../srcs/timer/*.cpp)
+TIM_OBJS := $(patsubst ../srcs/%, objs/%,$(TIM_SRCS:.cpp=.o))
+
 LDFLAGS += -I../includes/
 
 # Configuration inclusion based on GOAL
@@ -20,11 +26,14 @@ endif
 objs/%.o: ../srcs/%.cpp
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -c $< -o $@
 
-bin/$(NAME): $(OBJS)
+bin/activities$(EXT): $(OBJS) $(ACT_OBJS)
+	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDLIBS)
+
+bin/timer$(EXT): $(OBJS) $(TIM_OBJS)
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDLIBS)
 
 # Top-level targets
-all: bin/$(NAME)
+all: bin/activities$(EXT) bin/timer$(EXT)
 
 tsp:
 	./crosscompile.sh
@@ -36,7 +45,7 @@ clean:
 	rm -f bin/*
 
 fclean: clean
-	rm -rf $(OBJS)
+	rm -rf $(OBJS) $(ACT_OBJS) $(TIM_OBJS)
 
 re: fclean all
 

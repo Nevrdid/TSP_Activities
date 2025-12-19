@@ -1,6 +1,5 @@
-#include "Rom.h"
-
-#include "utils.h"
+#include "Rom.hpp"
+#include "utils.hpp"
 
 #include <fstream>
 #include <iostream>
@@ -14,6 +13,10 @@ static std::regex               best_pattern = std::regex(R"(\/Best\/([^\/]+).*)
 std::vector<Rom>                Rom::list;
 std::unordered_set<std::string> Rom::ra_hotkey_roms;
 std::unordered_set<std::string> Rom::childs;
+
+// TODO: Change  as singletons are only constructed after main() to avoid
+// possible future accidental undefined behaviors.
+
 GUI&                            Rom::gui = GUI::getInstance();
 Config&                         Rom::cfg = Config::getInstance();
 DB&                             Rom::db = DB::getInstance();
@@ -60,17 +63,17 @@ void Rom::refresh()
 
 DB_row Rom::get_DB_row()
 {
-    return {file, name, count, time, lastsessiontime, last, completed, favorite};
+    return {file, name, count, totaltime, lastsessiontime, last, completed, favorite};
 }
 
 void Rom::update(DB_row row)
 {
     count = row.count;
-    time = row.time;
+    totaltime = row.totaltime;
     lastsessiontime = row.lastsessiontime;
     last = row.last;
-    total_time = utils::stringifyTime(time);
-    average_time = utils::stringifyTime(count ? time / count : 0);
+    total_time_str = utils::stringifyTime(totaltime);
+    average_time_str = utils::stringifyTime(count ? totaltime / count : 0);
 }
 
 Rom* Rom::save()
@@ -112,8 +115,8 @@ void Rom::fill_opts()
         manual = "";
 
     system = std::regex_replace(file, sys_pattern, R"($1)");
-    total_time = utils::stringifyTime(time);
-    average_time = utils::stringifyTime(count ? time / count : 0);
+    total_time_str = utils::stringifyTime(totaltime);
+    average_time_str = utils::stringifyTime(count ? totaltime / count : 0);
     launcher = utils::get_launcher(system, name);
 }
 
@@ -121,7 +124,7 @@ Rom::Rom(DB_row row)
     : file(row.file)
     , name(row.name)
     , count(row.count)
-    , time(row.time)
+    , totaltime(row.totaltime)
     , lastsessiontime(row.lastsessiontime)
     , last(row.last)
     , completed(row.completed)
@@ -130,24 +133,14 @@ Rom::Rom(DB_row row)
     fill_opts();
 }
 
-Rom::Rom(const std::string& _file, int _time)
-    : time(_time)
-    , lastsessiontime(_time)
+Rom::Rom(const std::string& _file)
 {
     fs::path filepath(_file);
 
     file = utils::shorten_file_path(_file);
     name = filepath.stem();
-    if (time) {
-        count = 1;
-        last = utils::getCurrentDateTime();
-    }
-    fill_opts();
-}
 
-Rom::Rom(const std::string& _file)
-    : Rom(_file, 0)
-{
+    fill_opts();
 }
 
 Rom::~Rom()
