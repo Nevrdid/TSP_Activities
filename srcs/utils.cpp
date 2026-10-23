@@ -134,16 +134,29 @@ std::vector<std::string> get_launchers(const std::string& system)
 {
     std::vector<std::string> launchers;
     std::ifstream            sys_cfg2("/mnt/SDCARD/Emus/" + system + "/config.json");
-    if (!sys_cfg2.fail()) {
+    if (!sys_cfg2.is_open())
+        return launchers;
+
+    try {
         nlohmann::json j;
         sys_cfg2 >> j;
-        sys_cfg2.close();
-        if (j.contains("launchlist")) {
-            for (const auto& value : j["launchlist"]) {
-                if (value["launch"].get<std::string>().size() > 1)
-                    launchers.push_back(value["name"].get<std::string>());
+        if (!j.is_object() || !j.contains("launchlist") || !j["launchlist"].is_array())
+            return launchers;
+
+        for (const auto& value : j["launchlist"]) {
+            if (!value.is_object() || !value.contains("launch") || !value["launch"].is_string() ||
+                !value.contains("name") || !value["name"].is_string())
+                continue;
+
+            if (value["launch"].get<std::string>().size() > 1) {
+                const std::string name = value["name"].get<std::string>();
+                if (!name.empty())
+                    launchers.push_back(name);
             }
         }
+    } catch (const std::exception& e) {
+        std::cerr << "ActivitiesApp: Could not read launchers for " << system << ": "
+                  << e.what() << std::endl;
     }
     return launchers;
 }
@@ -169,20 +182,29 @@ std::string get_launcher(const std::string& system, const std::string& romName)
             ret = line;
         } else {
             std::ifstream sys_cfg2("/mnt/SDCARD/Emus/" + system + "/config.json");
-            if (sys_cfg2.is_open() && !sys_cfg2.fail()) {
-                nlohmann::json j;
-                sys_cfg2 >> j;
-                sys_cfg2.close();
+            if (sys_cfg2.is_open()) {
+                try {
+                    nlohmann::json j;
+                    sys_cfg2 >> j;
 
-                if (j.contains("launchlist")) {
-                    for (const auto& value : j["launchlist"]) {
-                        if (value["launch"].get<std::string>().size() > 1) {
-                            ret = value["name"].get<std::string>();
-                            break;
+                    if (j.is_object() && j.contains("launchlist") && j["launchlist"].is_array()) {
+                        for (const auto& value : j["launchlist"]) {
+                            if (!value.is_object() || !value.contains("launch") ||
+                                !value["launch"].is_string() || !value.contains("name") ||
+                                !value["name"].is_string())
+                                continue;
+                            if (value["launch"].get<std::string>().size() > 1) {
+                                ret = value["name"].get<std::string>();
+                                break;
+                            }
                         }
+                    } else if (j.is_object() && j.contains("launch.sh") &&
+                               j["launch.sh"].is_string()) {
+                        ret = j["launch.sh"].get<std::string>();
                     }
-                } else {
-                    ret = j["launch.sh"].get<std::string>();
+                } catch (const std::exception& e) {
+                    std::cerr << "ActivitiesApp: Could not read launcher configuration for "
+                              << system << ": " << e.what() << std::endl;
                 }
             }
         }
