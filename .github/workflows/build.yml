@@ -36,12 +36,16 @@ jobs:
             -f- . <<EOF
           FROM arm64v8/debian:bullseye
 
-          RUN apt-get update && apt-get install -y --no-install-recommends --no-install-suggests \
-              build-essential \
-              libsdl2-dev \
-              libsdl2-ttf-dev \
-              libsdl2-image-dev \
-              libsqlite3-dev
+          # Bullseye is retained for the handheld-compatible runtime baseline.
+          # Its security packages have moved to the Debian archive after Bullseye LTS ended.
+          RUN sed -i 's|deb.debian.org/debian-security|archive.debian.org/debian-security|g' /etc/apt/sources.list \
+              && apt-get -o Acquire::Check-Valid-Until=false update \
+              && apt-get install -y --no-install-recommends --no-install-suggests \
+                  build-essential \
+                  libsdl2-dev \
+                  libsdl2-ttf-dev \
+                  libsdl2-image-dev \
+                  libsqlite3-dev
 
           WORKDIR /app
           COPY . /app
