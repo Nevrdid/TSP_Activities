@@ -52,6 +52,7 @@ The database path is defined as `APP_DIR "data/games.db"` in `includes/DB.hpp`. 
 - Text rendering now checks font lookup, surface rendering and texture creation before accessing the surface. It no longer closes a cached font when rendering fails.
 - SDL cleanup now tolerates a missing joystick and partially initialized renderer/window/font resources. The Activities startup path stops cleanly if GUI initialization fails.
 - The completed-game icon path now matches the tracked `.assets/green-check.svg` filename.
+- `Rom::get()` now handles an empty ROM list safely; the old `do/while` dereferenced `end()` before checking whether the list was empty.
 
 These changes preserve the existing C++17 baseline and do not introduce newer runtime APIs.
 
