@@ -14,12 +14,14 @@ This document records observations from the initial source review. It is a map o
 
 ### Configuration and theme
 
-`srcs/activities/Config.cpp` opens both `/mnt/UDISK/system.json` and `/mnt/SDCARD/System/etc/crossmix.json`. If either file cannot be opened, construction logs an error and exits. The first file provides a theme path; the special value `../res/` is rewritten to the CrossMix theme directory. A theme config is loaded from `<theme_path>/config.json` when it exists.
+`srcs/activities/Config.cpp` reads `/mnt/UDISK/system.json` for the `theme` path and optionally reads `/mnt/SDCARD/System/etc/crossmix.json` for `BACKGROUNDS`. The sample files supplied during the audit confirm that the theme config contains `font`, `fontascii`, `fontsize`, and `fontcolor` fields. The special system-theme value `../res/` is still rewritten to `/mnt/SDCARD/Themes/CrossMix - OS/`.
+
+The constructor now reports malformed system JSON clearly, retains built-in colors when theme color fields are missing, and treats CrossMix's configuration file as optional (defaulting the background selection to `Default`). This preserves the existing CrossMix values when present while removing an unnecessary hard dependency on that one file. The system JSON and usable theme/font/assets are still required by the current startup path; this is not yet a complete standalone configuration system.
 
 Implications:
-- The current startup path is tied to the expected handheld/CrossMix filesystem layout.
-- Theme fields are used to populate colors, but behavior when the theme config is absent or incomplete needs validation.
-- Before replacing these dependencies, define a fallback configuration format and retain the existing device behavior.
+- The configured theme path remains tied to the handheld filesystem layout unless the later platform/path abstraction changes it.
+- The theme's `config.json` is a style schema, not a full app configuration. It does not define ROM roots, database location, or emulator launchers.
+- Missing theme/font/skin files can still leave the UI incomplete. Do not replace these paths until the needed assets and fallback behavior have been verified.
 
 ### UI, SDL and input
 
@@ -53,6 +55,8 @@ The database path is defined as `APP_DIR "data/games.db"` in `includes/DB.hpp`. 
 - SDL cleanup now tolerates a missing joystick and partially initialized renderer/window/font resources. The Activities startup path stops cleanly if GUI initialization fails.
 - The completed-game icon path now matches the tracked `.assets/green-check.svg` filename.
 - `Rom::get()` now handles an empty ROM list safely; the old `do/while` dereferenced `end()` before checking whether the list was empty.
+
+Configuration hardening now also catches malformed system/theme/CrossMix JSON and preserves built-in colors when optional theme colors are absent. CrossMix background settings are optional, defaulting to `Default`; the required handheld `system.json` behavior remains unchanged. The ARM64 config's `APP_DIR` macro quoting was corrected after the first Bullseye build exposed compiler errors; rerun the ARM64 workflow before treating the fix as verified.
 
 These changes preserve the existing C++17 baseline and do not introduce newer runtime APIs.
 
