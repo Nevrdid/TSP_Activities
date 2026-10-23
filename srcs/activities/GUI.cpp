@@ -1114,11 +1114,18 @@ const std::string GUI::file_selector(fs::path location, bool hide_empties)
                           [location](const std::string& sub) {
                               if (sub == "..")
                                   return false;
-                              std::string next = location.string() + "/" + sub;
-                              if (fs::status(next).type() == fs::file_type::regular)
+                              const std::string next = location.string() + "/" + sub;
+                              std::error_code fs_error;
+                              const fs::file_status status = fs::status(next, fs_error);
+                              if (fs_error)
                                   return false;
-                              if (fs::is_empty(fs::path(next)))
-                                  return true;
+                              if (status.type() == fs::file_type::regular)
+                                  return false;
+                              if (fs::is_empty(fs::path(next), fs_error)) {
+                                  return !fs_error;
+                              }
+                              if (fs_error)
+                                  return false;
                               std::vector<std::string> sub_content =
                                   utils::get_directory_content(next, true);
                               return sub_content.size() < 2;
@@ -1131,8 +1138,15 @@ const std::string GUI::file_selector(fs::path location, bool hide_empties)
 
     if (result.first != MenuResult::Continue)
         return "";
-    std::string next = location.string() + "/" + content[result.second];
-    if (fs::status(next).type() == fs::file_type::directory)
+    const std::string next = location.string() + "/" + content[result.second];
+    std::error_code fs_error;
+    const fs::file_status selected_status = fs::status(next, fs_error);
+    if (fs_error) {
+        std::cerr << "Could not inspect selected path " << next << ": "
+                  << fs_error.message() << std::endl;
+        return "";
+    }
+    if (selected_status.type() == fs::file_type::directory)
         return file_selector(next, true);
     return utils::shorten_file_path(next);
 }
