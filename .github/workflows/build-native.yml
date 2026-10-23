@@ -36,14 +36,9 @@ jobs:
           g++ --version
           pkg-config --modversion sdl2 SDL2_ttf SDL2_image sqlite3
 
-      - name: Prepare build directories
-        run: |
-          mkdir -p build/objs/activities build/objs/timer build/bin
-
       - name: Build applications
         run: |
           make -C build clean
-          mkdir -p build/objs/activities build/objs/timer build/bin
           make -C build --jobs="$(nproc)" all
 
       - name: Check build outputs
