@@ -32,12 +32,18 @@ Config::Config()
         exit(1);
     }
 
-    // A per-app theme choice can select one of the five TRIMUI themes without
-    // changing the handheld-wide system.json setting. Keep this file optional
-    // so existing installations continue to work without migration.
+    // Translate the legacy system-theme sentinel to the preferred built-in
+    // theme first. Explicit custom theme paths remain authoritative.
+    if (theme_path == "../res/" || theme_path.empty())
+        theme_path = "/mnt/SDCARD/Themes/TRIMUI YaHei/";
+
+    // Optional per-app selection. Only apply it when system.json requests the
+    // legacy/default theme; do not override a user's explicit custom theme.
+    const bool default_theme_requested =
+        (theme_path == "/mnt/SDCARD/Themes/TRIMUI YaHei/");
     const std::string theme_choice_file = APP_DIR "data/theme.txt";
     std::ifstream theme_choice(theme_choice_file.c_str());
-    if (theme_choice.is_open()) {
+    if (default_theme_requested && theme_choice.is_open()) {
         std::string choice;
         std::getline(theme_choice, choice);
         const std::set<std::string> supported_themes = {
@@ -51,11 +57,6 @@ Config::Config()
                       << "' in " << theme_choice_file << std::endl;
         }
     }
-
-    // Use TRIMUI YaHei instead of CrossMix OS for the legacy system-theme
-    // sentinel. A valid per-app choice above takes precedence.
-    if (theme_path == "../res/")
-        theme_path = "/mnt/SDCARD/Themes/TRIMUI YaHei/";
 
     // Asset paths below are built by appending relative names to theme_path.
     // Normalize the separator here so a valid path without a trailing slash works too.
