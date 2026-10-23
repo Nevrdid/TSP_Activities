@@ -49,6 +49,8 @@ Implications:
 
 ### ROM assets and launchers
 
+`srcs/utils.cpp` also contains process helpers and directory listing code. The process lookup now closes its `popen()` stream with `pclose()` (rather than `fclose()`) and treats a failed PID parse as no result. Directory filtering now checks the filename string safely before testing its first character.
+
 `srcs/activities/Rom.cpp` derives image, video and manual paths from ROM paths under `/Roms/<system>/...` or the alternate `/Best/<system>/...` layout. Game launching invokes `/mnt/SDCARD/Emus/<system>/default.sh`. The native build configuration points video/manual actions at desktop commands, while the handheld cross configuration points at handheld scripts.
 
 Implications:
