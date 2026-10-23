@@ -42,13 +42,13 @@ jobs:
 
           WORKDIR /app
           COPY . /app
-          RUN mkdir build && make
+          RUN make -C build --jobs=2 GOAL=native_aarch64 all
           EOF
 
       - name: Extract Build Output
         run: |
           docker create --name extract activities-builder
-          docker cp extract:/app/activities ./activities
+          docker cp extract:/app/build/bin/activities ./activities
           docker rm extract
 
       - name: Verify Build Output
@@ -67,7 +67,12 @@ jobs:
           cp icon.png Out/Apps/Activities/
           cp launch.sh Out/Apps/Activities/
           cp config.json Out/Apps/Activities/
-          cp data/config.ini Out/Apps/Activities/data/config.ini
+          cp -R .assets Out/Apps/Activities/
+          # config.ini is a legacy packaging input and is not currently read by the app.
+          # Include it if a downstream deployment supplies it, without breaking clean builds.
+          if [ -f data/config.ini ]; then
+            cp data/config.ini Out/Apps/Activities/data/config.ini
+          fi
 
 
 
