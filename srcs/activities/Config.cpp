@@ -34,6 +34,11 @@ Config::Config()
     if (theme_path == "../res/")
         theme_path = "/mnt/SDCARD/Themes/CrossMix - OS/";
 
+    // Asset paths below are built by appending relative names to theme_path.
+    // Normalize the separator here so a valid path without a trailing slash works too.
+    if (!theme_path.empty() && theme_path.back() != '/')
+        theme_path += '/';
+
     if (!theme_path.empty()) {
         const std::string theme_config = (fs::path(theme_path) / "config.json").string();
         if (fs::exists(theme_config) && !load_theme(theme_config))
