@@ -1,6 +1,7 @@
 #include "Rom.hpp"
 #include "utils.hpp"
 
+#include <cerrno>
 #include <fstream>
 #include <iostream>
 #include <regex>
@@ -294,14 +295,23 @@ int Rom::wait()
         // Check if the process has terminated
         pid_t result = waitpid(pid, &status, WNOHANG);
         if (result == pid) {
-            // If the game was stoped by a signal, that mostly because of
-            // cmd_to_launch_killer.sh
-            // so we not remove it from child to keep it in autostarts
+            // If the game was stopped by a signal, that mostly because of
+            // cmd_to_launch_killer.sh, keep it in the child list for autostarts.
             if (WIFSIGNALED(status)) {
+                std::cout << "ActivitiesApp: Game " << file << " terminated by signal "
+                          << WTERMSIG(status) << std::endl;
                 return 3;
-                std::cout << "ActivitiesApp: Game " << file << " exited with status " << status
-                          << std::endl;
             }
+            if (WIFEXITED(status)) {
+                std::cout << "ActivitiesApp: Game " << file << " exited with status "
+                          << WEXITSTATUS(status) << std::endl;
+            }
+            break;
+        }
+        if (result == -1 && errno != EINTR) {
+            // A non-child or already-reaped process cannot be waited on; avoid
+            // spinning forever if another part of the application reaped it.
+            std::cerr << "ActivitiesApp: waitpid failed for " << file << std::endl;
             break;
         }
         // Pause the GUI interface while the game is running
