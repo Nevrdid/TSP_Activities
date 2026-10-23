@@ -318,8 +318,21 @@ Vec2 GUI::render_image(const std::string& image_path, int x, int y, int w, int h
         return {0, 0};
     if (image_cache.find(image_path) == image_cache.end()) {
         SDL_Surface* surface = IMG_Load(image_path.c_str());
-        image_cache[image_path] = {
-            SDL_CreateTextureFromSurface(renderer, surface), surface->w, surface->h};
+        if (!surface) {
+            std::cerr << "Failed to load image " << image_path << ": " << IMG_GetError()
+                      << std::endl;
+            return {0, 0};
+        }
+
+        SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
+        if (!texture) {
+            std::cerr << "Failed to create texture for image " << image_path << ": "
+                      << SDL_GetError() << std::endl;
+            SDL_FreeSurface(surface);
+            return {0, 0};
+        }
+
+        image_cache[image_path] = {texture, surface->w, surface->h};
         SDL_FreeSurface(surface);
     }
     CachedImg& cached_texture = image_cache[image_path];
@@ -369,17 +382,27 @@ CachedText& GUI::getCachedText(const Text& text)
     }
 
     TTF_Font* font = get_font(text.size);
+    if (!font) {
+        CachedText cached = {nullptr, 0, 0, text};
+        cached_text.push_back(cached);
+        return cached_text.back();
+    }
 
     SDL_Surface* surface = TTF_RenderText_Blended(font, text.str.c_str(), text.color);
     if (!surface) {
         std::cerr << "Failed to render text: " << TTF_GetError() << std::endl;
-        TTF_CloseFont(font);
+        CachedText cached = {nullptr, 0, 0, text};
+        cached_text.push_back(cached);
+        return cached_text.back();
     }
 
     SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
     if (!texture) {
+        std::cerr << "Failed to create text texture: " << SDL_GetError() << std::endl;
         SDL_FreeSurface(surface);
-        std::cerr << "Failed to create texture: " << SDL_GetError() << std::endl;
+        CachedText cached = {nullptr, 0, 0, text};
+        cached_text.push_back(cached);
+        return cached_text.back();
     }
 
     CachedText cached = {texture, surface->w, surface->h, text};
