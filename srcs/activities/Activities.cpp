@@ -428,10 +428,10 @@ void Activities::game_list()
             break;
         }
         case InputAction::Down: {
-            if (selected_index < list_size - 1)
+            if (list_size > 0 && selected_index + 1 < list_size)
                 selected_index++;
             // Start auto-scroll downwards
-            downHolding = true;
+            downHolding = list_size > 1;
             upHolding = false;
             holdStartTime = lastRepeatTime = std::chrono::steady_clock::now();
             break;
@@ -441,13 +441,19 @@ void Activities::game_list()
             upHolding = downHolding = false; // stop repeat on jump navigation
             break;
         case InputAction::Right:
-            selected_index = list_size > 10 && selected_index < list_size - 10
-                                 ? selected_index + 10
-                                 : static_cast<int>(list_size) - 1;
+            if (list_size == 0) {
+                selected_index = 0;
+            } else if (list_size > 10 && selected_index < list_size - 10) {
+                selected_index += 10;
+            } else {
+                selected_index = list_size - 1;
+            }
             upHolding = downHolding = false;
             break;
         case InputAction::L1:
 
+            if (systems.empty())
+                break;
             do {
                 system_index = (system_index == 0) ? systems.size() - 1 : system_index - 1;
                 filter_roms();
@@ -455,6 +461,8 @@ void Activities::game_list()
             upHolding = downHolding = false;
             break;
         case InputAction::R1:
+            if (systems.empty())
+                break;
             do {
                 system_index = (system_index + 1) % systems.size();
                 filter_roms();
