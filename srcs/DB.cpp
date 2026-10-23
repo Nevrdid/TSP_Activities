@@ -2,6 +2,15 @@
 
 #include <iostream>
 
+namespace
+{
+std::string column_text(sqlite3_stmt* stmt, int column)
+{
+    const unsigned char* value = sqlite3_column_text(stmt, column);
+    return value ? reinterpret_cast<const char*>(value) : std::string();
+}
+} // namespace
+
 DB::DB()
     : db(nullptr)
 {
@@ -139,12 +148,12 @@ DB_row DB::load(const std::string& file)
     int result = sqlite3_step(stmt);
     if (result == SQLITE_ROW) {
         std::cout << "Entry exist in database." << std::endl;
-        ret.file = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0)));
-        ret.name = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1)));
+        ret.file = column_text(stmt, 0);
+        ret.name = column_text(stmt, 1);
         ret.count = sqlite3_column_int(stmt, 2);
         ret.totaltime = sqlite3_column_int(stmt, 3);
         ret.lastsessiontime = sqlite3_column_int(stmt, 4);
-        ret.last = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 5)));
+        ret.last = column_text(stmt, 5);
         ret.completed = sqlite3_column_int(stmt, 6);
         ret.favorite = sqlite3_column_int(stmt, 7);
         std::cout << "Entry loaded." << std::endl;
