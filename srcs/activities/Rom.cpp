@@ -28,14 +28,12 @@ std::vector<Rom>& Rom::get()
 
 Rom* Rom::get(const std::string& rom_file)
 {
-    auto it = list.begin();
-    do {
+    for (auto it = list.begin(); it != list.end(); ++it) {
         if (it->file == rom_file || fs::path(it->file).filename() == fs::path(rom_file)) {
-            std::cout << "ROM " << it->name << "found in database." << std::endl;
-
+            std::cout << "ROM " << it->name << " found in database." << std::endl;
             return &(*it);
         }
-    } while (++it != list.end());
+    }
     return nullptr;
 }
 
