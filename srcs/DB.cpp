@@ -7,8 +7,16 @@ DB::DB()
 {
 
     if (sqlite3_open(DB_FILE, &db) != SQLITE_OK) {
-        std::cerr << "Error opening SQLite database: " << sqlite3_errmsg(db) << std::endl;
+        std::cerr << "Error opening SQLite database: "
+                  << (db ? sqlite3_errmsg(db) : "SQLite did not create a connection handle")
+                  << std::endl;
+        if (db) {
+            sqlite3_close(db);
+            db = nullptr;
+        }
+        return;
     }
+
     std::string query = "CREATE TABLE IF NOT EXISTS games_datas ("
                         "file TEXT PRIMARY KEY NOT NULL,"
                         "name TEXT NOT NULL,"
@@ -36,6 +44,11 @@ DB::~DB()
 bool DB::is_refresh_needed()
 {
     static int data_version = 1;
+
+    if (!db) {
+        std::cerr << "Cannot check database version: no SQLite connection." << std::endl;
+        return false;
+    }
 
     bool is_needed = false;
 
