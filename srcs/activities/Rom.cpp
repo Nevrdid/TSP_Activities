@@ -186,17 +186,25 @@ void Rom::start()
         }
 
         pid = fork();
+        if (pid < 0) {
+            std::cerr << "ActivitiesApp: Failed to fork while launching " << name << std::endl;
+            gui.message_popup(3000, {{"Error", 28, cfg.title_color},
+                                        {"Could not start game", 18, cfg.selected_color}});
+            pid = -1;
+            return;
+        }
+
         if (pid == 0) {
             setsid();
             std::string launcher = "/mnt/SDCARD/Emus/" + system + "/default.sh";
 
             execl(launcher.c_str(), launcher.c_str(), file.c_str(), (char*) NULL);
             std::cerr << "Failed to launch " << name << std::endl;
-            exit(1);
-        } else {
-            childs.insert(file);
-            export_childs_list();
+            _exit(127);
         }
+
+        childs.insert(file);
+        export_childs_list();
     }
 }
 
