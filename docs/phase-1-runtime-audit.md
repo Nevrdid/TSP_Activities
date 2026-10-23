@@ -45,6 +45,14 @@ The application links SQLite. The release workflow expects packaging inputs incl
 
 The database path is defined as `APP_DIR "data/games.db"` in `includes/DB.hpp`. `DB.cpp` opens that path and creates the table if needed, but does not create the parent `data/` directory first. If the directory is missing or unwritable, `sqlite3_open` can fail; the constructor logs the error but then proceeds to execute the table-creation query. The constructor now stops initialization and closes the failed SQLite handle when opening the database fails; `is_refresh_needed()` also checks for a missing connection. This avoids continuing into table creation with an invalid connection, but does not create the parent directory automatically. Verify whether the packaging/runtime always creates `data/` and whether the current device install has existing database data before altering behavior.
 
+## Fixes made during the audit
+
+- ROM sort comparators now compare in the requested direction instead of negating the ascending comparison. Negation incorrectly returns true when values are equal, violating the strict-weak-ordering requirement of `std::sort`. The time sort now compares numeric `totaltime` values instead of formatted display strings.
+- Image loading checks `IMG_Load` and texture creation before accessing surface dimensions. Failed assets are logged and skipped rather than dereferenced.
+- Text rendering now checks font lookup, surface rendering and texture creation before accessing the surface. It no longer closes a cached font when rendering fails.
+
+These changes preserve the existing C++17 baseline and do not introduce newer runtime APIs.
+
 ## Follow-up order
 
 1. Keep native CI green and make Makefile output-directory handling self-contained.
