@@ -185,12 +185,12 @@ std::vector<DB_row> DB::load()
 
     while (sqlite3_step(stmt) == SQLITE_ROW) {
         DB_row row;
-        row.file = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0)));
-        row.name = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1)));
+        row.file = column_text(stmt, 0);
+        row.name = column_text(stmt, 1);
         row.count = sqlite3_column_int(stmt, 2);
         row.totaltime = sqlite3_column_int(stmt, 3);
         row.lastsessiontime = sqlite3_column_int(stmt, 4);
-        row.last = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 5)));
+        row.last = column_text(stmt, 5);
         row.completed = sqlite3_column_int(stmt, 6);
         row.favorite = sqlite3_column_int(stmt, 7);
         table.push_back(row);
