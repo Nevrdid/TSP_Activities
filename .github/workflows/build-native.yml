@@ -1,5 +1,9 @@
 name: Native x86-64 build
 
+concurrency:
+  group: native-x86-64-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches:
