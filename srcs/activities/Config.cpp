@@ -2,6 +2,7 @@
 
 #include <fstream>
 #include <iostream>
+#include <stdexcept>
 
 #if __has_include(<filesystem>)
 #    include <filesystem>
@@ -15,38 +16,56 @@ namespace fs = std::experimental::filesystem;
 
 Config::Config()
 {
-    std::ifstream  file;
-    std::string    skins;
-    std::string    backgrounds;
     nlohmann::json j;
-    file = std::ifstream("/mnt/UDISK/system.json");
-    if (file.is_open()) {
-        file >> j;
-        theme_path = j.value("theme", "");
-        if (theme_path == "../res/")
-            theme_path = "/mnt/SDCARD/Themes/CrossMix - OS/";
-
-        file.close();
-        std::string theme_config = theme_path + "/config.json";
-        if (fs::exists(theme_config))
-            load_theme(theme_config);
-        selected_color = theme.fontColor["content_color4"];
-        unselect_color = theme.fontColor["content_color1"];
-        title_color = theme.fontColor["nav_color1"];
-        info_color = theme.fontColor["stat_color1"];
-    } else {
-        std::cerr << "Error: Could no open /mnt/UDISK/system.json" << std::endl;
+    std::ifstream file("/mnt/UDISK/system.json");
+    if (!file.is_open()) {
+        std::cerr << "Error: Could not open /mnt/UDISK/system.json" << std::endl;
         exit(1);
     }
 
-    file = std::ifstream("/mnt/SDCARD/System/etc/crossmix.json");
-    if (file.is_open()) {
+    try {
         file >> j;
-        backgrounds_theme = j.value("BACKGROUNDS", "");
-        file.close();
-    } else {
-        std::cerr << "Error: Could no open /mnt/SDCARD/System/etc/crossmix.json" << std::endl;
+        theme_path = j.value("theme", "");
+    } catch (const std::exception& e) {
+        std::cerr << "Error reading /mnt/UDISK/system.json: " << e.what() << std::endl;
         exit(1);
+    }
+
+    if (theme_path == "../res/")
+        theme_path = "/mnt/SDCARD/Themes/CrossMix - OS/";
+
+    if (!theme_path.empty()) {
+        const std::string theme_config = (fs::path(theme_path) / "config.json").string();
+        if (fs::exists(theme_config) && !load_theme(theme_config))
+            std::cerr << "Warning: theme configuration could not be loaded; using default colors"
+                      << std::endl;
+    }
+
+    // Keep the built-in colors when a theme omits one of these optional fields.
+    const auto apply_theme_color = [this](const std::string& key, SDL_Color& target) {
+        const auto color = theme.fontColor.find(key);
+        if (color != theme.fontColor.end())
+            target = color->second;
+    };
+    apply_theme_color("content_color4", selected_color);
+    apply_theme_color("content_color1", unselect_color);
+    apply_theme_color("nav_color1", title_color);
+    apply_theme_color("stat_color1", info_color);
+
+    // CrossMix background selection is optional outside a CrossMix installation.
+    // The member default ("Default") preserves the normal handheld behavior.
+    file.close();
+    file.open("/mnt/SDCARD/System/etc/crossmix.json");
+    if (file.is_open()) {
+        try {
+            j.clear();
+            file >> j;
+            backgrounds_theme = j.value("BACKGROUNDS", "Default");
+        } catch (const std::exception& e) {
+            std::cerr << "Warning: could not read CrossMix background setting: " << e.what()
+                      << "; using Default" << std::endl;
+            backgrounds_theme = "Default";
+        }
     }
 }
 
@@ -79,7 +98,7 @@ bool Config::load_theme(const std::string& filePath)
             }
         }
     } catch (const std::exception& e) {
-        std::cerr << "Error parsing JSON file: " << e.what() << std::endl;
+        std::cerr << "Error parsing JSON file " << filePath << ": " << e.what() << std::endl;
         return false;
     }
     return true;
