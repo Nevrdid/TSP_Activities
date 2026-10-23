@@ -6,8 +6,8 @@ This document records observations from the initial source review. It is a map o
 
 - The native x86-64 workflow is `.github/workflows/build-native.yml`; it builds `activities.x86` and `timer.x86` on Ubuntu 24.04.
 - The Makefile now creates each object and binary output directory as part of the relevant rule. A clean checkout should not need CI-specific directory preparation.
-- The handheld ARM64/release workflow is separate. Its Debian Bullseye base is intentional for compatibility with older handheld runtime libraries; do not upgrade it casually.
-- `build/config_native_aarch64.mk` is currently empty. The `native_aarch64` target therefore is not yet a configured, verified build path.
+- The handheld ARM64/release workflow uses a Debian Bullseye ARM64 container. Its base is intentional for compatibility with older handheld runtime libraries; do not upgrade it casually. Since Bullseye security packages have moved to the Debian archive, the workflow now redirects the security repository there while retaining Bullseye.
+- `build/config_native_aarch64.mk` now configures a native ARM64 build in the Bullseye container. The workflow builds `build/bin/activities`, packages the tracked `.assets/` directory, and uploads an ARM64 archive for branch verification. This is not yet proof of runtime compatibility on the physical handheld.
 - A successful compile does not prove that the UI can launch or that device assets/configuration are available.
 
 ## Runtime dependencies found
@@ -50,6 +50,8 @@ The database path is defined as `APP_DIR "data/games.db"` in `includes/DB.hpp`. 
 - ROM sort comparators now compare in the requested direction instead of negating the ascending comparison. Negation incorrectly returns true when values are equal, violating the strict-weak-ordering requirement of `std::sort`. The time sort now compares numeric `totaltime` values instead of formatted display strings.
 - Image loading checks `IMG_Load` and texture creation before accessing surface dimensions. Failed assets are logged and skipped rather than dereferenced.
 - Text rendering now checks font lookup, surface rendering and texture creation before accessing the surface. It no longer closes a cached font when rendering fails.
+- SDL cleanup now tolerates a missing joystick and partially initialized renderer/window/font resources. The Activities startup path stops cleanly if GUI initialization fails.
+- The completed-game icon path now matches the tracked `.assets/green-check.svg` filename.
 
 These changes preserve the existing C++17 baseline and do not introduce newer runtime APIs.
 
