@@ -23,6 +23,21 @@ Implications:
 - The theme's `config.json` is a style schema, not a full app configuration. It does not define ROM roots, database location, or emulator launchers.
 - Missing theme/font/skin files can still leave the UI incomplete. Do not replace these paths until the needed assets and fallback behavior have been verified.
 
+
+### Theme asset inventory
+
+The current code directly references these assets under `<theme_path>/skin/`:
+
+- `bg.png` — default background.
+- `title-bg.png`, `tips-bar-bg.png`, `list-item-1line-sort-bg-f.png`, `list-item-1line-sort-bg-n.png`, `list-item-2line-long-bg-n.png`.
+- `icon-star.png`, `ic-game-580.png`, `bg-menu-09.png`, `bg-menu-05.png`, `ic-keymap-n.png`, `ic-right-arrow-n.png`, `ic-left-arrow-n.png`.
+- `float-win-mask.png`, `background-mask.png`, `pop-bg.png`, `btn-bg-f.png`, and `btn-bg-n.png`.
+- Button-hint icons from `includes/GUI.hpp`: `tips-A.png`, `tips-B.png`, `button-tips-X.png` and the other names in the `buttons_icons` map.
+
+The UI also opens `<theme_path>/<font>` using SDL_ttf. The theme parser reads `fontascii` and `fontsize`, but the current GUI code does not use those values; font opening uses only `theme.font` and a size derived from the UI's own constants. This is a code-level mismatch to address separately from asset bundling.
+
+The CrossMix-OS repository contains a `Themes/CrossMix - OS` theme with a `skin/` directory and `wqy-microhei.ttf`, so it is a useful compatibility reference. It should not be copied wholesale into this app as a shortcut: the theme contains many unrelated files, and font/asset redistribution should be checked at the file/license level. The immediate standalone-work plan is to define an app-owned asset root and a small, explicitly licensed fallback theme, then keep external theme selection as an optional override. Until that exists, a successful build does not mean the package can run without CrossMix theme files.
+
 ### UI, SDL and input
 
 `srcs/activities/GUI.cpp` initializes SDL video and joystick support, opens joystick 0 when available, creates a 320x200 fullscreen window, requests an accelerated vsynced renderer, and initializes SDL_ttf. It also includes Linux framebuffer and memory-mapping headers. Fonts are opened from the configured theme path.
