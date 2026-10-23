@@ -43,7 +43,7 @@ Implications:
 
 The application links SQLite. The release workflow expects packaging inputs including `icon.png`, `launch.sh`, `config.json`, and `data/config.ini`. The current Config implementation reads JSON files at absolute device paths, so `data/config.ini` should not be assumed to satisfy runtime configuration needs without tracing its actual consumers.
 
-The database implementation and its initialization path still need a focused follow-up audit. In particular, establish where the database file is created, whether its parent directory is created, and what happens when the database is absent or unwritable.
+The database path is defined as `APP_DIR "data/games.db"` in `includes/DB.hpp`. `DB.cpp` opens that path and creates the table if needed, but does not create the parent `data/` directory first. If the directory is missing or unwritable, `sqlite3_open` can fail; the constructor logs the error but then proceeds to execute the table-creation query. The constructor should be hardened in a follow-up before changing the path, with explicit handling for a failed connection and clear diagnostics. Verify whether the packaging/runtime always creates `data/` and whether the current device install has existing database data before altering behavior.
 
 ## Follow-up order
 
