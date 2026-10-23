@@ -78,6 +78,11 @@ bool DB::is_refresh_needed()
 
 void DB::save(DB_row entry)
 {
+    if (!db) {
+        std::cerr << "Cannot save ROM details: no SQLite connection." << std::endl;
+        return;
+    }
+
     DB_row      previous_entry = load(entry.file);
     std::string query;
 
