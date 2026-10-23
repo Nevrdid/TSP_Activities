@@ -21,7 +21,7 @@ The constructor now reports malformed system JSON clearly, retains built-in colo
 Implications:
 - The configured theme path remains tied to the handheld filesystem layout unless the later platform/path abstraction changes it.
 - The theme's `config.json` is a style schema, not a full app configuration. It does not define ROM roots, database location, or emulator launchers.
-- Missing theme/font/skin files can still leave the UI incomplete. Do not replace these paths until the needed assets and fallback behavior have been verified.
+- Missing required theme/font/skin files can still leave the UI incomplete; optional decorative images may be absent and should simply not be drawn.
 
 
 ### Theme asset inventory
@@ -34,7 +34,7 @@ The current code directly references these assets under `<theme_path>/skin/`:
 - `float-win-mask.png`, `background-mask.png`, `pop-bg.png`, `btn-bg-f.png`, and `btn-bg-n.png`.
 - Button-hint icons from `includes/GUI.hpp`: `tips-A.png`, `tips-B.png`, `button-tips-X.png` and the other names in the `buttons_icons` map.
 
-Cross-checking these names against all five theme folders in the current CrossMix-OS tree found three exceptions: `background-mask.png`, `title-bg.png`, and `tips-bar-bg.png` are not present in any of those five themes. The current `render_image()` returns without drawing when a path does not exist, so these missing files silently omit those UI elements rather than crashing. Before vendoring assets, either identify the correct equivalent images in the upstream theme source or add intentional app-owned fallbacks; do not copy unrelated OS artwork just to satisfy the filenames.
+Cross-checking these names against the five theme folders in the current CrossMix-OS tree found three filenames that are absent from those folders in that snapshot: `background-mask.png`, `title-bg.png`, and `tips-bar-bg.png`. These are optional decorative assets, not required package files: themes may provide them, leave them empty, or omit them. `render_image()` returns without drawing when the path is empty or does not exist, so an absent file simply means that element is not drawn. Keep this behavior intentional; do not add placeholder files or substitute unrelated artwork just to satisfy these filenames.
 
 The UI also opens `<theme_path>/<font>` using SDL_ttf. The theme parser reads `fontascii` and `fontsize`, but the current GUI code does not use those values; font opening uses only `theme.font` and a size derived from the UI's own constants. This is a code-level mismatch to address separately from asset bundling.
 
