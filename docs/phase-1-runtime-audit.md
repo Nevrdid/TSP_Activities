@@ -41,7 +41,7 @@ Implications:
 
 ### Persistence and packaging
 
-The application links SQLite. The release workflow expects packaging inputs including `icon.png`, `launch.sh`, `config.json`, and `data/config.ini`. The current Config implementation reads JSON files at absolute device paths, so `data/config.ini` should not be assumed to satisfy runtime configuration needs without tracing its actual consumers.
+The application links SQLite. The release workflow packages `icon.png`, `launch.sh`, `config.json`, and the tracked `.assets/` directory. `data/config.ini` is not tracked and its `CONFIG_FILE` macro has no current source-code consumer, so packaging now includes it only if a deployment supplies it. The runtime configuration still comes from the two absolute-path JSON files read by `Config.cpp`.
 
 The database path is defined as `APP_DIR "data/games.db"` in `includes/DB.hpp`. `DB.cpp` opens that path and creates the table if needed, but does not create the parent `data/` directory first. If the directory is missing or unwritable, `sqlite3_open` can fail; the constructor logs the error but then proceeds to execute the table-creation query. The constructor now stops initialization and closes the failed SQLite handle when opening the database fails; `is_refresh_needed()` also checks for a missing connection. This avoids continuing into table creation with an invalid connection, but does not create the parent directory automatically. Verify whether the packaging/runtime always creates `data/` and whether the current device install has existing database data before altering behavior.
 
