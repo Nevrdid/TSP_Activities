@@ -51,7 +51,14 @@ Config::Config()
             "TRIMUI HeyDW White", "TRIMUI Retro"
         };
         if (supported_themes.find(choice) != supported_themes.end()) {
-            theme_path = "/mnt/SDCARD/Themes/" + choice + "/";
+            const std::string candidate = "/mnt/SDCARD/Themes/" + choice + "/";
+            if (fs::is_regular_file((fs::path(candidate) / "config.json"))) {
+                theme_path = candidate;
+            } else {
+                std::cerr << "Warning: selected theme '" << choice
+                          << "' is not installed at " << candidate
+                          << "; retaining TRIMUI YaHei fallback" << std::endl;
+            }
         } else if (!choice.empty()) {
             std::cerr << "Warning: unsupported theme choice '" << choice
                       << "' in " << theme_choice_file << std::endl;
