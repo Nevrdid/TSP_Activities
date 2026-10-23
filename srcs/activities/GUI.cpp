@@ -40,6 +40,7 @@ int GUI::init()
     if (!renderer) {
         std::cerr << "Renderer could not be created! SDL_Error: " << SDL_GetError() << std::endl;
         SDL_DestroyWindow(window);
+        window = nullptr;
         return -1;
     }
     // Wait the window to be resized to fullscreen
@@ -60,7 +61,8 @@ int GUI::init()
 
 GUI::~GUI()
 {
-    SDL_JoystickClose(joystick);
+    if (joystick)
+        SDL_JoystickClose(joystick);
 
     for (auto& texture : image_cache)
         if (texture.second.texture)
@@ -74,12 +76,17 @@ GUI::~GUI()
 
     delete_background_texture();
 
-    SDL_DestroyRenderer(renderer);
-    SDL_DestroyWindow(window);
+    if (renderer)
+        SDL_DestroyRenderer(renderer);
+    if (window)
+        SDL_DestroyWindow(window);
 
     for (auto& font : fonts)
-        TTF_CloseFont(font.second);
+        if (font.second)
+            TTF_CloseFont(font.second);
+    fonts.clear();
 
+    TTF_Quit();
     SDL_Quit();
 }
 
