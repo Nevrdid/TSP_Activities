@@ -133,7 +133,7 @@ class GUI
 
     SDL_Window*   window = nullptr;
     SDL_Renderer* renderer = nullptr;
-    SDL_Joystick* joystick;
+    SDL_Joystick* joystick = nullptr;
 
     std::map<int, TTF_Font*> fonts;
 
