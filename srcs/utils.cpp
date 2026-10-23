@@ -58,8 +58,9 @@ pid_t get_pid_of_process(const std::string& command)
     FILE*       pipe = popen(pid_command.c_str(), "r");
     pid_t       pid = 0;
     if (pipe) {
-        fscanf(pipe, "%d", &pid);
-        fclose(pipe);
+        if (fscanf(pipe, "%d", &pid) != 1)
+            pid = 0;
+        pclose(pipe);
     }
     return pid;
 }
@@ -133,16 +134,29 @@ std::vector<std::string> get_launchers(const std::string& system)
 {
     std::vector<std::string> launchers;
     std::ifstream            sys_cfg2("/mnt/SDCARD/Emus/" + system + "/config.json");
-    if (!sys_cfg2.fail()) {
+    if (!sys_cfg2.is_open())
+        return launchers;
+
+    try {
         nlohmann::json j;
         sys_cfg2 >> j;
-        sys_cfg2.close();
-        if (j.contains("launchlist")) {
-            for (const auto& value : j["launchlist"]) {
-                if (value["launch"].get<std::string>().size() > 1)
-                    launchers.push_back(value["name"].get<std::string>());
+        if (!j.is_object() || !j.contains("launchlist") || !j["launchlist"].is_array())
+            return launchers;
+
+        for (const auto& value : j["launchlist"]) {
+            if (!value.is_object() || !value.contains("launch") || !value["launch"].is_string() ||
+                !value.contains("name") || !value["name"].is_string())
+                continue;
+
+            if (value["launch"].get<std::string>().size() > 1) {
+                const std::string name = value["name"].get<std::string>();
+                if (!name.empty())
+                    launchers.push_back(name);
             }
         }
+    } catch (const std::exception& e) {
+        std::cerr << "ActivitiesApp: Could not read launchers for " << system << ": "
+                  << e.what() << std::endl;
     }
     return launchers;
 }
@@ -168,20 +182,29 @@ std::string get_launcher(const std::string& system, const std::string& romName)
             ret = line;
         } else {
             std::ifstream sys_cfg2("/mnt/SDCARD/Emus/" + system + "/config.json");
-            if (sys_cfg2.is_open() && !sys_cfg2.fail()) {
-                nlohmann::json j;
-                sys_cfg2 >> j;
-                sys_cfg2.close();
+            if (sys_cfg2.is_open()) {
+                try {
+                    nlohmann::json j;
+                    sys_cfg2 >> j;
 
-                if (j.contains("launchlist")) {
-                    for (const auto& value : j["launchlist"]) {
-                        if (value["launch"].get<std::string>().size() > 1) {
-                            ret = value["name"].get<std::string>();
-                            break;
+                    if (j.is_object() && j.contains("launchlist") && j["launchlist"].is_array()) {
+                        for (const auto& value : j["launchlist"]) {
+                            if (!value.is_object() || !value.contains("launch") ||
+                                !value["launch"].is_string() || !value.contains("name") ||
+                                !value["name"].is_string())
+                                continue;
+                            if (value["launch"].get<std::string>().size() > 1) {
+                                ret = value["name"].get<std::string>();
+                                break;
+                            }
                         }
+                    } else if (j.is_object() && j.contains("launch.sh") &&
+                               j["launch.sh"].is_string()) {
+                        ret = j["launch.sh"].get<std::string>();
                     }
-                } else {
-                    ret = j["launch.sh"].get<std::string>();
+                } catch (const std::exception& e) {
+                    std::cerr << "ActivitiesApp: Could not read launcher configuration for "
+                              << system << ": " << e.what() << std::endl;
                 }
             }
         }
@@ -210,15 +233,26 @@ void set_launcher(
 std::vector<std::string> get_directory_content(fs::path location, bool hide_hidden)
 {
     std::vector<std::string> content;
-    if (!fs::exists(location) || !fs::is_directory(location)) {
+    std::error_code ec;
+    if (!fs::exists(location, ec) || ec || !fs::is_directory(location, ec) || ec) {
+        if (ec)
+            std::cerr << "ActivitiesApp: Could not inspect directory " << location << ": "
+                      << ec.message() << std::endl;
         return content;
     }
 
     content.push_back("..");
-    for (const auto& entry : fs::directory_iterator(location)) {
-        if (!hide_hidden || entry.path().filename().string().at(0) != '.')
-            content.push_back(entry.path().filename().string());
+    fs::directory_iterator entry(location, ec);
+    const fs::directory_iterator end;
+    while (!ec && entry != end) {
+        const std::string filename = entry->path().filename().string();
+        if (!hide_hidden || filename.empty() || filename[0] != '.')
+            content.push_back(filename);
+        entry.increment(ec);
     }
+    if (ec)
+        std::cerr << "ActivitiesApp: Could not list directory " << location << ": "
+                  << ec.message() << std::endl;
     return content;
 }
 

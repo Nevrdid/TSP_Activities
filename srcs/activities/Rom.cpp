@@ -1,6 +1,7 @@
 #include "Rom.hpp"
 #include "utils.hpp"
 
+#include <cerrno>
 #include <fstream>
 #include <iostream>
 #include <regex>
@@ -28,14 +29,12 @@ std::vector<Rom>& Rom::get()
 
 Rom* Rom::get(const std::string& rom_file)
 {
-    auto it = list.begin();
-    do {
+    for (auto it = list.begin(); it != list.end(); ++it) {
         if (it->file == rom_file || fs::path(it->file).filename() == fs::path(rom_file)) {
-            std::cout << "ROM " << it->name << "found in database." << std::endl;
-
+            std::cout << "ROM " << it->name << " found in database." << std::endl;
             return &(*it);
         }
-    } while (++it != list.end());
+    }
     return nullptr;
 }
 
@@ -188,17 +187,25 @@ void Rom::start()
         }
 
         pid = fork();
+        if (pid < 0) {
+            std::cerr << "ActivitiesApp: Failed to fork while launching " << name << std::endl;
+            gui.message_popup(3000, {{"Error", 28, cfg.title_color},
+                                        {"Could not start game", 18, cfg.selected_color}});
+            pid = -1;
+            return;
+        }
+
         if (pid == 0) {
             setsid();
             std::string launcher = "/mnt/SDCARD/Emus/" + system + "/default.sh";
 
             execl(launcher.c_str(), launcher.c_str(), file.c_str(), (char*) NULL);
             std::cerr << "Failed to launch " << name << std::endl;
-            exit(1);
-        } else {
-            childs.insert(file);
-            export_childs_list();
+            _exit(127);
         }
+
+        childs.insert(file);
+        export_childs_list();
     }
 }
 
@@ -288,14 +295,23 @@ int Rom::wait()
         // Check if the process has terminated
         pid_t result = waitpid(pid, &status, WNOHANG);
         if (result == pid) {
-            // If the game was stoped by a signal, that mostly because of
-            // cmd_to_launch_killer.sh
-            // so we not remove it from child to keep it in autostarts
+            // If the game was stopped by a signal, that mostly because of
+            // cmd_to_launch_killer.sh, keep it in the child list for autostarts.
             if (WIFSIGNALED(status)) {
+                std::cout << "ActivitiesApp: Game " << file << " terminated by signal "
+                          << WTERMSIG(status) << std::endl;
                 return 3;
-                std::cout << "ActivitiesApp: Game " << file << " exited with status " << status
-                          << std::endl;
             }
+            if (WIFEXITED(status)) {
+                std::cout << "ActivitiesApp: Game " << file << " exited with status "
+                          << WEXITSTATUS(status) << std::endl;
+            }
+            break;
+        }
+        if (result == -1 && errno != EINTR) {
+            // A non-child or already-reaped process cannot be waited on; avoid
+            // spinning forever if another part of the application reaped it.
+            std::cerr << "ActivitiesApp: waitpid failed for " << file << std::endl;
             break;
         }
         // Pause the GUI interface while the game is running

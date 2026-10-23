@@ -61,6 +61,7 @@ class Activities
     DB&     db;
 
     bool   is_running = false;
+    bool   gui_initialized = false;
     bool   in_game_detail = false;
     bool   auto_resume_enabled = true;
     size_t selected_index = 0;
