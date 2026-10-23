@@ -1,5 +1,9 @@
 name: Build, Package Activities App for TrimUI Smart Pro
 
+concurrency:
+  group: arm64-build-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches:
