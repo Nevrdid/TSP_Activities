@@ -157,8 +157,11 @@ DB_row DB::load(const std::string& file)
         ret.completed = sqlite3_column_int(stmt, 6);
         ret.favorite = sqlite3_column_int(stmt, 7);
         std::cout << "Entry loaded." << std::endl;
-    } else {
+    } else if (result == SQLITE_DONE) {
         std::cerr << "No record found for rom: " << file << std::endl;
+    } else {
+        std::cerr << "Error executing SELECT query for rom " << file << ": "
+                  << sqlite3_errmsg(db) << std::endl;
     }
 
     sqlite3_finalize(stmt);
@@ -183,7 +186,8 @@ std::vector<DB_row> DB::load()
         return table;
     }
 
-    while (sqlite3_step(stmt) == SQLITE_ROW) {
+    int result = SQLITE_OK;
+    while ((result = sqlite3_step(stmt)) == SQLITE_ROW) {
         DB_row row;
         row.file = column_text(stmt, 0);
         row.name = column_text(stmt, 1);
@@ -194,6 +198,9 @@ std::vector<DB_row> DB::load()
         row.completed = sqlite3_column_int(stmt, 6);
         row.favorite = sqlite3_column_int(stmt, 7);
         table.push_back(row);
+    }
+    if (result != SQLITE_DONE) {
+        std::cerr << "Error loading database rows: " << sqlite3_errmsg(db) << std::endl;
     }
     sqlite3_finalize(stmt);
     return table;
