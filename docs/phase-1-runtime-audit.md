@@ -53,12 +53,12 @@ Implications:
 
 `srcs/utils.cpp` also contains process helpers and directory listing code. The process lookup now closes its `popen()` stream with `pclose()` (rather than `fclose()`) and treats a failed PID parse as no result. Directory filtering now checks the filename string safely before testing its first character.
 
-`srcs/activities/Rom.cpp` derives image, video and manual paths from ROM paths under `/Roms/<system>/...` or the alternate `/Best/<system>/...` layout. Game launching invokes `/mnt/SDCARD/Emus/<system>/default.sh`. The native build configuration points video/manual actions at desktop commands, while the handheld cross configuration points at handheld scripts.
+`srcs/activities/Rom.cpp` derives image, video and manual paths from ROM paths under `/Roms/<system>/...` or the alternate `/Best/<system>/...` layout. Game launching invokes `/mnt/SDCARD/Emus/<system>/default.sh`. The launch path now reports `fork()` failure without adding a nonexistent process to the running-child list, and a child whose `exec` fails exits with `_exit(127)` rather than running inherited process cleanup handlers. The native build configuration points video/manual actions at desktop commands, while the handheld cross configuration points at handheld scripts.
 
 Implications:
 - Asset discovery and game launching are platform-specific and currently use fixed paths.
 - Keep native and handheld launch behavior separate until there is an explicit platform/path abstraction.
-- Verify child-process creation and launcher failure handling as a dedicated task.
+- Further verify launcher `exec` failures and child reaping on-device; the current launch failure hardening covers `fork()` failure and avoids inherited cleanup handlers after failed `exec`.
 
 ### Persistence and packaging
 
