@@ -967,6 +967,13 @@ void Activities::auto_resume()
         }
     }
 
+    // The autostart file may contain no usable ROMs (for example, if all
+    // listed files were removed). Avoid end() - 1 and back() on an empty list.
+    if (ordered_roms.empty()) {
+        std::cout << "ActivitiesApp: No valid games to auto-resume." << std::endl;
+        return;
+    }
+
     // sort games by last session date and stay on most recent one.
     std::sort(
         ordered_roms.begin(), ordered_roms.end(), [](Rom* a, Rom* b) { return a->last < b->last; });
