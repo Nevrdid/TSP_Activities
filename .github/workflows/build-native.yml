@@ -1,0 +1,58 @@
+name: Native x86-64 build
+
+on:
+  push:
+    branches:
+      - phase-1-build
+  pull_request:
+    branches:
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-x86-64:
+    name: Build Linux x86-64 binaries
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes \
+            build-essential \
+            pkg-config \
+            libsdl2-dev \
+            libsdl2-ttf-dev \
+            libsdl2-image-dev \
+            libsqlite3-dev
+
+      - name: Report toolchain
+        run: |
+          g++ --version
+          pkg-config --modversion sdl2 SDL2_ttf SDL2_image sqlite3
+
+      - name: Build applications
+        run: |
+          make -C build clean
+          make -C build --jobs="$(nproc)" all
+
+      - name: Check build outputs
+        run: |
+          test -x build/bin/activities.x86
+          test -x build/bin/timer.x86
+          file build/bin/activities.x86 build/bin/timer.x86
+
+      - name: Upload x86-64 binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: tsp-activities-linux-x86_64
+          path: |
+            build/bin/activities.x86
+            build/bin/timer.x86
+          if-no-files-found: error
+          retention-days: 14
