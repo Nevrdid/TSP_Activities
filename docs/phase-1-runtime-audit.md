@@ -76,6 +76,7 @@ The database path is defined as `APP_DIR "data/games.db"` in `includes/DB.hpp`. 
 - `Rom::get()` now handles an empty ROM list safely; the old `do/while` dereferenced `end()` before checking whether the list was empty.
 - `Activities::auto_resume()` now returns cleanly when the autostart file contains no existing ROMs. Previously it used `end() - 1` and `back()` on an empty vector, which could cause undefined behavior or a crash when every listed ROM had been removed.
 - Launcher discovery now validates the shape and types of `launchlist`, `launch`, `name`, and legacy `launch.sh` values in emulator `config.json` files. Malformed or unexpected launcher JSON is logged and ignored rather than throwing out of the menu path.
+- Game-list navigation now avoids unsigned underflow when there are zero ROMs, resets the selection to zero for an empty list, and checks for an empty system list before cycling systems.
 
 Configuration hardening now also catches malformed system/theme/CrossMix JSON and preserves built-in colors when optional theme colors are absent. CrossMix background settings are optional, defaulting to `Default`; the required handheld `system.json` behavior remains unchanged. The ARM64 config's `APP_DIR` macro quoting was corrected after the first Bullseye build exposed compiler errors; rerun the ARM64 workflow before treating the fix as verified.
 
