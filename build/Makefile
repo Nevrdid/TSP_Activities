@@ -24,12 +24,15 @@ endif
 
 # Build rules
 objs/%.o: ../srcs/%.cpp
+	@mkdir -p $(@D)
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -c $< -o $@
 
 bin/activities$(EXT): $(OBJS) $(ACT_OBJS)
+	@mkdir -p $(@D)
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDLIBS)
 
 bin/timer$(EXT): $(OBJS) $(TIM_OBJS)
+	@mkdir -p $(@D)
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDLIBS)
 
 # Top-level targets
