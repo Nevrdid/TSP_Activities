@@ -233,16 +233,26 @@ void set_launcher(
 std::vector<std::string> get_directory_content(fs::path location, bool hide_hidden)
 {
     std::vector<std::string> content;
-    if (!fs::exists(location) || !fs::is_directory(location)) {
+    std::error_code ec;
+    if (!fs::exists(location, ec) || ec || !fs::is_directory(location, ec) || ec) {
+        if (ec)
+            std::cerr << "ActivitiesApp: Could not inspect directory " << location << ": "
+                      << ec.message() << std::endl;
         return content;
     }
 
     content.push_back("..");
-    for (const auto& entry : fs::directory_iterator(location)) {
-        const std::string filename = entry.path().filename().string();
+    fs::directory_iterator entry(location, ec);
+    const fs::directory_iterator end;
+    while (!ec && entry != end) {
+        const std::string filename = entry->path().filename().string();
         if (!hide_hidden || filename.empty() || filename[0] != '.')
             content.push_back(filename);
+        entry.increment(ec);
     }
+    if (ec)
+        std::cerr << "ActivitiesApp: Could not list directory " << location << ": "
+                  << ec.message() << std::endl;
     return content;
 }
 
