@@ -52,7 +52,14 @@ Config::Config()
         };
         if (supported_themes.find(choice) != supported_themes.end()) {
             const std::string candidate = "/mnt/SDCARD/Themes/" + choice + "/";
-            if (fs::is_regular_file((fs::path(candidate) / "config.json"))) {
+            std::error_code fs_error;
+            const fs::path candidate_config = fs::path(candidate) / "config.json";
+            const bool candidate_is_installed = fs::is_regular_file(candidate_config, fs_error);
+            if (fs_error) {
+                std::cerr << "Warning: could not inspect selected theme '" << choice
+                          << "': " << fs_error.message()
+                          << "; retaining TRIMUI YaHei fallback" << std::endl;
+            } else if (candidate_is_installed) {
                 theme_path = candidate;
             } else {
                 std::cerr << "Warning: selected theme '" << choice
@@ -72,9 +79,15 @@ Config::Config()
 
     if (!theme_path.empty()) {
         const std::string theme_config = (fs::path(theme_path) / "config.json").string();
-        if (fs::exists(theme_config) && !load_theme(theme_config))
+        std::error_code fs_error;
+        const bool theme_config_exists = fs::exists(theme_config, fs_error);
+        if (fs_error) {
+            std::cerr << "Warning: could not inspect theme configuration " << theme_config
+                      << ": " << fs_error.message() << std::endl;
+        } else if (theme_config_exists && !load_theme(theme_config)) {
             std::cerr << "Warning: theme configuration could not be loaded; using default colors"
                       << std::endl;
+        }
     }
 
     // Keep the built-in colors when a theme omits one of these optional fields.
