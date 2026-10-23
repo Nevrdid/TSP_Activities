@@ -57,29 +57,25 @@ void Activities::sort_roms()
     case Sort::Name:
         std::sort(filtered_roms_list.begin(), filtered_roms_list.end(),
             [rev](std::vector<Rom>::iterator a, std::vector<Rom>::iterator b) {
-                bool ret = a->name < b->name;
-                return rev ? !ret : ret;
+                return rev ? a->name > b->name : a->name < b->name;
             });
         break;
     case Sort::Time:
         std::sort(filtered_roms_list.begin(), filtered_roms_list.end(),
             [rev](std::vector<Rom>::iterator a, std::vector<Rom>::iterator b) {
-                bool ret = a->total_time_str > b->total_time_str;
-                return rev ? !ret : ret;
+                return rev ? a->totaltime < b->totaltime : a->totaltime > b->totaltime;
             });
         break;
     case Sort::Count:
         std::sort(filtered_roms_list.begin(), filtered_roms_list.end(),
             [rev](std::vector<Rom>::iterator a, std::vector<Rom>::iterator b) {
-                bool ret = a->count > b->count;
-                return rev ? !ret : ret;
+                return rev ? a->count < b->count : a->count > b->count;
             });
         break;
     case Sort::Last:
         std::sort(filtered_roms_list.begin(), filtered_roms_list.end(),
             [rev](std::vector<Rom>::iterator a, std::vector<Rom>::iterator b) {
-                bool ret = a->last > b->last;
-                return rev ? !ret : ret;
+                return rev ? a->last < b->last : a->last > b->last;
             });
         break;
     }
