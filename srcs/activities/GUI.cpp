@@ -321,7 +321,17 @@ void GUI::render()
  */
 Vec2 GUI::render_image(const std::string& image_path, int x, int y, int w, int h, int flags)
 {
-    if (image_path.empty() || !fs::exists(image_path))
+    if (image_path.empty())
+        return {0, 0};
+
+    std::error_code fs_error;
+    const bool image_exists = fs::exists(image_path, fs_error);
+    if (fs_error) {
+        std::cerr << "Could not inspect image " << image_path << ": "
+                  << fs_error.message() << std::endl;
+        return {0, 0};
+    }
+    if (!image_exists)
         return {0, 0};
     if (image_cache.find(image_path) == image_cache.end()) {
         SDL_Surface* surface = IMG_Load(image_path.c_str());
