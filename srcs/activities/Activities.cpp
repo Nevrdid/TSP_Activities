@@ -354,7 +354,7 @@ void Activities::game_list()
         int offset = 5;
 
         if (rom->completed)
-            offset += gui.render_image(std::string(APP_DIR) + "/.assets/green_check.svg",
+            offset += gui.render_image(std::string(APP_DIR) + "/.assets/green-check.svg",
                              x + offset, y + FONT_MIDDLE_SIZE / 2, 16, 16, IMG_NONE)
                           .x;
         if (rom->favorite)
