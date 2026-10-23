@@ -58,8 +58,9 @@ pid_t get_pid_of_process(const std::string& command)
     FILE*       pipe = popen(pid_command.c_str(), "r");
     pid_t       pid = 0;
     if (pipe) {
-        fscanf(pipe, "%d", &pid);
-        fclose(pipe);
+        if (fscanf(pipe, "%d", &pid) != 1)
+            pid = 0;
+        pclose(pipe);
     }
     return pid;
 }
@@ -216,8 +217,9 @@ std::vector<std::string> get_directory_content(fs::path location, bool hide_hidd
 
     content.push_back("..");
     for (const auto& entry : fs::directory_iterator(location)) {
-        if (!hide_hidden || entry.path().filename().string().at(0) != '.')
-            content.push_back(entry.path().filename().string());
+        const std::string filename = entry.path().filename().string();
+        if (!hide_hidden || filename.empty() || filename[0] != '.')
+            content.push_back(filename);
     }
     return content;
 }
