@@ -10,9 +10,10 @@ Activities::Activities()
     , gui(GUI::getInstance())
     , db(DB::getInstance())
 {
-    gui.init();
-    is_running = true;
-    refresh_db();
+    gui_initialized = (gui.init() == 0);
+    is_running = gui_initialized;
+    if (gui_initialized)
+        refresh_db();
 }
 
 Activities::~Activities()
@@ -985,6 +986,11 @@ void Activities::run(int argc, char** argv)
     if (parseArgs(argc, argv)) {
         puts(help);
         exit(1);
+    }
+
+    if (!gui_initialized) {
+        std::cerr << "ActivitiesApp: GUI initialization failed; exiting." << std::endl;
+        return;
     }
 
     std::cout << "ActivitiesApp: Starting GUI" << std::endl;
