@@ -10,7 +10,10 @@ Activities::Activities()
     , gui(GUI::getInstance())
     , db(DB::getInstance())
 {
-    gui.init();
+    if (gui.init() != 0) {
+        std::cerr << "GUI initialization failed; cannot start the application." << std::endl;
+        return;
+    }
     is_running = true;
     refresh_db();
 }
@@ -1003,10 +1006,8 @@ void Activities::run(int argc, char** argv)
     }
 
     std::cout << "ActivitiesApp: Starting GUI" << std::endl;
-    if (!is_running) {
-        empty_db();
-        sleep(5);
-    }
+    if (!is_running)
+        return;
     if (auto_resume_enabled)
         auto_resume();
 
