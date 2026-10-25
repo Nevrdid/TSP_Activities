@@ -1,27 +1,47 @@
 #include "DB.hpp"
 
+#include <filesystem>
 #include <iostream>
 
 DB::DB()
     : db(nullptr)
 {
+    // The packaged app may be launched on a clean install where data/ does not exist.
+    // Create the parent directory before SQLite attempts to create the database file.
+    try {
+        const std::filesystem::path db_path(DB_FILE);
+        if (!db_path.parent_path().empty())
+            std::filesystem::create_directories(db_path.parent_path());
+    } catch (const std::filesystem::filesystem_error& e) {
+        std::cerr << "Error creating database directory: " << e.what() << std::endl;
+        return;
+    }
 
     if (sqlite3_open(DB_FILE, &db) != SQLITE_OK) {
-        std::cerr << "Error opening SQLite database: " << sqlite3_errmsg(db) << std::endl;
+        std::cerr << "Error opening SQLite database: "
+                  << (db ? sqlite3_errmsg(db) : "unknown SQLite error") << std::endl;
+        if (db) {
+            sqlite3_close(db);
+            db = nullptr;
+        }
+        return;
     }
-    std::string query = "CREATE TABLE IF NOT EXISTS games_datas ("
-                        "file TEXT PRIMARY KEY NOT NULL,"
-                        "name TEXT NOT NULL,"
-                        "count INTEGER NOT NULL,"
-                        "totaltime INTEGER NOT NULL,"
-                        "lastsessiontime INTEGER NOT NULL,"
-                        "last TEXT NOT NULL,"
-                        "completed INTEGER NOT NULL,"
-                        "favorite INTEGER NOT NULL"
-                        ")";
-    char*       err_msg = nullptr;
+
+    const std::string query =
+        "CREATE TABLE IF NOT EXISTS games_datas ("
+        "file TEXT PRIMARY KEY NOT NULL,"
+        "name TEXT NOT NULL,"
+        "count INTEGER NOT NULL,"
+        "totaltime INTEGER NOT NULL,"
+        "lastsessiontime INTEGER NOT NULL,"
+        "last TEXT NOT NULL,"
+        "completed INTEGER NOT NULL,"
+        "favorite INTEGER NOT NULL"
+        ")";
+    char* err_msg = nullptr;
     if (sqlite3_exec(db, query.c_str(), nullptr, nullptr, &err_msg) != SQLITE_OK) {
-        std::cerr << "Error creating table: " << err_msg << std::endl;
+        std::cerr << "Error creating table: " << (err_msg ? err_msg : sqlite3_errmsg(db))
+                  << std::endl;
         sqlite3_free(err_msg);
     }
 }
@@ -39,8 +59,11 @@ bool DB::is_refresh_needed()
 
     bool is_needed = false;
 
+    if (!db)
+        return false;
+
     std::string   query = "PRAGMA data_version";
-    sqlite3_stmt* stmt;
+    sqlite3_stmt* stmt = nullptr;
 
     if (sqlite3_prepare_v2(db, query.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
         std::cerr << "Error preparing PRAGMA query: " << sqlite3_errmsg(db) << std::endl;
@@ -55,41 +78,44 @@ bool DB::is_refresh_needed()
             is_needed = true;
         }
     } else {
-        std::cerr << "Error executing PRAGMA query" << sqlite3_errmsg(db) << std::endl;
+        std::cerr << "Error executing PRAGMA query: " << sqlite3_errmsg(db) << std::endl;
     }
 
     sqlite3_finalize(stmt);
-
     return is_needed;
 }
 
 void DB::save(DB_row entry)
 {
+    if (!db) {
+        std::cerr << "Cannot save game: no SQLite connection." << std::endl;
+        return;
+    }
+
     DB_row      previous_entry = load(entry.file);
     std::string query;
 
     if (!previous_entry.file.empty()) {
-
         query = "UPDATE games_datas SET name = ?, count = ?, totaltime = ?, "
                 " lastsessiontime = ?, last = ?, completed = ?, favorite = ? WHERE file = ?";
     } else {
         query = "INSERT INTO games_datas (name, count, totaltime, "
                 "lastsessiontime, last, completed, favorite, file) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
     }
-    sqlite3_stmt* stmt;
+    sqlite3_stmt* stmt = nullptr;
     if (sqlite3_prepare_v2(db, query.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
         std::cerr << "Error preparing UPDATE query: " << sqlite3_errmsg(db) << std::endl;
         return;
     }
 
-    sqlite3_bind_text(stmt, 1, entry.name.c_str(), -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 1, entry.name.c_str(), -1, SQLITE_TRANSIENT);
     sqlite3_bind_int(stmt, 2, entry.count);
     sqlite3_bind_int(stmt, 3, entry.totaltime);
     sqlite3_bind_int(stmt, 4, entry.lastsessiontime);
-    sqlite3_bind_text(stmt, 5, entry.last.c_str(), -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 5, entry.last.c_str(), -1, SQLITE_TRANSIENT);
     sqlite3_bind_int(stmt, 6, entry.completed);
     sqlite3_bind_int(stmt, 7, entry.favorite);
-    sqlite3_bind_text(stmt, 8, entry.file.c_str(), -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 8, entry.file.c_str(), -1, SQLITE_TRANSIENT);
 
     if (sqlite3_step(stmt) != SQLITE_DONE)
         std::cerr << "Error updating record: " << sqlite3_errmsg(db) << std::endl;
@@ -101,7 +127,7 @@ void DB::save(DB_row entry)
 
 DB_row DB::load(const std::string& file)
 {
-    DB_row ret;
+    DB_row ret{};
     std::cout << "DB: Loading " << file << " details." << std::endl;
 
     if (!db) {
@@ -110,23 +136,22 @@ DB_row DB::load(const std::string& file)
     }
 
     std::string   query = "SELECT * FROM games_datas WHERE file = ?";
-    sqlite3_stmt* stmt;
+    sqlite3_stmt* stmt = nullptr;
     if (sqlite3_prepare_v2(db, query.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
         std::cerr << "Error preparing SELECT query: " << sqlite3_errmsg(db) << std::endl;
         return ret;
     }
 
-    sqlite3_bind_text(stmt, 1, file.c_str(), -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 1, file.c_str(), -1, SQLITE_TRANSIENT);
 
     int result = sqlite3_step(stmt);
     if (result == SQLITE_ROW) {
-        std::cout << "Entry exist in database." << std::endl;
-        ret.file = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0)));
-        ret.name = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1)));
+        ret.file = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
+        ret.name = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
         ret.count = sqlite3_column_int(stmt, 2);
         ret.totaltime = sqlite3_column_int(stmt, 3);
         ret.lastsessiontime = sqlite3_column_int(stmt, 4);
-        ret.last = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 5)));
+        ret.last = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 5));
         ret.completed = sqlite3_column_int(stmt, 6);
         ret.favorite = sqlite3_column_int(stmt, 7);
         std::cout << "Entry loaded." << std::endl;
@@ -150,20 +175,20 @@ std::vector<DB_row> DB::load()
     }
 
     std::string   query = "SELECT * FROM games_datas ORDER BY last DESC";
-    sqlite3_stmt* stmt;
+    sqlite3_stmt* stmt = nullptr;
     if (sqlite3_prepare_v2(db, query.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
         std::cerr << "Error preparing SELECT query: " << sqlite3_errmsg(db) << std::endl;
         return table;
     }
 
     while (sqlite3_step(stmt) == SQLITE_ROW) {
-        DB_row row;
-        row.file = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0)));
-        row.name = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1)));
+        DB_row row{};
+        row.file = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
+        row.name = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
         row.count = sqlite3_column_int(stmt, 2);
         row.totaltime = sqlite3_column_int(stmt, 3);
         row.lastsessiontime = sqlite3_column_int(stmt, 4);
-        row.last = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 5)));
+        row.last = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 5));
         row.completed = sqlite3_column_int(stmt, 6);
         row.favorite = sqlite3_column_int(stmt, 7);
         table.push_back(row);
@@ -180,13 +205,13 @@ void DB::remove(const std::string& file)
     }
 
     std::string   query = "DELETE FROM games_datas WHERE file = ?";
-    sqlite3_stmt* stmt;
+    sqlite3_stmt* stmt = nullptr;
     if (sqlite3_prepare_v2(db, query.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
         std::cerr << "Error preparing DELETE query: " << sqlite3_errmsg(db) << std::endl;
         return;
     }
 
-    sqlite3_bind_text(stmt, 1, file.c_str(), -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 1, file.c_str(), -1, SQLITE_TRANSIENT);
 
     if (sqlite3_step(stmt) != SQLITE_DONE)
         std::cerr << "Error deleting record: " << sqlite3_errmsg(db) << std::endl;
