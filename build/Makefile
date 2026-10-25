@@ -24,6 +24,7 @@ endif
 
 # Build rules
 objs/%.o: ../srcs/%.cpp
+	@mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -c $< -o $@
 
 bin/activities$(EXT): $(OBJS) $(ACT_OBJS)
