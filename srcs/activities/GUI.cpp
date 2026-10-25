@@ -37,9 +37,13 @@ int GUI::init()
     }
 
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+    // Some desktop environments and virtual displays do not provide an accelerated renderer.
+    if (!renderer)
+        renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE);
     if (!renderer) {
         std::cerr << "Renderer could not be created! SDL_Error: " << SDL_GetError() << std::endl;
         SDL_DestroyWindow(window);
+        window = nullptr;
         return -1;
     }
     // Wait the window to be resized to fullscreen
@@ -197,7 +201,10 @@ void GUI::draw_checkmark(int x, int y, int size, SDL_Color color)
 TTF_Font* GUI::get_font(int size)
 {
     if (fonts.find(size) == fonts.end()) {
-        fonts[size] = TTF_OpenFont((cfg.theme_path + cfg.theme.font).c_str(), size * 4 / 3);
+        std::string font_path = cfg.theme.font;
+        if (!font_path.empty() && font_path.front() != '/')
+            font_path = cfg.theme_path + font_path;
+        fonts[size] = TTF_OpenFont(font_path.c_str(), size * 4 / 3);
         if (!fonts[size]) {
             std::cerr << "Failed to load font: " << TTF_GetError() << std::endl;
             return nullptr;
