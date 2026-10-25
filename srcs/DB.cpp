@@ -1,7 +1,16 @@
 #include "DB.hpp"
 
-#include <filesystem>
 #include <iostream>
+
+#if __has_include(<filesystem>)
+#    include <filesystem>
+namespace dbfs = std::filesystem;
+#elif __has_include(<experimental/filesystem>)
+#    include <experimental/filesystem>
+namespace dbfs = std::experimental::filesystem;
+#else
+#    error "No filesystem support"
+#endif
 
 DB::DB()
     : db(nullptr)
@@ -9,10 +18,10 @@ DB::DB()
     // The packaged app may be launched on a clean install where data/ does not exist.
     // Create the parent directory before SQLite attempts to create the database file.
     try {
-        const std::filesystem::path db_path(DB_FILE);
+        const dbfs::path db_path(DB_FILE);
         if (!db_path.parent_path().empty())
-            std::filesystem::create_directories(db_path.parent_path());
-    } catch (const std::filesystem::filesystem_error& e) {
+            dbfs::create_directories(db_path.parent_path());
+    } catch (const dbfs::filesystem_error& e) {
         std::cerr << "Error creating database directory: " << e.what() << std::endl;
         return;
     }
