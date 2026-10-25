@@ -64,7 +64,8 @@ int GUI::init()
 
 GUI::~GUI()
 {
-    SDL_JoystickClose(joystick);
+    if (joystick)
+        SDL_JoystickClose(joystick);
 
     for (auto& texture : image_cache)
         if (texture.second.texture)
