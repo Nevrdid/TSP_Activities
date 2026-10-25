@@ -237,7 +237,12 @@ void Activities::global_menu()
         {"Sort", [this]() -> MenuResult { return sort_menu(); }},
         {"Add Game",
             [this]() -> MenuResult {
-                std::string str = gui.file_selector(fs::path("/mnt/SDCARD/Roms"), true);
+                fs::path rom_root("/mnt/SDCARD/Roms");
+                // On desktop/native builds the TrimUI ROM directory does not exist.
+                // Start browsing from the current directory so a first game can be added.
+                if (!fs::exists(rom_root) || !fs::is_directory(rom_root))
+                    rom_root = fs::current_path();
+                std::string str = gui.file_selector(rom_root, true);
                 if (str.empty())
                     return MenuResult::Continue;
                 refresh_db(str); // refresh_db will save the rom as it will not find it in db
@@ -327,6 +332,12 @@ void Activities::game_list()
         gui.render_text(index_text, gui.Width - text_width - 10,
             gui.Height - FONT_MINI_SIZE * 2.5 - 50, FONT_TINY_SIZE, cfg.unselect_color);
     }
+    if (list_size == 0) {
+        gui.render_text("No games yet. Open Menu and choose Add Game.",
+            gui.Width / 2, gui.Height / 2, FONT_MIDDLE_SIZE, cfg.info_color,
+            gui.Width - 40, true);
+    }
+
     // Centered title
     std::string current_system_name = "";
     if (!systems.empty() && system_index < systems.size()) {
