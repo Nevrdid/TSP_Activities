@@ -21,6 +21,7 @@ namespace fs = std::experimental::filesystem;
 
 namespace utils
 {
+std::string app_dir(); // Absolute directory containing the running executable, with trailing slash
 std::string getCurrentDateTime();
 std::string sec2hhmmss(int total_seconds);
 std::string stringifyTime(int total_seconds);

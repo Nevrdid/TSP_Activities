@@ -6,8 +6,6 @@
 #include <string>
 #include <unordered_map>
 
-#define CONFIG_FILE APP_DIR "data/config.ini"
-
 using json = nlohmann::json;
 
 static const std::unordered_map<std::string, SDL_Color> colors = {

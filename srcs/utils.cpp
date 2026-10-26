@@ -6,6 +6,18 @@
 
 namespace utils
 {
+std::string app_dir()
+{
+    static const std::string directory = []() {
+        std::error_code ec;
+        fs::path executable = fs::read_symlink("/proc/self/exe", ec);
+        if (!ec && !executable.empty())
+            return executable.parent_path().lexically_normal().string() + "/";
+        return fs::current_path(ec).lexically_normal().string() + "/";
+    }();
+    return directory;
+}
+
 std::string getCurrentDateTime()
 {
     std::time_t now = std::time(nullptr);
@@ -58,8 +70,9 @@ pid_t get_pid_of_process(const std::string& command)
     FILE*       pipe = popen(pid_command.c_str(), "r");
     pid_t       pid = 0;
     if (pipe) {
-        fscanf(pipe, "%d", &pid);
-        fclose(pipe);
+        if (fscanf(pipe, "%d", &pid) != 1)
+            pid = 0;
+        pclose(pipe);
     }
     return pid;
 }
@@ -132,25 +145,46 @@ std::string shorten_file_path(fs::path filepath, std::string unknown_part)
 std::vector<std::string> get_launchers(const std::string& system)
 {
     std::vector<std::string> launchers;
-    std::ifstream            sys_cfg2("/mnt/SDCARD/Emus/" + system + "/config.json");
-    if (!sys_cfg2.fail()) {
+    const fs::path bundled_config = fs::path(app_dir()) / "Emus" / system / "config.json";
+    const fs::path handheld_config = fs::path("/mnt/SDCARD/Emus") / system / "config.json";
+    std::ifstream sys_cfg2(fs::is_regular_file(bundled_config) ? bundled_config.string()
+                                                               : handheld_config.string());
+    if (!sys_cfg2.is_open())
+        return launchers;
+
+    try {
         nlohmann::json j;
         sys_cfg2 >> j;
-        sys_cfg2.close();
-        if (j.contains("launchlist")) {
-            for (const auto& value : j["launchlist"]) {
-                if (value["launch"].get<std::string>().size() > 1)
-                    launchers.push_back(value["name"].get<std::string>());
+        if (!j.is_object() || !j.contains("launchlist") || !j["launchlist"].is_array())
+            return launchers;
+
+        for (const auto& value : j["launchlist"]) {
+            if (!value.is_object() || !value.contains("launch") || !value["launch"].is_string() ||
+                !value.contains("name") || !value["name"].is_string())
+                continue;
+
+            if (value["launch"].get<std::string>().size() > 1) {
+                const std::string name = value["name"].get<std::string>();
+                if (!name.empty())
+                    launchers.push_back(name);
             }
         }
+    } catch (const std::exception& e) {
+        std::cerr << "ActivitiesApp: Could not read launchers for " << system << ": "
+                  << e.what() << std::endl;
     }
     return launchers;
 }
 
 std::string get_launcher(const std::string& system, const std::string& romName)
 {
-    std::string   ret;
-    std::ifstream game_cfg("/mnt/SDCARD/Roms/" + system + "/.games_config/" + romName + ".cfg");
+    std::string ret;
+    const fs::path bundled_game_cfg =
+        fs::path(app_dir()) / "Roms" / system / ".games_config" / (romName + ".cfg");
+    const fs::path handheld_game_cfg =
+        fs::path("/mnt/SDCARD/Roms") / system / ".games_config" / (romName + ".cfg");
+    std::ifstream game_cfg(fs::is_regular_file(bundled_game_cfg) ? bundled_game_cfg.string()
+                                                                 : handheld_game_cfg.string());
     if (game_cfg.is_open() && !game_cfg.fail()) {
         std::string line;
         std::getline(game_cfg, line, '=');
@@ -159,7 +193,10 @@ std::string get_launcher(const std::string& system, const std::string& romName)
         ret = line;
     } else {
 
-        std::ifstream sys_cfg("/mnt/SDCARD/Emus/" + system + "/launchers.cfg");
+        const fs::path bundled_launchers = fs::path(app_dir()) / "Emus" / system / "launchers.cfg";
+        const fs::path handheld_launchers = fs::path("/mnt/SDCARD/Emus") / system / "launchers.cfg";
+        std::ifstream sys_cfg(fs::is_regular_file(bundled_launchers) ? bundled_launchers.string()
+                                                                    : handheld_launchers.string());
         if (sys_cfg.is_open() && !sys_cfg.fail()) {
             std::string line;
             std::getline(sys_cfg, line, '=');
@@ -167,21 +204,33 @@ std::string get_launcher(const std::string& system, const std::string& romName)
             sys_cfg.close();
             ret = line;
         } else {
-            std::ifstream sys_cfg2("/mnt/SDCARD/Emus/" + system + "/config.json");
-            if (sys_cfg2.is_open() && !sys_cfg2.fail()) {
-                nlohmann::json j;
-                sys_cfg2 >> j;
-                sys_cfg2.close();
+            const fs::path bundled_config = fs::path(app_dir()) / "Emus" / system / "config.json";
+            const fs::path handheld_config = fs::path("/mnt/SDCARD/Emus") / system / "config.json";
+            std::ifstream sys_cfg2(fs::is_regular_file(bundled_config) ? bundled_config.string()
+                                                                       : handheld_config.string());
+            if (sys_cfg2.is_open()) {
+                try {
+                    nlohmann::json j;
+                    sys_cfg2 >> j;
 
-                if (j.contains("launchlist")) {
-                    for (const auto& value : j["launchlist"]) {
-                        if (value["launch"].get<std::string>().size() > 1) {
-                            ret = value["name"].get<std::string>();
-                            break;
+                    if (j.is_object() && j.contains("launchlist") && j["launchlist"].is_array()) {
+                        for (const auto& value : j["launchlist"]) {
+                            if (!value.is_object() || !value.contains("launch") ||
+                                !value["launch"].is_string() || !value.contains("name") ||
+                                !value["name"].is_string())
+                                continue;
+                            if (value["launch"].get<std::string>().size() > 1) {
+                                ret = value["name"].get<std::string>();
+                                break;
+                            }
                         }
+                    } else if (j.is_object() && j.contains("launch.sh") &&
+                               j["launch.sh"].is_string()) {
+                        ret = j["launch.sh"].get<std::string>();
                     }
-                } else {
-                    ret = j["launch.sh"].get<std::string>();
+                } catch (const std::exception& e) {
+                    std::cerr << "ActivitiesApp: Could not read launcher configuration for "
+                              << system << ": " << e.what() << std::endl;
                 }
             }
         }
@@ -196,10 +245,21 @@ std::string get_launcher(const std::string& system, const std::string& romName)
 void set_launcher(
     const std::string& system, const std::string& romName, const std::string& launcher)
 {
-    std::string cfg_folder("/mnt/SDCARD/Roms/" + system + "/.games_config");
-    if (!fs::exists(cfg_folder))
-        fs::create_directory(cfg_folder);
-    std::ofstream game_cfg(cfg_folder + "/" + romName + ".cfg");
+    const fs::path bundled_rom_system = fs::path(app_dir()) / "Roms" / system;
+    const fs::path handheld_rom_system = fs::path("/mnt/SDCARD/Roms") / system;
+    fs::path cfg_folder = fs::is_directory(handheld_rom_system) &&
+            !fs::is_directory(bundled_rom_system)
+        ? handheld_rom_system / ".games_config"
+        : bundled_rom_system / ".games_config";
+    std::error_code ec;
+    if (!fs::exists(cfg_folder, ec))
+        fs::create_directories(cfg_folder, ec);
+    if (ec) {
+        std::cerr << "ActivitiesApp: Could not create launcher config directory: "
+                  << ec.message() << std::endl;
+        return;
+    }
+    std::ofstream game_cfg((cfg_folder / (romName + ".cfg")).string());
     if (!game_cfg.fail()) {
         game_cfg << "launcher=" << launcher << std::endl;
         game_cfg.close();
@@ -210,15 +270,26 @@ void set_launcher(
 std::vector<std::string> get_directory_content(fs::path location, bool hide_hidden)
 {
     std::vector<std::string> content;
-    if (!fs::exists(location) || !fs::is_directory(location)) {
+    std::error_code ec;
+    if (!fs::exists(location, ec) || ec || !fs::is_directory(location, ec) || ec) {
+        if (ec)
+            std::cerr << "ActivitiesApp: Could not inspect directory " << location << ": "
+                      << ec.message() << std::endl;
         return content;
     }
 
     content.push_back("..");
-    for (const auto& entry : fs::directory_iterator(location)) {
-        if (!hide_hidden || entry.path().filename().string().at(0) != '.')
-            content.push_back(entry.path().filename().string());
+    fs::directory_iterator entry(location, ec);
+    const fs::directory_iterator end;
+    while (!ec && entry != end) {
+        const std::string filename = entry->path().filename().string();
+        if (!hide_hidden || filename.empty() || filename[0] != '.')
+            content.push_back(filename);
+        entry.increment(ec);
     }
+    if (ec)
+        std::cerr << "ActivitiesApp: Could not list directory " << location << ": "
+                  << ec.message() << std::endl;
     return content;
 }
 

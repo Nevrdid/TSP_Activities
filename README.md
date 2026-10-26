@@ -20,8 +20,7 @@ _____
 
 ## Theming
 
-The app will automaticly use the theme assets used by crossmix looking at system config files.
-
+On handhelds, the app follows the system theme configuration. The desktop bundle includes minimal TRIMUI Blue and TRIMUI Retro theme assets used by this app.
 
 ## Keybinds
 
@@ -49,7 +48,6 @@ The app will automaticly use the theme assets used by crossmix looking at system
 - Select: Set game as completed
 - Menu: Remove the game from the database.
 
-
 ## Licenses
 
 ### MIT License for `nlohmann/json`
@@ -72,3 +70,14 @@ THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR I
 
 # Improvements possibilities:
     - Stay on same game if possible when filtering
+
+## Native Linux x86-64 build
+
+The GitHub Actions workflow **Native x86-64 build** publishes two artifacts:
+
+- `tsp-activities-linux-x86_64`: the standalone GUI and timer binaries.
+- `tsp-activities-linux-x86_64-portable`: a portable tarball with the binaries, app assets, minimal theme configuration/font/UI assets, and ready-to-populate `Roms/`, `Imgs/`, and `Emus/` directories.
+
+Extract the portable archive and run `./activities.x86` directly. The binary resolves assets, themes, emulator configuration, and the database relative to its own location, so it does not depend on the terminal's current working directory. The app creates `data/` and `data/games.db` on first launch.
+
+The native build requires a 64-bit Linux system with SDL2, SDL2_ttf, SDL2_image, and SQLite runtime libraries installed.

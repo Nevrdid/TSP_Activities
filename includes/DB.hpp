@@ -4,8 +4,6 @@
 #include <string>
 #include <vector>
 
-#define DB_FILE APP_DIR "data/games.db"
-
 class Rom;
 
 struct DB_row

@@ -1,9 +1,16 @@
 name: Build, Package Activities App for TrimUI Smart Pro
 
+concurrency:
+  group: arm64-build-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
+    branches:
+      - phase-1-build
     tags:
       - "v*.*.*"
+  workflow_dispatch:
 
 jobs:
   build:
@@ -11,12 +18,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Set up QEMU for ARM64
-        uses: docker/setup-qemu-action@v2
+        uses: docker/setup-qemu-action@v3
         with:
           platforms: arm64
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+        uses: docker/setup-buildx-action@v3
         with:
           driver-opts: image=moby/buildkit:latest
 
@@ -33,22 +40,26 @@ jobs:
             -f- . <<EOF
           FROM arm64v8/debian:bullseye
 
-          RUN apt-get update && apt-get install -y --no-install-recommends --no-install-suggests \
-              build-essential \
-              libsdl2-dev \
-              libsdl2-ttf-dev \
-              libsdl2-image-dev \
-              libsqlite3-dev
+          # Bullseye is retained for the handheld-compatible runtime baseline.
+          # Its security packages have moved to the Debian archive after Bullseye LTS ended.
+          RUN sed -i 's|deb.debian.org/debian-security|archive.debian.org/debian-security|g' /etc/apt/sources.list \
+              && apt-get -o Acquire::Check-Valid-Until=false update \
+              && apt-get install -y --no-install-recommends --no-install-suggests \
+                  build-essential \
+                  libsdl2-dev \
+                  libsdl2-ttf-dev \
+                  libsdl2-image-dev \
+                  libsqlite3-dev
 
           WORKDIR /app
           COPY . /app
-          RUN mkdir build && make
+          RUN make -C build --jobs=2 GOAL=native_aarch64 all
           EOF
 
       - name: Extract Build Output
         run: |
           docker create --name extract activities-builder
-          docker cp extract:/app/activities ./activities
+          docker cp extract:/app/build/bin/activities ./activities
           docker rm extract
 
       - name: Verify Build Output
@@ -57,6 +68,7 @@ jobs:
             echo "Build failed: 'activities' binary not found."
             exit 1
           fi
+          file ./activities
 
       - name: Organize Artifacts
         run: |
@@ -67,7 +79,12 @@ jobs:
           cp icon.png Out/Apps/Activities/
           cp launch.sh Out/Apps/Activities/
           cp config.json Out/Apps/Activities/
-          cp data/config.ini Out/Apps/Activities/data/config.ini
+          cp -R .assets Out/Apps/Activities/
+          # config.ini is a legacy packaging input and is not currently read by the app.
+          # Include it if a downstream deployment supplies it, without breaking clean builds.
+          if [ -f data/config.ini ]; then
+            cp data/config.ini Out/Apps/Activities/data/config.ini
+          fi
 
 
 
@@ -75,7 +92,16 @@ jobs:
         run: |
           tar -czvf Activities.tar.gz -C Out .
 
+      - name: Upload ARM64 package for verification
+        uses: actions/upload-artifact@v4
+        with:
+          name: tsp-activities-linux-arm64
+          path: Activities.tar.gz
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Release
+        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
           files: |

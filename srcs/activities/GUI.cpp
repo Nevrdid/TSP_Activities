@@ -37,9 +37,13 @@ int GUI::init()
     }
 
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+    // Desktop/virtual displays may not support an accelerated renderer.
+    if (!renderer)
+        renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE);
     if (!renderer) {
         std::cerr << "Renderer could not be created! SDL_Error: " << SDL_GetError() << std::endl;
         SDL_DestroyWindow(window);
+        window = nullptr;
         return -1;
     }
     // Wait the window to be resized to fullscreen
@@ -60,7 +64,8 @@ int GUI::init()
 
 GUI::~GUI()
 {
-    SDL_JoystickClose(joystick);
+    if (joystick)
+        SDL_JoystickClose(joystick);
 
     for (auto& texture : image_cache)
         if (texture.second.texture)
@@ -74,12 +79,17 @@ GUI::~GUI()
 
     delete_background_texture();
 
-    SDL_DestroyRenderer(renderer);
-    SDL_DestroyWindow(window);
+    if (renderer)
+        SDL_DestroyRenderer(renderer);
+    if (window)
+        SDL_DestroyWindow(window);
 
     for (auto& font : fonts)
-        TTF_CloseFont(font.second);
+        if (font.second)
+            TTF_CloseFont(font.second);
+    fonts.clear();
 
+    TTF_Quit();
     SDL_Quit();
 }
 
@@ -197,7 +207,10 @@ void GUI::draw_checkmark(int x, int y, int size, SDL_Color color)
 TTF_Font* GUI::get_font(int size)
 {
     if (fonts.find(size) == fonts.end()) {
-        fonts[size] = TTF_OpenFont((cfg.theme_path + cfg.theme.font).c_str(), size * 4 / 3);
+        std::string font_path = cfg.theme.font;
+        if (!font_path.empty() && font_path.front() != '/')
+            font_path = cfg.theme_path + font_path;
+        fonts[size] = TTF_OpenFont(font_path.c_str(), size * 4 / 3);
         if (!fonts[size]) {
             std::cerr << "Failed to load font: " << TTF_GetError() << std::endl;
             return nullptr;
@@ -314,12 +327,35 @@ void GUI::render()
  */
 Vec2 GUI::render_image(const std::string& image_path, int x, int y, int w, int h, int flags)
 {
-    if (image_path.empty() || !fs::exists(image_path))
+    if (image_path.empty())
+        return {0, 0};
+
+    std::error_code fs_error;
+    const bool image_exists = fs::exists(image_path, fs_error);
+    if (fs_error) {
+        std::cerr << "Could not inspect image " << image_path << ": "
+                  << fs_error.message() << std::endl;
+        return {0, 0};
+    }
+    if (!image_exists)
         return {0, 0};
     if (image_cache.find(image_path) == image_cache.end()) {
         SDL_Surface* surface = IMG_Load(image_path.c_str());
-        image_cache[image_path] = {
-            SDL_CreateTextureFromSurface(renderer, surface), surface->w, surface->h};
+        if (!surface) {
+            std::cerr << "Failed to load image " << image_path << ": " << IMG_GetError()
+                      << std::endl;
+            return {0, 0};
+        }
+
+        SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
+        if (!texture) {
+            std::cerr << "Failed to create texture for image " << image_path << ": "
+                      << SDL_GetError() << std::endl;
+            SDL_FreeSurface(surface);
+            return {0, 0};
+        }
+
+        image_cache[image_path] = {texture, surface->w, surface->h};
         SDL_FreeSurface(surface);
     }
     CachedImg& cached_texture = image_cache[image_path];
@@ -369,17 +405,27 @@ CachedText& GUI::getCachedText(const Text& text)
     }
 
     TTF_Font* font = get_font(text.size);
+    if (!font) {
+        CachedText cached = {nullptr, 0, 0, text};
+        cached_text.push_back(cached);
+        return cached_text.back();
+    }
 
     SDL_Surface* surface = TTF_RenderText_Blended(font, text.str.c_str(), text.color);
     if (!surface) {
         std::cerr << "Failed to render text: " << TTF_GetError() << std::endl;
-        TTF_CloseFont(font);
+        CachedText cached = {nullptr, 0, 0, text};
+        cached_text.push_back(cached);
+        return cached_text.back();
     }
 
     SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
     if (!texture) {
+        std::cerr << "Failed to create text texture: " << SDL_GetError() << std::endl;
         SDL_FreeSurface(surface);
-        std::cerr << "Failed to create texture: " << SDL_GetError() << std::endl;
+        CachedText cached = {nullptr, 0, 0, text};
+        cached_text.push_back(cached);
+        return cached_text.back();
     }
 
     CachedText cached = {texture, surface->w, surface->h, text};
@@ -976,7 +1022,7 @@ std::pair<MenuResult, size_t> GUI::_selector_core(const std::string& title,
         size_t last = std::min(first + lines, list_size);
 
         if (scrollbar_size)
-            render_image(std::string(APP_DIR) + "/.assets/scroll-v.svg", (Width + width) / 2 - 12,
+            render_image(utils::app_dir() + ".assets/scroll-v.svg", (Width + width) / 2 - 12,
                 y + (height - scrollbar_size / 2) * selected_index / list_size, 50, scrollbar_size,
                 IMG_NONE);
 
@@ -1074,11 +1120,18 @@ const std::string GUI::file_selector(fs::path location, bool hide_empties)
                           [location](const std::string& sub) {
                               if (sub == "..")
                                   return false;
-                              std::string next = location.string() + "/" + sub;
-                              if (fs::status(next).type() == fs::file_type::regular)
+                              const std::string next = location.string() + "/" + sub;
+                              std::error_code fs_error;
+                              const fs::file_status status = fs::status(next, fs_error);
+                              if (fs_error)
                                   return false;
-                              if (fs::is_empty(fs::path(next)))
-                                  return true;
+                              if (status.type() == fs::file_type::regular)
+                                  return false;
+                              if (fs::is_empty(fs::path(next), fs_error)) {
+                                  return !fs_error;
+                              }
+                              if (fs_error)
+                                  return false;
                               std::vector<std::string> sub_content =
                                   utils::get_directory_content(next, true);
                               return sub_content.size() < 2;
@@ -1091,8 +1144,15 @@ const std::string GUI::file_selector(fs::path location, bool hide_empties)
 
     if (result.first != MenuResult::Continue)
         return "";
-    std::string next = location.string() + "/" + content[result.second];
-    if (fs::status(next).type() == fs::file_type::directory)
+    const std::string next = location.string() + "/" + content[result.second];
+    std::error_code fs_error;
+    const fs::file_status selected_status = fs::status(next, fs_error);
+    if (fs_error) {
+        std::cerr << "Could not inspect selected path " << next << ": "
+                  << fs_error.message() << std::endl;
+        return "";
+    }
+    if (selected_status.type() == fs::file_type::directory)
         return file_selector(next, true);
     return utils::shorten_file_path(next);
 }

@@ -7,8 +7,7 @@ CXX := $(CROSS_COMPILE)g++
 
 CXXFLAGS := -Wall -Wextra -std=c++17 -O3 -fomit-frame-pointer -Ofast -flto
 CXXFLAGS += --sysroot=$(SYSROOT) -I$(SYSROOT)/usr/include/SDL2
-CXXFLAGS += -DAPP_DIR=\"/mnt/SDCARD/Apps/Activities/\" \
-            -DVIDEO_PLAYER='"/mnt/SDCARD/Emus/VIDEOS/mpv.sh "' \
+CXXFLAGS += -DVIDEO_PLAYER='"/mnt/SDCARD/Emus/VIDEOS/mpv.sh "' \
             -DMANUAL_READER='"/mnt/SDCARD/Apps/.PDFReader/launch.sh "'
 CXXFLAGS += -s -ffunction-sections -fdata-sections
 
