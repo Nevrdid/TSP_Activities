@@ -14,9 +14,11 @@ _____
 
 ## Usage
 
-- Start gui in list window: `activities gui`
-- Start gui in a game details: `activities gui <rom_file>`
+- Start the GUI on the home page: `activities gui`
+- Start directly in a game details view: `activities gui <rom_file>`
   (If the game is not in the database, it will be added)
+
+The home page links to the game library, recent games, All ROMs, overall statistics, and Add Game. Recent games shows titles with at least one recorded play session. All ROMs scans files beneath the portable `Roms/` directory (or `/mnt/SDCARD/Roms` on TrimUI); selecting a file adds it to the database if needed and opens its details. The library and details views remain available from the existing controller navigation.
 
 ## Theming
 
@@ -24,10 +26,22 @@ On handhelds, the app follows the system theme configuration. The desktop bundle
 
 ## Keybinds
 
+### Home page
+
+- A: Open the selected section
+- B: Exit
+- Up/Down: Navigate
+
+### All ROMs
+
+- A: Open the selected ROM (adds it to the database if needed)
+- B: Return to home
+- Up/Down: Navigate
+
 ### List window
 
 - A: Open game details
-- B: Exit
+- B: Return to home page
 
 - Up/Down: Navigate one by one in list
 - Left/Right: Navigate ten by ten in list
@@ -40,7 +54,8 @@ On handhelds, the app follows the system theme configuration. The desktop bundle
 ### Details window
 
 - A: Launch game
-- B: Return to list
+- B: Return to home page
+- X: Return to list
 
 - Y: Start game's video (/mnt/SDCARD/Videos/[System]/[gamename].mp4
 - X: Start game's manual (upcomming)
