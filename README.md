@@ -18,7 +18,7 @@ _____
 - Start directly in a game details view: `activities gui <rom_file>`
   (If the game is not in the database, it will be added)
 
-The home page links to the game library, recent games, All ROMs, overall statistics, and Add Game. Recent games shows titles with at least one recorded play session. All ROMs scans files beneath the portable `Roms/` directory (or `/mnt/SDCARD/Roms` on TrimUI); selecting a file adds it to the database if needed and opens its details. The library and details views remain available from the existing controller navigation.
+The home page links to the filesystem-backed Library, Recent games, Overall statistics, and Browse files / Add game. Library scans files beneath the portable `Roms/` directory (or `/mnt/SDCARD/Roms` on TrimUI), including ROMs not yet tracked in the database; selecting a file adds it to tracking if needed and opens its details. Recent games shows only database entries with at least one recorded play session. Browse files / Add game lets you choose a ROM from another location.
 
 ## Theming
 
