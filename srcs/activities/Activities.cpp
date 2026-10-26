@@ -275,7 +275,7 @@ void Activities::all_roms_page()
 {
     gui.render_image(cfg.theme_path + "skin/title-bg.png", gui.Width / 2,
         FONT_MIDDLE_SIZE, gui.Width, 2 * FONT_MIDDLE_SIZE);
-    gui.render_text("All ROMs (" + std::to_string(all_rom_files.size()) + ")",
+    gui.render_text("Library (" + std::to_string(all_rom_files.size()) + ")",
         gui.Width / 2, 2, FONT_MIDDLE_SIZE, cfg.unselect_color, 0, true);
 
     const int footer_height = FONT_MINI_SIZE * 2 + 12;
@@ -359,6 +359,7 @@ void Activities::all_roms_page()
                 filters_states = {FilterState::All, FilterState::All, FilterState::All};
                 system_index = 0;
                 refresh_db(all_rom_files[all_rom_selected_index]);
+                details_return_page = AppPage::AllRoms;
                 current_page = AppPage::Details;
             }
             break;
@@ -372,11 +373,10 @@ void Activities::all_roms_page()
 void Activities::home_page()
 {
     static const std::vector<std::string> entries = {
-        "Game library",
+        "Library",
         "Recent games",
-        "All ROMs",
         "Overall statistics",
-        "Add game",
+        "Browse files / Add game",
     };
 
     if (home_selected_index >= entries.size())
@@ -433,8 +433,8 @@ void Activities::home_page()
             switch (home_selected_index) {
             case 0:
                 recent_only = false;
-                filter_roms();
-                current_page = AppPage::Library;
+                refresh_all_roms();
+                current_page = AppPage::AllRoms;
                 break;
             case 1:
                 recent_only = true;
@@ -446,12 +446,8 @@ void Activities::home_page()
                 filter_roms();
                 current_page = AppPage::Library;
                 break;
-            case 2:
-                refresh_all_roms();
-                current_page = AppPage::AllRoms;
-                break;
-            case 3: overall_stats(); break;
-            case 4: add_game(); break;
+            case 2: overall_stats(); break;
+            case 3: add_game(); break;
             default: break;
             }
             break;
@@ -978,7 +974,9 @@ void Activities::game_detail()
             }
             break;
         case InputAction::X:
-            current_page = AppPage::Library;
+            current_page = details_return_page;
+            if (current_page == AppPage::AllRoms)
+                refresh_all_roms();
             leftHolding = rightHolding = false;
             break;
         case InputAction::ZR:
