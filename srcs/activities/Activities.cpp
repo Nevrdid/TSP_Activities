@@ -376,7 +376,7 @@ void Activities::home_page()
         "Library",
         "Recent games",
         "Overall statistics",
-        "Browse files / Add game",
+        "Add game",
     };
 
     if (home_selected_index >= entries.size())
