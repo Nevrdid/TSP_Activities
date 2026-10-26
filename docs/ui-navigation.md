@@ -15,10 +15,10 @@ Home
  ├─ Library ── browse files under Roms/ ── open / track a ROM
  ├─ Recent games ── tracked games with play history ── Game details
  ├─ Overall statistics
- └─ Browse files / Add game ── choose a ROM outside the normal library
+ └─ Add game ── choose a ROM from the file selector
 ```
 
-The Library is the filesystem view of games available under the portable `Roms/` folder, or `/mnt/SDCARD/Roms` on TrimUI. It is not a database-only list: ROMs are visible even before they have been tracked. Opening a ROM creates a database entry if needed and opens its details. Recent games remains a database-backed view filtered to titles with at least one recorded session. Browse files / Add game is a separate file-selector action for importing a ROM from another location. There is no separate top-level All ROMs page because it duplicates the Library.
+The Library is the filesystem view of games available under the portable `Roms/` folder, or `/mnt/SDCARD/Roms` on TrimUI. It is not a database-only list: ROMs are visible even before they have been tracked. Opening a ROM creates a database entry if needed and opens its details. Recent games remains a database-backed view filtered to titles with at least one recorded session. Add game opens a file selector for importing a ROM from another location. There is no separate top-level All ROMs page because it duplicates the Library.
 
 Collections and settings remain out of scope until their behavior is defined.
 
