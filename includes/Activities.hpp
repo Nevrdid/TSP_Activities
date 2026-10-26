@@ -71,6 +71,7 @@ class Activities
     bool   is_running = false;
     bool   gui_initialized = false;
     AppPage current_page = AppPage::Home;
+    AppPage details_return_page = AppPage::Library;
     size_t  home_selected_index = 0;
     bool    recent_only = false;
     std::vector<std::string> all_rom_files;
