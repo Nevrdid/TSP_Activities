@@ -5,4 +5,4 @@ export PATH="$PATH:/mnt/SDCARD/System/bin"
 
 cd "$(dirname "$0")"
 
-/mnt/SDCARD/System/bin/activities gui -D
+/mnt/SDCARD/System/bin/activities gui

@@ -64,7 +64,7 @@ jobs:
           # No system.json or database is supplied. Keep the GUI alive briefly;
           # timeout is expected once initialization and rendering have started.
           set +e
-          SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy timeout 3s ./activities.x86
+          SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy timeout 3s ./activities.x86 gui
           app_status=$?
           set -e
           if [ "$app_status" -ne 124 ]; then
@@ -130,7 +130,7 @@ jobs:
           # assets and the database must still resolve beside the executable.
           set +e
           (cd "$RUNNER_TEMP" && SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
-            timeout 3s "$GITHUB_WORKSPACE/$bundle/activities.x86")
+            timeout 3s "$GITHUB_WORKSPACE/$bundle/activities.x86" gui)
           app_status=$?
           set -e
           if [ "$app_status" -ne 124 ]; then

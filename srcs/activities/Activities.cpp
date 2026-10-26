@@ -30,7 +30,8 @@ void Activities::filter_roms()
     filtered_roms_list.clear();
     total_time = 0;
     for (auto it = roms_list.begin(); it != roms_list.end(); it++) {
-        if (it->system == current_system || system_index == 0) {
+        if ((it->system == current_system || system_index == 0) &&
+            (!recent_only || it->count > 0)) {
             // != Unmatch mean All and Match;  < Match mean All and Unmatch
             if (((filters_states.running != FilterState::Unmatch && it->pid != -1) ||
                     (filters_states.running < FilterState::Match && it->pid == -1)) &&
@@ -226,29 +227,264 @@ MenuResult Activities::filters_menu()
     return gui.menu("Filters...", menu_items);
 }
 
+void Activities::refresh_all_roms()
+{
+    all_rom_files.clear();
+    all_rom_selected_index = 0;
+
+    fs::path rom_root = fs::path(utils::app_dir()) / "Roms";
+    const fs::path handheld_rom_root("/mnt/SDCARD/Roms");
+    std::error_code ec;
+    if (fs::is_directory(handheld_rom_root, ec) && !ec)
+        rom_root = handheld_rom_root;
+
+    ec.clear();
+    if (!fs::is_directory(rom_root, ec) || ec) {
+        if (ec)
+            std::cerr << "Could not inspect ROM directory " << rom_root << ": "
+                      << ec.message() << std::endl;
+        return;
+    }
+
+    fs::recursive_directory_iterator entry(
+        rom_root, fs::directory_options::skip_permission_denied, ec);
+    const fs::recursive_directory_iterator end;
+    while (!ec && entry != end) {
+        const fs::path path = entry->path();
+        const std::string filename = path.filename().string();
+        std::error_code status_error;
+
+        if (entry->is_directory(status_error)) {
+            if (!filename.empty() && filename.front() == '.')
+                entry.disable_recursion_pending();
+        } else if (!status_error && entry->is_regular_file(status_error) &&
+                   !filename.empty() && filename.front() != '.') {
+            all_rom_files.push_back(path.string());
+        }
+
+        entry.increment(ec);
+    }
+    if (ec)
+        std::cerr << "Warning: could not finish scanning ROM directory " << rom_root << ": "
+                  << ec.message() << std::endl;
+
+    std::sort(all_rom_files.begin(), all_rom_files.end());
+}
+
+void Activities::all_roms_page()
+{
+    gui.render_image(cfg.theme_path + "skin/title-bg.png", gui.Width / 2,
+        FONT_MIDDLE_SIZE, gui.Width, 2 * FONT_MIDDLE_SIZE);
+    gui.render_text("Library (" + std::to_string(all_rom_files.size()) + ")",
+        gui.Width / 2, 2, FONT_MIDDLE_SIZE, cfg.unselect_color, 0, true);
+
+    const int footer_height = FONT_MINI_SIZE * 2 + 12;
+    const int top = 2 * FONT_MIDDLE_SIZE + 12;
+    const int available_height = std::max(1, gui.Height - top - footer_height - 8);
+    const int row_height = std::max(16, available_height / LIST_LINES);
+    const size_t visible_rows = static_cast<size_t>(
+        std::max(1, std::min(LIST_LINES, available_height / row_height)));
+
+    if (all_rom_files.empty()) {
+        gui.render_text("No ROM files found under Roms/.",
+            gui.Width / 2, gui.Height / 2, FONT_MIDDLE_SIZE, cfg.info_color,
+            gui.Width - 30, true);
+    } else {
+        const size_t rows_to_draw = std::min(visible_rows, all_rom_files.size());
+        size_t first = 0;
+        if (all_rom_files.size() > rows_to_draw &&
+            all_rom_selected_index >= rows_to_draw / 2) {
+            first = all_rom_selected_index - rows_to_draw / 2;
+        }
+        if (first + rows_to_draw > all_rom_files.size())
+            first = all_rom_files.size() - rows_to_draw;
+        const size_t last = first + rows_to_draw;
+        const int font_size = std::max(
+            12, std::min(FONT_MIDDLE_SIZE, row_height * 2 / 3));
+
+        for (size_t i = first; i < last; ++i) {
+            const int center_y = top + static_cast<int>(i - first) * row_height + row_height / 2;
+            const std::string background = cfg.theme_path + "skin/list-item-1line-sort-bg-" +
+                (i == all_rom_selected_index ? "f.png" : "n.png");
+            gui.render_image(background, gui.Width / 2, center_y,
+                std::max(1, gui.Width - 20), std::max(1, row_height - 2), IMG_CENTER);
+
+            const fs::path path(all_rom_files[i]);
+            const std::string label = path.parent_path().filename().string() + " / " +
+                                      path.filename().string();
+            const int text_y = center_y - font_size / 2;
+            if (i == all_rom_selected_index) {
+                gui.render_scrollable_text(label, 18, text_y, gui.Width - 36,
+                    font_size, cfg.selected_color);
+            } else {
+                gui.render_text(label, 18, text_y, font_size, cfg.unselect_color,
+                    gui.Width - 36);
+            }
+        }
+
+        const std::string index_label = std::to_string(all_rom_selected_index + 1) + "/" +
+                                        std::to_string(all_rom_files.size());
+        const int index_width = static_cast<int>(index_label.size()) * FONT_MINI_SIZE * 3 / 5;
+        gui.render_text(index_label, gui.Width - index_width - 10,
+            gui.Height - footer_height - FONT_MINI_SIZE - 8, FONT_MINI_SIZE, cfg.info_color);
+    }
+
+    gui.render_image(cfg.theme_path + "skin/tips-bar-bg.png", gui.Width / 2,
+        gui.Height - 20, gui.Width, FONT_MINI_SIZE * 2);
+    gui.display_keybind("A", "Open / track", 25);
+    gui.display_keybind("B", "Home", 170);
+    gui.render();
+    
+    const size_t previous_selected_index = all_rom_selected_index;
+    SDL_Event event;
+    while (SDL_PollEvent(&event)) {
+        switch (gui.map_input(event)) {
+        case InputAction::Quit:
+            is_running = false;
+            break;
+        case InputAction::B:
+            current_page = AppPage::Home;
+            break;
+        case InputAction::Up:
+            if (all_rom_selected_index > 0)
+                --all_rom_selected_index;
+            break;
+        case InputAction::Down:
+            if (all_rom_selected_index + 1 < all_rom_files.size())
+                ++all_rom_selected_index;
+            break;
+        case InputAction::A:
+            if (all_rom_selected_index < all_rom_files.size()) {
+                recent_only = false;
+                filters_states = {FilterState::All, FilterState::All, FilterState::All};
+                system_index = 0;
+                refresh_db(all_rom_files[all_rom_selected_index]);
+                details_return_page = AppPage::AllRoms;
+                current_page = AppPage::Details;
+            }
+            break;
+        default: break;
+        }
+    }
+    if (previous_selected_index != all_rom_selected_index)
+        gui.reset_scroll();
+}
+
+void Activities::home_page()
+{
+    static const std::vector<std::string> entries = {
+        "Library",
+        "Recent games",
+        "Overall statistics",
+        "Add game",
+    };
+
+    if (home_selected_index >= entries.size())
+        home_selected_index = 0;
+
+    gui.render_image(cfg.theme_path + "skin/title-bg.png", gui.Width / 2,
+        FONT_MIDDLE_SIZE, gui.Width, 2 * FONT_MIDDLE_SIZE);
+    gui.render_text("TSP Activities", gui.Width / 2, 2, FONT_MIDDLE_SIZE,
+        cfg.unselect_color, 0, true);
+    const bool compact_layout = gui.Height < 300;
+    gui.render_text("Choose where to go", gui.Width / 2,
+        compact_layout ? 2 * FONT_MIDDLE_SIZE - 8 : 2 * FONT_MIDDLE_SIZE + 4,
+        compact_layout ? 12 : FONT_TINY_SIZE, cfg.info_color, 0, true);
+
+    const int footer_height = FONT_MINI_SIZE * 2 + 12;
+    const int top = std::max(2 * FONT_MIDDLE_SIZE + 12, gui.Height / 3);
+    const int row_height = std::max(16, std::min(64,
+        (gui.Height - top - footer_height - 8) / static_cast<int>(entries.size())));
+    const int font_size = std::max(12, std::min(FONT_MIDDLE_SIZE, row_height * 2 / 3));
+
+    for (size_t i = 0; i < entries.size(); ++i) {
+        const int center_y = top + static_cast<int>(i) * row_height + row_height / 2;
+        const std::string background = cfg.theme_path + "skin/list-item-1line-sort-bg-" +
+                                       (i == home_selected_index ? "f.png" : "n.png");
+        gui.render_image(background, gui.Width / 2, center_y,
+            std::max(1, gui.Width - 80), std::max(1, row_height - 3), IMG_CENTER);
+        gui.render_text(entries[i], gui.Width / 2, center_y - font_size / 2,
+            font_size, i == home_selected_index ? cfg.selected_color : cfg.unselect_color,
+            0, true);
+    }
+
+    gui.render_image(cfg.theme_path + "skin/tips-bar-bg.png", gui.Width / 2,
+        gui.Height - 20, gui.Width, FONT_MINI_SIZE * 2);
+    gui.display_keybind("A", "Open", 25);
+    gui.display_keybind("B", "Exit", 145);
+    gui.render();
+
+    SDL_Event event;
+    while (SDL_PollEvent(&event)) {
+        switch (gui.map_input(event)) {
+        case InputAction::Quit:
+        case InputAction::B:
+            is_running = false;
+            break;
+        case InputAction::Up:
+            if (home_selected_index > 0)
+                --home_selected_index;
+            break;
+        case InputAction::Down:
+            if (home_selected_index + 1 < entries.size())
+                ++home_selected_index;
+            break;
+        case InputAction::A:
+            switch (home_selected_index) {
+            case 0:
+                recent_only = false;
+                refresh_all_roms();
+                current_page = AppPage::AllRoms;
+                break;
+            case 1:
+                recent_only = true;
+                sort_by = Sort::Last;
+                reverse_sort = false;
+                system_index = 0;
+                filters_states = {FilterState::All, FilterState::All, FilterState::All};
+                selected_index = 0;
+                filter_roms();
+                current_page = AppPage::Library;
+                break;
+            case 2: overall_stats(); break;
+            case 3: add_game(); break;
+            default: break;
+            }
+            break;
+        default: break;
+        }
+    }
+}
+
+bool Activities::add_game()
+{
+    fs::path rom_root = fs::path(utils::app_dir()) / "Roms";
+    // On the handheld, retain the conventional SD-card library root.
+    const fs::path handheld_rom_root("/mnt/SDCARD/Roms");
+    if (fs::is_directory(handheld_rom_root))
+        rom_root = handheld_rom_root;
+    // The handheld ROM directory is absent on a native desktop install.
+    // Start from the current directory so the user can add a first game.
+    if (!fs::exists(rom_root) || !fs::is_directory(rom_root))
+        rom_root = fs::current_path();
+
+    const std::string selected_file = gui.file_selector(rom_root, true);
+    if (selected_file.empty())
+        return false;
+
+    refresh_db(selected_file);
+    return true;
+}
+
 void Activities::global_menu()
 {
     std::vector<std::pair<std::string, MenuAction>> menu_items;
 
     menu_items = {{"Filters", [this]() -> MenuResult { return filters_menu(); }},
         {"Sort", [this]() -> MenuResult { return sort_menu(); }},
-        {"Add Game",
-            [this]() -> MenuResult {
-                fs::path rom_root = fs::path(utils::app_dir()) / "Roms";
-                // On the handheld, retain the conventional SD-card library root.
-                const fs::path handheld_rom_root("/mnt/SDCARD/Roms");
-                if (fs::is_directory(handheld_rom_root))
-                    rom_root = handheld_rom_root;
-                // The handheld ROM directory is absent on a native desktop install.
-                // Start from the current directory so the user can add a first game.
-                if (!fs::exists(rom_root) || !fs::is_directory(rom_root))
-                    rom_root = fs::current_path();
-                std::string str = gui.file_selector(rom_root, true);
-                if (str.empty())
-                    return MenuResult::Continue;
-                refresh_db(str); // refresh_db will save the rom as it will not find it in db
-                return MenuResult::ExitAll;
-            }},
+        {"Add Game", [this]() -> MenuResult {
+             return add_game() ? MenuResult::ExitAll : MenuResult::Continue;
+         }},
         {"Global Stats",
             [this]() -> MenuResult {
                 overall_stats();
@@ -339,14 +575,14 @@ void Activities::game_list()
         current_system_name = systems[system_index];
     }
     // TODO once filters reworked: avoid "All - All Games" when system is set to All
-    gui.render_text(current_system_name + " games:", gui.Width / 2 - 100, 0, FONT_MIDDLE_SIZE,
+    gui.render_text(current_system_name + (recent_only ? " recent games:" : " games:"), gui.Width / 2 - 100, 0, FONT_MIDDLE_SIZE,
         cfg.unselect_color);
 
     // Total time to the right of the title
     gui.render_text("(" + utils::stringifyTime(total_time) + ")", gui.Width - 2 * FONT_MIDDLE_SIZE,
         0.4 * FONT_MIDDLE_SIZE, FONT_TINY_SIZE, cfg.unselect_color, 0, true);
     if (list_size == 0) {
-        gui.render_text("No games yet. Open Menu and choose Add Game.",
+        gui.render_text(recent_only ? "No recent games yet." : "No games yet. Open Menu and choose Add Game.",
             gui.Width / 2, gui.Height / 2, FONT_MIDDLE_SIZE, cfg.info_color,
             gui.Width - 40, true);
     }
@@ -406,7 +642,7 @@ void Activities::game_list()
     gui.render_image(cfg.theme_path + "skin/tips-bar-bg.png", gui.Width / 2, gui.Height - 20,
         gui.Width, FONT_MINI_SIZE * 2);
     gui.display_keybind("A", "Y", "Run", 25);
-    gui.display_keybind("B", "Exit", 145);
+    gui.display_keybind("B", "Home", 145);
     gui.display_keybind("X", "Details", 230);
     gui.display_keybind("Menu", "Menu", 330);
     gui.display_keybind("L1", "R1", "Change system", gui.Width - 620);
@@ -492,10 +728,10 @@ void Activities::game_list()
             }
             break;
         }
-        case InputAction::B: is_running = false; break;
+        case InputAction::B: current_page = AppPage::Home; break;
         case InputAction::X:
             upHolding = downHolding = false; // stop repeat on jump navigation
-            in_game_detail = true;
+            current_page = AppPage::Details;
             gui.reset_scroll();
             break;
         case InputAction::ZR:
@@ -566,7 +802,7 @@ void Activities::game_detail()
         system_index = 0;
         filter_roms();
         if (filtered_roms_list.empty()) {
-            in_game_detail = false;
+            current_page = AppPage::Library;
             return;
         }
     }
@@ -659,7 +895,7 @@ void Activities::game_detail()
     gui.render_image(cfg.theme_path + "skin/tips-bar-bg.png", gui.Width / 2, gui.Height - 20,
         gui.Width, FONT_MINI_SIZE * 2);
     gui.display_keybind("A", "Y", "Run", 25);
-    gui.display_keybind("B", "Exit", 145);
+    gui.display_keybind("B", "Home", 145);
     gui.display_keybind("X", "List", 230);
     gui.display_keybind("Menu", "Menu", 300);
     gui.display_keybind("Select", "Filters Menu", gui.Width - 350);
@@ -701,8 +937,8 @@ void Activities::game_detail()
             rightHolding = false;
         }
         switch (gui.map_input(e)) {
-        case InputAction::Quit:
-        case InputAction::B: is_running = false; break;
+        case InputAction::Quit: is_running = false; break;
+        case InputAction::B: current_page = AppPage::Home; break;
         case InputAction::Left:
             if (selected_index < filtered_roms_list.size() - 1) {
                 selected_index++;
@@ -738,7 +974,9 @@ void Activities::game_detail()
             }
             break;
         case InputAction::X:
-            in_game_detail = false;
+            current_page = details_return_page;
+            if (current_page == AppPage::AllRoms)
+                refresh_all_roms();
             leftHolding = rightHolding = false;
             break;
         case InputAction::ZR:
@@ -910,7 +1148,7 @@ int               Activities::parseArgs(int argc, char** argv)
             puts(help);
             status = 1;
             break;
-        case 'D': in_game_detail = true; break;
+        case 'D': current_page = AppPage::Details; break;
         case 'R': auto_resume_enabled = false; break;
         case 's':
             if (optarg == NULL)
@@ -1012,6 +1250,15 @@ void Activities::auto_resume()
 
 void Activities::run(int argc, char** argv)
 {
+    // The launcher passes "gui" as a subcommand. That invocation should open Home;
+    // explicit options and direct ROM paths retain their existing view behavior.
+    const bool gui_subcommand = argc > 1 && std::string(argv[1]) == "gui";
+    const bool direct_rom_request =
+        gui_subcommand && argc > 2 && argv[2][0] != '-';
+    const std::string direct_rom_path = direct_rom_request ? argv[2] : "";
+    if (argc > 1 && !(gui_subcommand && argc == 2))
+        current_page = AppPage::Library;
+
     if (parseArgs(argc, argv)) {
         puts(help);
         exit(1);
@@ -1020,6 +1267,13 @@ void Activities::run(int argc, char** argv)
     if (!gui_initialized) {
         std::cerr << "ActivitiesApp: GUI initialization failed; exiting." << std::endl;
         return;
+    }
+
+    if (gui_subcommand && argc == 2)
+        current_page = AppPage::Home;
+    if (direct_rom_request) {
+        refresh_db(direct_rom_path);
+        current_page = AppPage::Details;
     }
 
     std::cout << "ActivitiesApp: Starting GUI" << std::endl;
@@ -1033,15 +1287,23 @@ void Activities::run(int argc, char** argv)
     while (is_running) {
         if (db.is_refresh_needed())
             refresh_db();
-        // Safety check to avoid out-of-bounds access
-        std::string current_system = "All";
-        if (!systems.empty() && system_index < systems.size())
-            current_system = systems[system_index];
-        gui.render_background(current_system);
-        if (in_game_detail)
-            game_detail();
-        else
-            game_list();
+        if (current_page == AppPage::Home) {
+            gui.render_background();
+            home_page();
+        } else if (current_page == AppPage::AllRoms) {
+            gui.render_background();
+            all_roms_page();
+        } else {
+            // Safety check to avoid out-of-bounds access
+            std::string current_system = "All";
+            if (!systems.empty() && system_index < systems.size())
+                current_system = systems[system_index];
+            gui.render_background(current_system);
+            if (current_page == AppPage::Details)
+                game_detail();
+            else
+                game_list();
+        }
         SDL_Delay(16); // ~60 FPS
     }
 }

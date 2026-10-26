@@ -35,6 +35,14 @@ static const char help[] = {
 
 
 
+enum class AppPage
+{
+    Home,
+    Library,
+    Details,
+    AllRoms,
+};
+
 enum FilterState
 {
     All = -1, // Show only match
@@ -62,7 +70,12 @@ class Activities
 
     bool   is_running = false;
     bool   gui_initialized = false;
-    bool   in_game_detail = false;
+    AppPage current_page = AppPage::Home;
+    AppPage details_return_page = AppPage::Library;
+    size_t  home_selected_index = 0;
+    bool    recent_only = false;
+    std::vector<std::string> all_rom_files;
+    size_t  all_rom_selected_index = 0;
     bool   auto_resume_enabled = true;
     size_t selected_index = 0;
 
@@ -105,6 +118,10 @@ class Activities
     MenuResult sort_menu();
     MenuResult filters_menu();
     void       global_menu();
+    void       home_page();
+    void       refresh_all_roms();
+    void       all_roms_page();
+    bool       add_game();
     void       game_menu(std::vector<Rom>::iterator rom);
 
     void start_external(const std::string& command);
