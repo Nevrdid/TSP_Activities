@@ -2,13 +2,30 @@
 
 #include <iostream>
 
+namespace
+{
+std::string column_text(sqlite3_stmt* stmt, int column)
+{
+    const unsigned char* value = sqlite3_column_text(stmt, column);
+    return value ? reinterpret_cast<const char*>(value) : std::string();
+}
+} // namespace
+
 DB::DB()
     : db(nullptr)
 {
 
     if (sqlite3_open(DB_FILE, &db) != SQLITE_OK) {
-        std::cerr << "Error opening SQLite database: " << sqlite3_errmsg(db) << std::endl;
+        std::cerr << "Error opening SQLite database: "
+                  << (db ? sqlite3_errmsg(db) : "SQLite did not create a connection handle")
+                  << std::endl;
+        if (db) {
+            sqlite3_close(db);
+            db = nullptr;
+        }
+        return;
     }
+
     std::string query = "CREATE TABLE IF NOT EXISTS games_datas ("
                         "file TEXT PRIMARY KEY NOT NULL,"
                         "name TEXT NOT NULL,"
@@ -36,6 +53,11 @@ DB::~DB()
 bool DB::is_refresh_needed()
 {
     static int data_version = 1;
+
+    if (!db) {
+        std::cerr << "Cannot check database version: no SQLite connection." << std::endl;
+        return false;
+    }
 
     bool is_needed = false;
 
@@ -65,6 +87,11 @@ bool DB::is_refresh_needed()
 
 void DB::save(DB_row entry)
 {
+    if (!db) {
+        std::cerr << "Cannot save ROM details: no SQLite connection." << std::endl;
+        return;
+    }
+
     DB_row      previous_entry = load(entry.file);
     std::string query;
 
@@ -121,17 +148,20 @@ DB_row DB::load(const std::string& file)
     int result = sqlite3_step(stmt);
     if (result == SQLITE_ROW) {
         std::cout << "Entry exist in database." << std::endl;
-        ret.file = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0)));
-        ret.name = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1)));
+        ret.file = column_text(stmt, 0);
+        ret.name = column_text(stmt, 1);
         ret.count = sqlite3_column_int(stmt, 2);
         ret.totaltime = sqlite3_column_int(stmt, 3);
         ret.lastsessiontime = sqlite3_column_int(stmt, 4);
-        ret.last = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 5)));
+        ret.last = column_text(stmt, 5);
         ret.completed = sqlite3_column_int(stmt, 6);
         ret.favorite = sqlite3_column_int(stmt, 7);
         std::cout << "Entry loaded." << std::endl;
-    } else {
+    } else if (result == SQLITE_DONE) {
         std::cerr << "No record found for rom: " << file << std::endl;
+    } else {
+        std::cerr << "Error executing SELECT query for rom " << file << ": "
+                  << sqlite3_errmsg(db) << std::endl;
     }
 
     sqlite3_finalize(stmt);
@@ -156,17 +186,21 @@ std::vector<DB_row> DB::load()
         return table;
     }
 
-    while (sqlite3_step(stmt) == SQLITE_ROW) {
+    int result = SQLITE_OK;
+    while ((result = sqlite3_step(stmt)) == SQLITE_ROW) {
         DB_row row;
-        row.file = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0)));
-        row.name = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1)));
+        row.file = column_text(stmt, 0);
+        row.name = column_text(stmt, 1);
         row.count = sqlite3_column_int(stmt, 2);
         row.totaltime = sqlite3_column_int(stmt, 3);
         row.lastsessiontime = sqlite3_column_int(stmt, 4);
-        row.last = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 5)));
+        row.last = column_text(stmt, 5);
         row.completed = sqlite3_column_int(stmt, 6);
         row.favorite = sqlite3_column_int(stmt, 7);
         table.push_back(row);
+    }
+    if (result != SQLITE_DONE) {
+        std::cerr << "Error loading database rows: " << sqlite3_errmsg(db) << std::endl;
     }
     sqlite3_finalize(stmt);
     return table;

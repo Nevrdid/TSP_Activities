@@ -6,20 +6,39 @@ This document records observations from the initial source review. It is a map o
 
 - The native x86-64 workflow is `.github/workflows/build-native.yml`; it builds `activities.x86` and `timer.x86` on Ubuntu 24.04.
 - The Makefile now creates each object and binary output directory as part of the relevant rule. A clean checkout should not need CI-specific directory preparation.
-- The handheld ARM64/release workflow is separate. Its Debian Bullseye base is intentional for compatibility with older handheld runtime libraries; do not upgrade it casually.
-- `build/config_native_aarch64.mk` is currently empty. The `native_aarch64` target therefore is not yet a configured, verified build path.
+- The handheld ARM64/release workflow uses a Debian Bullseye ARM64 container. Its base is intentional for compatibility with older handheld runtime libraries; do not upgrade it casually. Since Bullseye security packages have moved to the Debian archive, the workflow now redirects the security repository there while retaining Bullseye.
+- `build/config_native_aarch64.mk` now configures a native ARM64 build in the Bullseye container. The workflow builds `build/bin/activities`, packages the tracked `.assets/` directory, and uploads an ARM64 archive for branch verification. This is not yet proof of runtime compatibility on the physical handheld.
 - A successful compile does not prove that the UI can launch or that device assets/configuration are available.
 
 ## Runtime dependencies found
 
 ### Configuration and theme
 
-`srcs/activities/Config.cpp` opens both `/mnt/UDISK/system.json` and `/mnt/SDCARD/System/etc/crossmix.json`. If either file cannot be opened, construction logs an error and exits. The first file provides a theme path; the special value `../res/` is rewritten to the CrossMix theme directory. A theme config is loaded from `<theme_path>/config.json` when it exists.
+`srcs/activities/Config.cpp` reads `/mnt/UDISK/system.json` for the `theme` path and optionally reads `/mnt/SDCARD/System/etc/crossmix.json` for `BACKGROUNDS`. The sample files supplied during the audit confirm that the theme config contains `font`, `fontascii`, `fontsize`, and `fontcolor` fields. The legacy system-theme value `../res/` and an empty theme value are rewritten to `/mnt/SDCARD/Themes/TRIMUI YaHei/`.
+
+The constructor now reports malformed system JSON clearly, retains built-in colors when theme color fields are missing, treats CrossMix's configuration file as optional (defaulting the background selection to `Default`), and normalizes the configured theme path to end in `/` so asset lookups do not depend on the JSON value including a trailing separator. Theme installation/configuration checks now use non-throwing filesystem overloads and report inspection errors, allowing startup to retain the fallback theme instead of unwinding on filesystem exceptions. The legacy `../res/` system-theme value now resolves to TRIMUI YaHei. An optional app-local `data/theme.txt` can select one of the five supported TRIMUI theme folder names when `system.json` requests the legacy/default theme; absent or invalid choices do not force a migration, and explicit custom theme paths in `system.json` remain authoritative. The chosen theme folders currently need to exist under `/mnt/SDCARD/Themes/`; this change selects installed themes but does not yet bundle their assets into the application. The system JSON and usable theme/font/assets are still required by the current startup path; this is not yet a complete standalone configuration system.
 
 Implications:
-- The current startup path is tied to the expected handheld/CrossMix filesystem layout.
-- Theme fields are used to populate colors, but behavior when the theme config is absent or incomplete needs validation.
-- Before replacing these dependencies, define a fallback configuration format and retain the existing device behavior.
+- The configured theme path remains tied to the handheld filesystem layout unless the later platform/path abstraction changes it.
+- The theme's `config.json` is a style schema, not a full app configuration. It does not define ROM roots, database location, or emulator launchers.
+- Missing required theme/font/skin files can still leave the UI incomplete; optional decorative images may be absent and should simply not be drawn.
+
+
+### Theme asset inventory
+
+The current code directly references these assets under `<theme_path>/skin/`:
+
+- `bg.png` — default background.
+- `title-bg.png`, `tips-bar-bg.png`, `list-item-1line-sort-bg-f.png`, `list-item-1line-sort-bg-n.png`, `list-item-2line-long-bg-n.png`.
+- `icon-star.png`, `ic-game-580.png`, `bg-menu-09.png`, `bg-menu-05.png`, `ic-keymap-n.png`, `ic-right-arrow-n.png`, `ic-left-arrow-n.png`.
+- `float-win-mask.png`, `background-mask.png`, `pop-bg.png`, `btn-bg-f.png`, and `btn-bg-n.png`.
+- Button-hint icons from `includes/GUI.hpp`: `tips-A.png`, `tips-B.png`, `button-tips-X.png` and the other names in the `buttons_icons` map.
+
+Cross-checking these names against the five theme folders in the current CrossMix-OS tree found three filenames that are absent from those folders in that snapshot: `background-mask.png`, `title-bg.png`, and `tips-bar-bg.png`. These are optional decorative assets, not required package files: themes may provide them, leave them empty, or omit them. `render_image()` returns without drawing when the path is empty or does not exist, so an absent file simply means that element is not drawn. Keep this behavior intentional; do not add placeholder files or substitute unrelated artwork just to satisfy these filenames.
+
+The UI also opens `<theme_path>/<font>` using SDL_ttf. The theme parser reads `fontascii` and `fontsize`, but the current GUI code does not use those values; font opening uses only `theme.font` and a size derived from the UI's own constants. This is a code-level mismatch to address separately from asset bundling.
+
+The CrossMix-OS repository contains the five requested TRIMUI themes: **TRIMUI YaHei**, **TRIMUI Blue**, **TRIMUI Energy**, **TRIMUI HeyDW White**, and **TRIMUI Retro**. The project maintainer has direct CrossMix experience and reports that TrimUI is aware of and accepts CrossMix's use of these themes; implementation will proceed on that basis, while recording the upstream source and preserving attribution rather than claiming a formal written license. The preferred default is **TRIMUI YaHei**. Vendor only the image files actually referenced by this application, not each theme's entire `skin/` directory, which contains unrelated OS-screen assets. Each theme has a distinct font dependency (`msyh.ttf`, `wqy-microhei.ttf`, `OpenSans_Condensed-SemiBold.ttf`, or `Roboto-Light.ttf`); preserve the theme's intended font rather than silently substituting another. Current source reads its theme path from `/mnt/UDISK/system.json`, so selection among bundled themes needs an app-owned default/fallback path and an override that preserves existing user theme paths. The public `trimui/assets_smartpro` repository's current recursive tree contains only `README.md`, so it does not provide the theme payload directly at its repository root. CrossMix-OS is the practical source tree for the five theme folders. A successful build does not mean the package can run without the referenced skin images and font files.
 
 ### UI, SDL and input
 
@@ -32,18 +51,36 @@ Implications:
 
 ### ROM assets and launchers
 
-`srcs/activities/Rom.cpp` derives image, video and manual paths from ROM paths under `/Roms/<system>/...` or the alternate `/Best/<system>/...` layout. Game launching invokes `/mnt/SDCARD/Emus/<system>/default.sh`. The native build configuration points video/manual actions at desktop commands, while the handheld cross configuration points at handheld scripts.
+`srcs/utils.cpp` also contains process helpers and directory listing code. The process lookup now closes its `popen()` stream with `pclose()` (rather than `fclose()`) and treats a failed PID parse as no result. Directory filtering now checks the filename string safely before testing its first character. Directory existence/type checks and iteration now use `std::error_code` overloads, logging filesystem failures and returning the entries collected so far instead of allowing a `filesystem_error` to escape from the menu's directory listing. `GUI::render_image()` also checks image-path existence with the non-throwing overload: missing optional art remains a quiet no-op, while filesystem inspection errors are logged and skipped instead of escaping the render loop. The file selector likewise handles errors while checking listed/selected paths, so a file disappearing during navigation does not throw out of the UI.
+
+`srcs/activities/Rom.cpp` derives image, video and manual paths from ROM paths under `/Roms/<system>/...` or the alternate `/Best/<system>/...` layout. Game launching invokes `/mnt/SDCARD/Emus/<system>/default.sh`. The launch path now reports `fork()` failure without adding a nonexistent process to the running-child list, and a child whose `exec` fails exits with `_exit(127)` rather than running inherited process cleanup handlers. The game wait loop now logs normal exit codes and terminating signals, and breaks out on non-interrupted `waitpid()` errors instead of potentially polling forever when the child is no longer waitable. Signal-termination handling intentionally retains the existing autostart-list behavior. The native build configuration points video/manual actions at desktop commands, while the handheld cross configuration points at handheld scripts.
 
 Implications:
 - Asset discovery and game launching are platform-specific and currently use fixed paths.
 - Keep native and handheld launch behavior separate until there is an explicit platform/path abstraction.
-- Verify child-process creation and launcher failure handling as a dedicated task.
+- Further verify launcher `exec` failures and child reaping on-device; the current launch failure hardening covers `fork()` failure and avoids inherited cleanup handlers after failed `exec`.
 
 ### Persistence and packaging
 
-The application links SQLite. The release workflow expects packaging inputs including `icon.png`, `launch.sh`, `config.json`, and `data/config.ini`. The current Config implementation reads JSON files at absolute device paths, so `data/config.ini` should not be assumed to satisfy runtime configuration needs without tracing its actual consumers.
+The application links SQLite. The release workflow packages `icon.png`, `launch.sh`, `config.json`, and the tracked `.assets/` directory. `data/config.ini` is not tracked and its `CONFIG_FILE` macro has no current source-code consumer, so packaging now includes it only if a deployment supplies it. The runtime configuration still comes from the two absolute-path JSON files read by `Config.cpp`.
 
-The database implementation and its initialization path still need a focused follow-up audit. In particular, establish where the database file is created, whether its parent directory is created, and what happens when the database is absent or unwritable.
+The database path is defined as `APP_DIR "data/games.db"` in `includes/DB.hpp`. `DB.cpp` opens that path and creates the table if needed. The ARM64 packaging workflow creates the parent `data/` directory, but a manual install must do so too. The constructor now stops initialization and closes the failed SQLite handle when opening the database fails; `is_refresh_needed()`, both `load()` overloads, `remove()`, and now `save()` check for a missing connection before issuing SQLite calls. This prevents a failed database open from turning a later save into a null-connection call. The application still logs and skips persistence if the database cannot be opened; creating the directory at runtime remains a possible future hardening step. Both `load()` overloads also read text columns through a null-safe helper, so legacy or damaged rows containing SQL `NULL` do not pass a null pointer into `std::string` construction. The single-row load now distinguishes a missing row (`SQLITE_DONE`) from a SQLite execution error, and bulk loading reports a failed final step rather than silently treating every non-row result as normal end-of-results.
+
+## Fixes made during the audit
+
+- ROM sort comparators now compare in the requested direction instead of negating the ascending comparison. Negation incorrectly returns true when values are equal, violating the strict-weak-ordering requirement of `std::sort`. The time sort now compares numeric `totaltime` values instead of formatted display strings.
+- Image loading checks `IMG_Load` and texture creation before accessing surface dimensions. Failed assets are logged and skipped rather than dereferenced.
+- Text rendering now checks font lookup, surface rendering and texture creation before accessing the surface. It no longer closes a cached font when rendering fails.
+- SDL cleanup now tolerates a missing joystick and partially initialized renderer/window/font resources. The Activities startup path stops cleanly if GUI initialization fails.
+- The completed-game icon path now matches the tracked `.assets/green-check.svg` filename.
+- `Rom::get()` now handles an empty ROM list safely; the old `do/while` dereferenced `end()` before checking whether the list was empty.
+- `Activities::auto_resume()` now returns cleanly when the autostart file contains no existing ROMs. Previously it used `end() - 1` and `back()` on an empty vector, which could cause undefined behavior or a crash when every listed ROM had been removed.
+- Launcher discovery now validates the shape and types of `launchlist`, `launch`, `name`, and legacy `launch.sh` values in emulator `config.json` files. Malformed or unexpected launcher JSON is logged and ignored rather than throwing out of the menu path.
+- Game-list navigation now avoids unsigned underflow when there are zero ROMs, resets the selection to zero for an empty list, and checks for an empty system list before cycling systems.
+
+Configuration hardening now also catches malformed system/theme/CrossMix JSON and preserves built-in colors when optional theme colors are absent. CrossMix background settings are optional, defaulting to `Default`; the required handheld `system.json` behavior remains unchanged. The ARM64 config's `APP_DIR` macro quoting was corrected after the first Bullseye build exposed compiler errors; rerun the ARM64 workflow before treating the fix as verified.
+
+These changes preserve the existing C++17 baseline and do not introduce newer runtime APIs.
 
 ## Follow-up order
 

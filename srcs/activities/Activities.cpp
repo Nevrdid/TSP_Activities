@@ -10,9 +10,10 @@ Activities::Activities()
     , gui(GUI::getInstance())
     , db(DB::getInstance())
 {
-    gui.init();
-    is_running = true;
-    refresh_db();
+    gui_initialized = (gui.init() == 0);
+    is_running = gui_initialized;
+    if (gui_initialized)
+        refresh_db();
 }
 
 Activities::~Activities()
@@ -57,29 +58,25 @@ void Activities::sort_roms()
     case Sort::Name:
         std::sort(filtered_roms_list.begin(), filtered_roms_list.end(),
             [rev](std::vector<Rom>::iterator a, std::vector<Rom>::iterator b) {
-                bool ret = a->name < b->name;
-                return rev ? !ret : ret;
+                return rev ? a->name > b->name : a->name < b->name;
             });
         break;
     case Sort::Time:
         std::sort(filtered_roms_list.begin(), filtered_roms_list.end(),
             [rev](std::vector<Rom>::iterator a, std::vector<Rom>::iterator b) {
-                bool ret = a->total_time_str > b->total_time_str;
-                return rev ? !ret : ret;
+                return rev ? a->totaltime < b->totaltime : a->totaltime > b->totaltime;
             });
         break;
     case Sort::Count:
         std::sort(filtered_roms_list.begin(), filtered_roms_list.end(),
             [rev](std::vector<Rom>::iterator a, std::vector<Rom>::iterator b) {
-                bool ret = a->count > b->count;
-                return rev ? !ret : ret;
+                return rev ? a->count < b->count : a->count > b->count;
             });
         break;
     case Sort::Last:
         std::sort(filtered_roms_list.begin(), filtered_roms_list.end(),
             [rev](std::vector<Rom>::iterator a, std::vector<Rom>::iterator b) {
-                bool ret = a->last > b->last;
-                return rev ? !ret : ret;
+                return rev ? a->last < b->last : a->last > b->last;
             });
         break;
     }
@@ -358,7 +355,7 @@ void Activities::game_list()
         int offset = 5;
 
         if (rom->completed)
-            offset += gui.render_image(std::string(APP_DIR) + "/.assets/green_check.svg",
+            offset += gui.render_image(std::string(APP_DIR) + "/.assets/green-check.svg",
                              x + offset, y + FONT_MIDDLE_SIZE / 2, 16, 16, IMG_NONE)
                           .x;
         if (rom->favorite)
@@ -431,10 +428,10 @@ void Activities::game_list()
             break;
         }
         case InputAction::Down: {
-            if (selected_index < list_size - 1)
+            if (list_size > 0 && selected_index + 1 < list_size)
                 selected_index++;
             // Start auto-scroll downwards
-            downHolding = true;
+            downHolding = list_size > 1;
             upHolding = false;
             holdStartTime = lastRepeatTime = std::chrono::steady_clock::now();
             break;
@@ -444,13 +441,19 @@ void Activities::game_list()
             upHolding = downHolding = false; // stop repeat on jump navigation
             break;
         case InputAction::Right:
-            selected_index = list_size > 10 && selected_index < list_size - 10
-                                 ? selected_index + 10
-                                 : static_cast<int>(list_size) - 1;
+            if (list_size == 0) {
+                selected_index = 0;
+            } else if (list_size > 10 && selected_index < list_size - 10) {
+                selected_index += 10;
+            } else {
+                selected_index = list_size - 1;
+            }
             upHolding = downHolding = false;
             break;
         case InputAction::L1:
 
+            if (systems.empty())
+                break;
             do {
                 system_index = (system_index == 0) ? systems.size() - 1 : system_index - 1;
                 filter_roms();
@@ -458,6 +461,8 @@ void Activities::game_list()
             upHolding = downHolding = false;
             break;
         case InputAction::R1:
+            if (systems.empty())
+                break;
             do {
                 system_index = (system_index + 1) % systems.size();
                 filter_roms();
@@ -970,6 +975,13 @@ void Activities::auto_resume()
         }
     }
 
+    // The autostart file may contain no usable ROMs (for example, if all
+    // listed files were removed). Avoid end() - 1 and back() on an empty list.
+    if (ordered_roms.empty()) {
+        std::cout << "ActivitiesApp: No valid games to auto-resume." << std::endl;
+        return;
+    }
+
     // sort games by last session date and stay on most recent one.
     std::sort(
         ordered_roms.begin(), ordered_roms.end(), [](Rom* a, Rom* b) { return a->last < b->last; });
@@ -989,6 +1001,11 @@ void Activities::run(int argc, char** argv)
     if (parseArgs(argc, argv)) {
         puts(help);
         exit(1);
+    }
+
+    if (!gui_initialized) {
+        std::cerr << "ActivitiesApp: GUI initialization failed; exiting." << std::endl;
+        return;
     }
 
     std::cout << "ActivitiesApp: Starting GUI" << std::endl;
