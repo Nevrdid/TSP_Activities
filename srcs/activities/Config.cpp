@@ -1,4 +1,5 @@
 #include "Config.hpp"
+#include "utils.hpp"
 
 #include <fstream>
 #include <iostream>
@@ -17,33 +18,45 @@ namespace fs = std::experimental::filesystem;
 
 Config::Config()
 {
+    // Native desktop builds do not have the TrimUI system configuration. Keep
+    // a usable font fallback so an empty database can still be managed in the GUI.
+    theme.font = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf";
+
     nlohmann::json j;
     std::ifstream file("/mnt/UDISK/system.json");
+    bool system_config_loaded = false;
     if (!file.is_open()) {
-        std::cerr << "Error: Could not open /mnt/UDISK/system.json" << std::endl;
-        exit(1);
+        std::cerr << "Info: /mnt/UDISK/system.json not found; using desktop defaults."
+                  << std::endl;
+    } else {
+        try {
+            file >> j;
+            theme_path = j.value("theme", "");
+            system_config_loaded = true;
+        } catch (const std::exception& e) {
+            std::cerr << "Warning: could not read /mnt/UDISK/system.json: " << e.what()
+                      << "; using fallback settings." << std::endl;
+            theme_path.clear();
+        }
     }
 
-    try {
-        file >> j;
-        theme_path = j.value("theme", "");
-    } catch (const std::exception& e) {
-        std::cerr << "Error reading /mnt/UDISK/system.json: " << e.what() << std::endl;
-        exit(1);
-    }
+    const std::string bundled_themes = utils::app_dir() + "Themes/";
+    const std::string bundled_default = bundled_themes + "TRIMUI Blue/";
 
-    // Translate the legacy system-theme sentinel to the preferred built-in
-    // theme first. Explicit custom theme paths remain authoritative.
-    if (theme_path == "../res/" || theme_path.empty())
+    // The desktop bundle carries its own themes. On TrimUI, preserve the
+    // system-selected theme unless the legacy/default theme was requested.
+    if (!system_config_loaded) {
+        theme_path = bundled_default;
+    } else if (theme_path == "../res/" || theme_path.empty()) {
         theme_path = "/mnt/SDCARD/Themes/TRIMUI YaHei/";
+    }
 
-    // Optional per-app selection. Only apply it when system.json requests the
-    // legacy/default theme; do not override a user's explicit custom theme.
-    const bool default_theme_requested =
-        (theme_path == "/mnt/SDCARD/Themes/TRIMUI YaHei/");
-    const std::string theme_choice_file = APP_DIR "data/theme.txt";
+    const bool may_select_theme =
+        !system_config_loaded || theme_path == "/mnt/SDCARD/Themes/TRIMUI YaHei/" ||
+        theme_path == bundled_default;
+    const std::string theme_choice_file = utils::app_dir() + "data/theme.txt";
     std::ifstream theme_choice(theme_choice_file.c_str());
-    if (default_theme_requested && theme_choice.is_open()) {
+    if (may_select_theme && theme_choice.is_open()) {
         std::string choice;
         std::getline(theme_choice, choice);
         const std::set<std::string> supported_themes = {
@@ -51,20 +64,19 @@ Config::Config()
             "TRIMUI HeyDW White", "TRIMUI Retro"
         };
         if (supported_themes.find(choice) != supported_themes.end()) {
-            const std::string candidate = "/mnt/SDCARD/Themes/" + choice + "/";
+            const std::string bundled_candidate = bundled_themes + choice + "/";
+            const std::string handheld_candidate = "/mnt/SDCARD/Themes/" + choice + "/";
             std::error_code fs_error;
-            const fs::path candidate_config = fs::path(candidate) / "config.json";
-            const bool candidate_is_installed = fs::is_regular_file(candidate_config, fs_error);
-            if (fs_error) {
-                std::cerr << "Warning: could not inspect selected theme '" << choice
-                          << "': " << fs_error.message()
-                          << "; retaining TRIMUI YaHei fallback" << std::endl;
-            } else if (candidate_is_installed) {
-                theme_path = candidate;
-            } else {
+            if (fs::is_regular_file(fs::path(bundled_candidate) / "config.json", fs_error)) {
+                theme_path = bundled_candidate;
+            } else if (!fs_error &&
+                system_config_loaded &&
+                fs::is_regular_file(fs::path(handheld_candidate) / "config.json", fs_error)) {
+                theme_path = handheld_candidate;
+            } else if (!choice.empty()) {
                 std::cerr << "Warning: selected theme '" << choice
-                          << "' is not installed at " << candidate
-                          << "; retaining TRIMUI YaHei fallback" << std::endl;
+                          << "' is not available in the app bundle or system theme folder."
+                          << std::endl;
             }
         } else if (!choice.empty()) {
             std::cerr << "Warning: unsupported theme choice '" << choice
@@ -132,7 +144,7 @@ bool Config::load_theme(const std::string& filePath)
 
         // Parse fields
         theme.name = j.value("name", "");
-        theme.font = j.value("font", "");
+        theme.font = j.value("font", theme.font);
         theme.fontAscii = j.value("fontascii", "");
 
         if (j.contains("fontsize")) {

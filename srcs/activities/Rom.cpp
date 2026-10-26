@@ -6,11 +6,6 @@
 #include <iostream>
 #include <regex>
 
-static std::regex img_pattern = std::regex(R"(\/Roms\/([^\/]+).*)"); // Matches "/Roms/<subfolder>"
-static std::regex sys_pattern =
-    std::regex(R"(.*\/Roms\/([^\/]+).*)"); // Matches "/Roms/<subfolder>"
-// Matches "/Best/<subfolder>" (for alternate library root)
-static std::regex               best_pattern = std::regex(R"(\/Best\/([^\/]+).*)");
 std::vector<Rom>                Rom::list;
 std::unordered_set<std::string> Rom::ra_hotkey_roms;
 std::unordered_set<std::string> Rom::childs;
@@ -95,25 +90,60 @@ void Rom::remove()
 
 void Rom::fill_opts()
 {
-    std::string imgBase;
-    if (std::regex_search(file, best_pattern))
-        imgBase = std::regex_replace(file, best_pattern, R"(/Best/$1/Imgs)");
-    else
-        imgBase = std::regex_replace(file, img_pattern, R"(/Imgs/$1)");
+    const fs::path rom_path(file);
+    fs::path library_root;
+    std::string system_name;
+    bool found_roms_root = false;
+    bool found_best_root = false;
 
-    image = imgBase + "/" + name + ".png";
-    if (!fs::exists(image))
-        image = "";
+    for (auto it = rom_path.begin(); it != rom_path.end(); ++it) {
+        if (it->string() == "Roms") {
+            library_root.clear();
+            for (auto parent = rom_path.begin(); parent != it; ++parent)
+                library_root /= *parent;
+            auto system_it = it;
+            ++system_it;
+            if (system_it != rom_path.end())
+                system_name = system_it->string();
+            found_roms_root = true;
+            break;
+        }
+        if (it->string() == "Best") {
+            library_root.clear();
+            for (auto parent = rom_path.begin(); parent != it; ++parent)
+                library_root /= *parent;
+            auto system_it = it;
+            ++system_it;
+            if (system_it != rom_path.end())
+                system_name = system_it->string();
+            found_best_root = true;
+            break;
+        }
+    }
 
-    video = std::regex_replace(file, img_pattern, R"(/Videos/$1)") + "/" + name + ".mp4";
-    if (!fs::exists(video))
-        video = "";
+    if (found_roms_root) {
+        const fs::path images_root = library_root / "Imgs" / system_name;
+        const fs::path video_root = library_root / "Videos" / system_name;
+        const fs::path manuals_root = library_root / "Manuals" / system_name;
+        const fs::path image_path = images_root / (name + ".png");
+        const fs::path video_path = video_root / (name + ".mp4");
+        const fs::path manual_path = manuals_root / (name + ".pdf");
+        image = fs::is_regular_file(image_path) ? image_path.string() : "";
+        video = fs::is_regular_file(video_path) ? video_path.string() : "";
+        manual = fs::is_regular_file(manual_path) ? manual_path.string() : "";
+    } else if (found_best_root) {
+        const fs::path images_root = library_root / "Best" / system_name / "Imgs";
+        const fs::path image_path = images_root / (name + ".png");
+        image = fs::is_regular_file(image_path) ? image_path.string() : "";
+        video.clear();
+        manual.clear();
+    } else {
+        image.clear();
+        video.clear();
+        manual.clear();
+    }
 
-    manual = std::regex_replace(file, img_pattern, R"(/Manuals/$1)") + "/" + name + ".pdf";
-    if (!fs::exists(manual))
-        manual = "";
-
-    system = std::regex_replace(file, sys_pattern, R"($1)");
+    system = system_name;
     total_time_str = utils::stringifyTime(totaltime);
     average_time_str = utils::stringifyTime(count ? totaltime / count : 0);
     launcher = utils::get_launcher(system, name);
@@ -197,7 +227,10 @@ void Rom::start()
 
         if (pid == 0) {
             setsid();
-            std::string launcher = "/mnt/SDCARD/Emus/" + system + "/default.sh";
+            fs::path launcher_path = fs::path(utils::app_dir()) / "Emus" / system / "default.sh";
+            if (!fs::is_regular_file(launcher_path))
+                launcher_path = fs::path("/mnt/SDCARD/Emus") / system / "default.sh";
+            const std::string launcher = launcher_path.string();
 
             execl(launcher.c_str(), launcher.c_str(), file.c_str(), (char*) NULL);
             std::cerr << "Failed to launch " << name << std::endl;
@@ -393,10 +426,10 @@ int Rom::wait()
 void Rom::export_childs_list()
 {
     if (childs.empty()) {
-        std::remove("/mnt/SDCARD/Apps/Activities/data/autostarts.txt");
+        std::remove((utils::app_dir() + "data/autostarts.txt").c_str());
         return;
     }
-    std::ofstream file("/mnt/SDCARD/Apps/Activities/data/autostarts.txt", std::ios::trunc);
+    std::ofstream file(utils::app_dir() + "data/autostarts.txt", std::ios::trunc);
 
     if (!file.fail()) {
         for (const std::string& romFile : childs)

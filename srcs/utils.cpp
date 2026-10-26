@@ -6,6 +6,18 @@
 
 namespace utils
 {
+std::string app_dir()
+{
+    static const std::string directory = []() {
+        std::error_code ec;
+        fs::path executable = fs::read_symlink("/proc/self/exe", ec);
+        if (!ec && !executable.empty())
+            return executable.parent_path().lexically_normal().string() + "/";
+        return fs::current_path(ec).lexically_normal().string() + "/";
+    }();
+    return directory;
+}
+
 std::string getCurrentDateTime()
 {
     std::time_t now = std::time(nullptr);
@@ -133,7 +145,10 @@ std::string shorten_file_path(fs::path filepath, std::string unknown_part)
 std::vector<std::string> get_launchers(const std::string& system)
 {
     std::vector<std::string> launchers;
-    std::ifstream            sys_cfg2("/mnt/SDCARD/Emus/" + system + "/config.json");
+    const fs::path bundled_config = fs::path(app_dir()) / "Emus" / system / "config.json";
+    const fs::path handheld_config = fs::path("/mnt/SDCARD/Emus") / system / "config.json";
+    std::ifstream sys_cfg2(fs::is_regular_file(bundled_config) ? bundled_config.string()
+                                                               : handheld_config.string());
     if (!sys_cfg2.is_open())
         return launchers;
 
@@ -163,8 +178,13 @@ std::vector<std::string> get_launchers(const std::string& system)
 
 std::string get_launcher(const std::string& system, const std::string& romName)
 {
-    std::string   ret;
-    std::ifstream game_cfg("/mnt/SDCARD/Roms/" + system + "/.games_config/" + romName + ".cfg");
+    std::string ret;
+    const fs::path bundled_game_cfg =
+        fs::path(app_dir()) / "Roms" / system / ".games_config" / (romName + ".cfg");
+    const fs::path handheld_game_cfg =
+        fs::path("/mnt/SDCARD/Roms") / system / ".games_config" / (romName + ".cfg");
+    std::ifstream game_cfg(fs::is_regular_file(bundled_game_cfg) ? bundled_game_cfg.string()
+                                                                 : handheld_game_cfg.string());
     if (game_cfg.is_open() && !game_cfg.fail()) {
         std::string line;
         std::getline(game_cfg, line, '=');
@@ -173,7 +193,10 @@ std::string get_launcher(const std::string& system, const std::string& romName)
         ret = line;
     } else {
 
-        std::ifstream sys_cfg("/mnt/SDCARD/Emus/" + system + "/launchers.cfg");
+        const fs::path bundled_launchers = fs::path(app_dir()) / "Emus" / system / "launchers.cfg";
+        const fs::path handheld_launchers = fs::path("/mnt/SDCARD/Emus") / system / "launchers.cfg";
+        std::ifstream sys_cfg(fs::is_regular_file(bundled_launchers) ? bundled_launchers.string()
+                                                                    : handheld_launchers.string());
         if (sys_cfg.is_open() && !sys_cfg.fail()) {
             std::string line;
             std::getline(sys_cfg, line, '=');
@@ -181,7 +204,10 @@ std::string get_launcher(const std::string& system, const std::string& romName)
             sys_cfg.close();
             ret = line;
         } else {
-            std::ifstream sys_cfg2("/mnt/SDCARD/Emus/" + system + "/config.json");
+            const fs::path bundled_config = fs::path(app_dir()) / "Emus" / system / "config.json";
+            const fs::path handheld_config = fs::path("/mnt/SDCARD/Emus") / system / "config.json";
+            std::ifstream sys_cfg2(fs::is_regular_file(bundled_config) ? bundled_config.string()
+                                                                       : handheld_config.string());
             if (sys_cfg2.is_open()) {
                 try {
                     nlohmann::json j;
@@ -219,10 +245,21 @@ std::string get_launcher(const std::string& system, const std::string& romName)
 void set_launcher(
     const std::string& system, const std::string& romName, const std::string& launcher)
 {
-    std::string cfg_folder("/mnt/SDCARD/Roms/" + system + "/.games_config");
-    if (!fs::exists(cfg_folder))
-        fs::create_directory(cfg_folder);
-    std::ofstream game_cfg(cfg_folder + "/" + romName + ".cfg");
+    const fs::path bundled_rom_system = fs::path(app_dir()) / "Roms" / system;
+    const fs::path handheld_rom_system = fs::path("/mnt/SDCARD/Roms") / system;
+    fs::path cfg_folder = fs::is_directory(handheld_rom_system) &&
+            !fs::is_directory(bundled_rom_system)
+        ? handheld_rom_system / ".games_config"
+        : bundled_rom_system / ".games_config";
+    std::error_code ec;
+    if (!fs::exists(cfg_folder, ec))
+        fs::create_directories(cfg_folder, ec);
+    if (ec) {
+        std::cerr << "ActivitiesApp: Could not create launcher config directory: "
+                  << ec.message() << std::endl;
+        return;
+    }
+    std::ofstream game_cfg((cfg_folder / (romName + ".cfg")).string());
     if (!game_cfg.fail()) {
         game_cfg << "launcher=" << launcher << std::endl;
         game_cfg.close();

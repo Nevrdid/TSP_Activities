@@ -3,8 +3,7 @@
 EXT :=
 CXX := g++
 CXXFLAGS := -Wall -Wextra -std=c++17 $(shell sdl2-config --cflags)
-CXXFLAGS += -DAPP_DIR='"/mnt/SDCARD/Apps/Activities/"' \
-            -DVIDEO_PLAYER='"/mnt/SDCARD/Emus/VIDEOS/mpv.sh "' \
+CXXFLAGS += -DVIDEO_PLAYER='"/mnt/SDCARD/Emus/VIDEOS/mpv.sh "' \
             -DMANUAL_READER='"/mnt/SDCARD/Apps/.PDFReader/launch.sh "'
 CXXFLAGS += -O3 -fomit-frame-pointer -Ofast -flto
 CXXFLAGS += -s -ffunction-sections -fdata-sections

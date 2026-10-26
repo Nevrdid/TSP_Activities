@@ -24,11 +24,6 @@ namespace fs = std::experimental::filesystem;
 #    error "No filesystem support"
 #endif
 
-#define LIST_OVERLAY APP_DIR "assets/list_overlay.png"
-#define DETAILS_OVERLAY APP_DIR "assets/details_overlay.png"
-
-#define FONT APP_DIR "assets/Lato-Medium.ttf"
-
 #define FONT_ENORMOUS_SIZE 54
 #define FONT_BIG_SIZE 42
 #define FONT_MIDDLE_SIZE 30

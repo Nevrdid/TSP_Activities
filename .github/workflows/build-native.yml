@@ -33,7 +33,8 @@ jobs:
             libsdl2-dev \
             libsdl2-ttf-dev \
             libsdl2-image-dev \
-            libsqlite3-dev
+            libsqlite3-dev \
+            fonts-dejavu-core
 
       - name: Report toolchain
         run: |
@@ -51,6 +52,40 @@ jobs:
           test -x build/bin/timer.x86
           file build/bin/activities.x86 build/bin/timer.x86
 
+      - name: Smoke-test clean first launch
+        run: |
+          smoke_dir="$(mktemp -d)"
+          trap 'rm -rf "$smoke_dir"' EXIT
+          cp build/bin/activities.x86 "$smoke_dir/"
+          cp -R .assets "$smoke_dir/.assets"
+          cp -R Themes "$smoke_dir/Themes"
+          cd "$smoke_dir"
+
+          # No system.json or database is supplied. Keep the GUI alive briefly;
+          # timeout is expected once initialization and rendering have started.
+          set +e
+          SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy timeout 3s ./activities.x86
+          app_status=$?
+          set -e
+          if [ "$app_status" -ne 124 ]; then
+            echo "Expected GUI to stay running until timeout; exit status: $app_status"
+            exit 1
+          fi
+
+          python3 - <<'PY'
+          import sqlite3
+          from pathlib import Path
+
+          database = Path("data/games.db")
+          assert database.is_file(), f"Database was not created: {database}"
+          with sqlite3.connect(database) as connection:
+              tables = {row[0] for row in connection.execute(
+                  "SELECT name FROM sqlite_master WHERE type='table'"
+              )}
+          assert "games_datas" in tables, f"Expected games_datas table, got: {tables}"
+          print("Clean first-launch smoke test passed: database and schema created.")
+          PY
+
       - name: Upload x86-64 binaries
         uses: actions/upload-artifact@v4
         with:
@@ -58,5 +93,71 @@ jobs:
           path: |
             build/bin/activities.x86
             build/bin/timer.x86
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Assemble self-contained portable Linux bundle
+        run: |
+          bundle="portable-linux-x86_64"
+          mkdir -p "$bundle/.assets" "$bundle/Themes" "$bundle/Roms" "$bundle/Imgs" "$bundle/Emus"
+          cp build/bin/activities.x86 "$bundle/"
+          cp build/bin/timer.x86 "$bundle/"
+          cp -R .assets/. "$bundle/.assets/"
+          cp -R Themes/. "$bundle/Themes/"
+          touch "$bundle/Roms/.gitkeep" "$bundle/Imgs/.gitkeep" "$bundle/Emus/.gitkeep"
+          cat > "$bundle/README.txt" <<'EOF'
+          TSP Activities - portable Linux x86-64 build
+
+          Run ./activities.x86 directly. No launcher script is required.
+          The app resolves its assets and data paths relative to the executable,
+          not the terminal's current working directory.
+
+          Included folders:
+            Themes/TRIMUI Blue
+            Themes/TRIMUI Retro
+            Roms/   - add your ROMs here
+            Imgs/   - optional game images, organized by system
+            Emus/   - optional per-system launcher/configuration files
+
+          The app creates data/games.db and the data directory itself on first
+          launch. Do not create or copy a database in advance.
+
+          Requirements: 64-bit Linux with SDL2, SDL2_ttf, SDL2_image and SQLite
+          runtime libraries installed.
+          EOF
+
+          # Launch the binary by absolute path while cwd is elsewhere. All app
+          # assets and the database must still resolve beside the executable.
+          set +e
+          (cd "$RUNNER_TEMP" && SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+            timeout 3s "$GITHUB_WORKSPACE/$bundle/activities.x86")
+          app_status=$?
+          set -e
+          if [ "$app_status" -ne 124 ]; then
+            echo "Portable binary did not remain active until timeout: $app_status"
+            exit 1
+          fi
+          python3 - <<'PY'
+          import sqlite3
+          from pathlib import Path
+
+          database = Path("portable-linux-x86_64/data/games.db")
+          assert database.is_file(), f"Portable binary created no database: {database}"
+          with sqlite3.connect(database) as connection:
+              tables = {row[0] for row in connection.execute(
+                  "SELECT name FROM sqlite_master WHERE type='table'"
+              )}
+          assert "games_datas" in tables, f"Expected games_datas table, got: {tables}"
+          print("Portable binary smoke test passed from an unrelated working directory.")
+          PY
+          rm -rf "$bundle/data"
+          tar -czf tsp-activities-linux-x86_64-portable.tar.gz "$bundle"
+          test -s tsp-activities-linux-x86_64-portable.tar.gz
+
+      - name: Upload portable Linux bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: tsp-activities-linux-x86_64-portable
+          path: tsp-activities-linux-x86_64-portable.tar.gz
           if-no-files-found: error
           retention-days: 14

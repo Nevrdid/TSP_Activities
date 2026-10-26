@@ -37,6 +37,9 @@ int GUI::init()
     }
 
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+    // Desktop/virtual displays may not support an accelerated renderer.
+    if (!renderer)
+        renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE);
     if (!renderer) {
         std::cerr << "Renderer could not be created! SDL_Error: " << SDL_GetError() << std::endl;
         SDL_DestroyWindow(window);
@@ -204,7 +207,10 @@ void GUI::draw_checkmark(int x, int y, int size, SDL_Color color)
 TTF_Font* GUI::get_font(int size)
 {
     if (fonts.find(size) == fonts.end()) {
-        fonts[size] = TTF_OpenFont((cfg.theme_path + cfg.theme.font).c_str(), size * 4 / 3);
+        std::string font_path = cfg.theme.font;
+        if (!font_path.empty() && font_path.front() != '/')
+            font_path = cfg.theme_path + font_path;
+        fonts[size] = TTF_OpenFont(font_path.c_str(), size * 4 / 3);
         if (!fonts[size]) {
             std::cerr << "Failed to load font: " << TTF_GetError() << std::endl;
             return nullptr;
@@ -1016,7 +1022,7 @@ std::pair<MenuResult, size_t> GUI::_selector_core(const std::string& title,
         size_t last = std::min(first + lines, list_size);
 
         if (scrollbar_size)
-            render_image(std::string(APP_DIR) + "/.assets/scroll-v.svg", (Width + width) / 2 - 12,
+            render_image(utils::app_dir() + ".assets/scroll-v.svg", (Width + width) / 2 - 12,
                 y + (height - scrollbar_size / 2) * selected_index / list_size, 50, scrollbar_size,
                 IMG_NONE);
 

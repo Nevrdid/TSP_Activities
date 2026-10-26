@@ -234,7 +234,16 @@ void Activities::global_menu()
         {"Sort", [this]() -> MenuResult { return sort_menu(); }},
         {"Add Game",
             [this]() -> MenuResult {
-                std::string str = gui.file_selector(fs::path("/mnt/SDCARD/Roms"), true);
+                fs::path rom_root = fs::path(utils::app_dir()) / "Roms";
+                // On the handheld, retain the conventional SD-card library root.
+                const fs::path handheld_rom_root("/mnt/SDCARD/Roms");
+                if (fs::is_directory(handheld_rom_root))
+                    rom_root = handheld_rom_root;
+                // The handheld ROM directory is absent on a native desktop install.
+                // Start from the current directory so the user can add a first game.
+                if (!fs::exists(rom_root) || !fs::is_directory(rom_root))
+                    rom_root = fs::current_path();
+                std::string str = gui.file_selector(rom_root, true);
                 if (str.empty())
                     return MenuResult::Continue;
                 refresh_db(str); // refresh_db will save the rom as it will not find it in db
@@ -336,6 +345,11 @@ void Activities::game_list()
     // Total time to the right of the title
     gui.render_text("(" + utils::stringifyTime(total_time) + ")", gui.Width - 2 * FONT_MIDDLE_SIZE,
         0.4 * FONT_MIDDLE_SIZE, FONT_TINY_SIZE, cfg.unselect_color, 0, true);
+    if (list_size == 0) {
+        gui.render_text("No games yet. Open Menu and choose Add Game.",
+            gui.Width / 2, gui.Height / 2, FONT_MIDDLE_SIZE, cfg.info_color,
+            gui.Width - 40, true);
+    }
     size_t first = (list_size <= LIST_LINES)
                        ? 0
                        : std::max(0, static_cast<int>(selected_index) - LIST_LINES / 2);
@@ -355,7 +369,7 @@ void Activities::game_list()
         int offset = 5;
 
         if (rom->completed)
-            offset += gui.render_image(std::string(APP_DIR) + "/.assets/green-check.svg",
+            offset += gui.render_image(utils::app_dir() + ".assets/green-check.svg",
                              x + offset, y + FONT_MIDDLE_SIZE / 2, 16, 16, IMG_NONE)
                           .x;
         if (rom->favorite)
@@ -363,7 +377,7 @@ void Activities::game_list()
                              y + FONT_MIDDLE_SIZE / 2, 16, 16, IMG_NONE)
                           .x;
         if (rom->pid != -1)
-            offset += gui.render_image(std::string(APP_DIR) + "/.assets/green_dot.svg", x + offset,
+            offset += gui.render_image(utils::app_dir() + ".assets/green-dot.svg", x + offset,
                              y + FONT_MIDDLE_SIZE / 2, 16, 16, IMG_NONE)
                           .x;
         offset = std::max(15, offset);
@@ -564,7 +578,7 @@ void Activities::game_detail()
         gui.Width, 2 * FONT_MIDDLE_SIZE);
     int offset = 10;
     if (rom->pid != -1)
-        offset += gui.render_image(std::string(APP_DIR) + "/.assets/green_dot.svg",
+        offset += gui.render_image(utils::app_dir() + ".assets/green-dot.svg",
                          offset + FONT_MIDDLE_SIZE / 2, offset + FONT_MIDDLE_SIZE / 2,
                          FONT_MIDDLE_SIZE * 1.5, FONT_MIDDLE_SIZE * 1.5, IMG_CENTER)
                       .x +
@@ -949,7 +963,7 @@ int               Activities::parseArgs(int argc, char** argv)
 
 void Activities::auto_resume()
 {
-    std::ifstream file("/mnt/SDCARD/Apps/Activities/data/autostarts.txt");
+    std::ifstream file(utils::app_dir() + "data/autostarts.txt");
     if (file.fail())
         return;
     std::cout << "\t Auto-resume games..." << std::endl;

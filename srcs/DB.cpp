@@ -1,6 +1,17 @@
 #include "DB.hpp"
+#include "utils.hpp"
 
 #include <iostream>
+
+#if __has_include(<filesystem>)
+#    include <filesystem>
+namespace fs = std::filesystem;
+#elif __has_include(<experimental/filesystem>)
+#    include <experimental/filesystem>
+namespace fs = std::experimental::filesystem;
+#else
+#    error "No filesystem support"
+#endif
 
 namespace
 {
@@ -14,8 +25,21 @@ std::string column_text(sqlite3_stmt* stmt, int column)
 DB::DB()
     : db(nullptr)
 {
+    // SQLite can create the database file, but not its parent directory.
+    // Make first launch work from a clean install or extracted artifact.
+    std::error_code fs_error;
+    const std::string db_file = utils::app_dir() + "data/games.db";
+    const fs::path database_path(db_file);
+    const fs::path database_directory = database_path.parent_path();
+    if (!database_directory.empty())
+        fs::create_directories(database_directory, fs_error);
+    if (fs_error) {
+        std::cerr << "Error creating database directory " << database_directory << ": "
+                  << fs_error.message() << std::endl;
+        return;
+    }
 
-    if (sqlite3_open(DB_FILE, &db) != SQLITE_OK) {
+    if (sqlite3_open(db_file.c_str(), &db) != SQLITE_OK) {
         std::cerr << "Error opening SQLite database: "
                   << (db ? sqlite3_errmsg(db) : "SQLite did not create a connection handle")
                   << std::endl;
@@ -38,8 +62,11 @@ DB::DB()
                         ")";
     char*       err_msg = nullptr;
     if (sqlite3_exec(db, query.c_str(), nullptr, nullptr, &err_msg) != SQLITE_OK) {
-        std::cerr << "Error creating table: " << err_msg << std::endl;
+        std::cerr << "Error creating table: "
+                  << (err_msg ? err_msg : sqlite3_errmsg(db)) << std::endl;
         sqlite3_free(err_msg);
+        sqlite3_close(db);
+        db = nullptr;
     }
 }
 
